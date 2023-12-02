@@ -1,12 +1,7 @@
-name: Build BennuGD2
+name: Manual Build BennuGD2
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:  # Este evento permite ejecutar manualmente el flujo de trabajo
 
 jobs:
   build:
@@ -20,3 +15,4 @@ jobs:
       run: |
         chmod +x build.sh  # Asegurarse de que el script tenga permisos de ejecución
         ./build.sh windows use_sdl2       # Ejecutar el script de compilación
+
