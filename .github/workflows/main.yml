@@ -1,0 +1,22 @@
+name: Build BennuGD2
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Build BennuGD2
+      run: |
+        chmod +x build.sh  # Asegurarse de que el script tenga permisos de ejecución
+        ./build.sh windows use_sdl2       # Ejecutar el script de compilación
