@@ -20,4 +20,4 @@ jobs:
       - name: Run build.sh
         run: ./build.sh windows   # Ejecuta tu script de construcción, que a su vez ejecuta CMake
 
-      # Puedes agregar más pasos aquí según sea necesario, como pruebas, empaquetado, etc.
+      # Puedes agregar más pasos aquí según sea necesario, como pruebas, empaquetado, etc. 
