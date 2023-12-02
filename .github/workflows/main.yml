@@ -1,17 +1,4 @@
-name: Manual Build BennuGD2
-
-on:
-  workflow_dispatch:  # Este evento permite ejecutar manualmente el flujo de trabajo
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-   name: Build with CMake
+name: Build BennuGD2
 on:
   push:
     branches:
@@ -25,11 +12,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install CMake
-        run: sudo apt-get update && sudo apt-get install -y cmake  # Instala CMake en el entorno de Ubuntu
+      - name: Install CMake and necessary dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential  # Instala CMake y otras dependencias necesarias
 
       - name: Run build.sh
-        run: ./build.sh  # Ejecuta tu script de construcción, que a su vez ejecuta CMake
+        run: ./build.sh windows   # Ejecuta tu script de construcción, que a su vez ejecuta CMake
 
       # Puedes agregar más pasos aquí según sea necesario, como pruebas, empaquetado, etc.
-
