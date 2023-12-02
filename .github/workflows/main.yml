@@ -11,7 +11,25 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Build BennuGD2
-      run: |
-      cmake
+   name: Build with CMake
+on:
+  push:
+    branches:
+      - main  # Cambia esto por tu rama principal si es diferente
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Puedes cambiar el sistema operativo según tus necesidades
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install CMake
+        run: sudo apt-get update && sudo apt-get install -y cmake  # Instala CMake en el entorno de Ubuntu
+
+      - name: Run build.sh
+        run: ./build.sh  # Ejecuta tu script de construcción, que a su vez ejecuta CMake
+
+      # Puedes agregar más pasos aquí según sea necesario, como pruebas, empaquetado, etc.
 
