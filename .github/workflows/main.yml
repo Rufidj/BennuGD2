@@ -1,5 +1,6 @@
 name: Build BennuGD2
 on:
+workflow_dispatch;
   push:
     branches:
       - main  # Cambia esto por tu rama principal si es diferente
