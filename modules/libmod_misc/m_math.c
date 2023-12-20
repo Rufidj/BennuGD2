@@ -90,6 +90,23 @@ int64_t libmod_misc_math_sqrt( INSTANCE * my, int64_t * params ) {
 
 /* --------------------------------------------------------------------------- */
 
+int64_t libmod_misc_math_fmod( INSTANCE * my, int64_t * params ) {
+    double res = fmod( *( double * ) &params[0], *( double * ) &params[1] );
+    return *(( int64_t * )&res );
+}
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_misc_math_modulus( INSTANCE * my, int64_t * params ) {
+    double a = *( double * ) &params[0],
+           b = *( double * ) &params[1];
+    double m = fmod( a, b );
+    double res = (m < 0) ? m + b : m;
+    return *(( int64_t * )&res );
+}
+
+/* --------------------------------------------------------------------------- */
+
 int64_t libmod_misc_math_cos( INSTANCE * my, int64_t * params ) {
     double res = cos_deg( params[0] );
     return *(( int64_t * )&res );
@@ -112,25 +129,29 @@ int64_t libmod_misc_math_tan( INSTANCE * my, int64_t * params ) {
 /* --------------------------------------------------------------------------- */
 
 int64_t libmod_misc_math_acos( INSTANCE * my, int64_t * params ) {
-    return ( int64_t ) ( acos( *( double * ) &params[0] ) * 180000.0 / M_PI );
+    double res = acos( *( double * ) &params[0] ) * 180000.0 / M_PI;
+    return *(( int64_t * )&res );
 }
 
 /* --------------------------------------------------------------------------- */
 
 int64_t libmod_misc_math_asin( INSTANCE * my, int64_t * params ) {
-    return ( int64_t ) ( asin( *( double * ) &params[0] ) * 180000.0 / M_PI );
+    double res = asin( *( double * ) &params[0] ) * 180000.0 / M_PI;
+    return *(( int64_t * )&res );
 }
 
 /* --------------------------------------------------------------------------- */
 
 int64_t libmod_misc_math_atan( INSTANCE * my, int64_t * params ) {
-    return ( int64_t ) ( atan( *( double * ) &params[0] ) * 180000.0 / M_PI );
+    double res = atan( *( double * ) &params[0] ) * 180000.0 / M_PI;
+    return *(( int64_t * )&res );
 }
 
 /* --------------------------------------------------------------------------- */
 
 int64_t libmod_misc_math_atan2( INSTANCE * my, int64_t * params ) {
-    return ( int64_t ) ( atan2( *( double * ) &params[0], *( double * ) &params[1] ) * 180000.0 / M_PI );
+    double res = atan2( *( double * ) &params[0], *( double * ) &params[1] ) * 180000.0 / M_PI;
+    return *(( int64_t * )&res );
 }
 
 /* --------------------------------------------------------------------------- */
@@ -151,7 +172,7 @@ int64_t libmod_misc_math_isnan( INSTANCE * my, int64_t * params ) {
 
 int64_t libmod_misc_math_finite( INSTANCE * my, int64_t * params ) {
     double param = *( double * ) &params[0];
-    return finite( param );
+    return isfinite( param );
 }
 
 /* --------------------------------------------------------------------------- */
@@ -355,7 +376,7 @@ int64_t libmod_misc_math_remap( INSTANCE * my, int64_t * params ) {
 }
 
 /* --------------------------------------------------------------------------- */
-
+// Same that remap(value,fromlow,fromhigh,0,1)
 int64_t libmod_misc_math_normalize_double( INSTANCE * my, int64_t * params ) {
     double value = *( double * ) &params[0], low = *( double * ) &params[1], high = *( double * ) &params[2];
     double min = MIN(low, high);
@@ -365,7 +386,7 @@ int64_t libmod_misc_math_normalize_double( INSTANCE * my, int64_t * params ) {
 }
 
 /* --------------------------------------------------------------------------- */
-
+// Same that remap(value,fromlow,fromhigh,0,1)
 int64_t libmod_misc_math_normalize( INSTANCE * my, int64_t * params ) {
     int64_t value = params[0], low = params[1], high = params[2];
     int64_t min = MIN(low, high);
@@ -571,13 +592,13 @@ int64_t libmod_misc_math_intersect_line_circle( INSTANCE * my, int64_t * params 
     max_x = MAX(x1,x2) + DBL_EPSILON;
     max_y = MAX(y1,y2) + DBL_EPSILON;
 
-    if ( finite(x0_1) && finite(y0_1) && !( x0_1 > max_x || x0_1 < min_x || y0_1 > max_y || y0_1 < min_y ) ) {
+    if ( isfinite(x0_1) && isfinite(y0_1) && !( x0_1 > max_x || x0_1 < min_x || y0_1 > max_y || y0_1 < min_y ) ) {
         * ( int64_t * ) params[7] = * ( int64_t * ) &x0_1;
         * ( int64_t * ) params[8] = * ( int64_t * ) &y0_1;
         nret++;
     }
 
-    if ( finite(x0_2) && finite(y0_2) && !( x0_2 > max_x || x0_2 < min_x || y0_2 > max_y || y0_2 < min_y ) ) {
+    if ( isfinite(x0_2) && isfinite(y0_2) && !( x0_2 > max_x || x0_2 < min_x || y0_2 > max_y || y0_2 < min_y ) ) {
         if ( nret ) {
             * ( int64_t * ) params[9]  = * ( int64_t * ) &x0_2;
             * ( int64_t * ) params[10] = * ( int64_t * ) &y0_2;
@@ -619,7 +640,7 @@ int64_t libmod_misc_math_intersect_circle( INSTANCE * my, int64_t * params ) {
 
     acos_a = acos( ( r1 * r1 + dist * dist - r2 * r2 ) / ( ( r1 + r1 ) * dist ) );
 
-    if ( finite( acos_a ) ) {
+    if ( isfinite( acos_a ) ) {
         acos_a *= 180000.0 / M_PI;
 
         x0 = cx1 + cos_deg( angle + acos_a ) * r1;

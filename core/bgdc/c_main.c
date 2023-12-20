@@ -96,6 +96,7 @@ int64_t identifier_qword,       identifier_int64,       identifier_double,
         identifier_ror,         identifier_rol,
         identifier_rightp,      identifier_leftp,
         identifier_rightb,      identifier_leftb,
+        identifier_rightcb,     identifier_leftcb,
         identifier_point,       identifier_twopoints,
 
         identifier_eq,          identifier_ne,          identifier_gte,         identifier_lte,
@@ -238,6 +239,8 @@ void compile_init() {
     identifier_leftp        = identifier_add( "(" );
     identifier_rightb       = identifier_add( "]" );
     identifier_leftb        = identifier_add( "[" );
+    identifier_rightcb      = identifier_add( "}" );
+    identifier_leftcb       = identifier_add( "{" );
     identifier_point        = identifier_add( "." );
     identifier_twopoints    = identifier_add( ".." );
     identifier_question     = identifier_add( "?" );
@@ -359,8 +362,17 @@ static char * trim( char * ptr ) {
 /* ---------------------------------------------------------------------- */
 
 static int import_exists( char * libname ) {
-    int n;
-    for ( n = 0; n < nimports; n++ ) if ( !strcmp( libname, string_get( imports[n] ) ) ) return n;
+    for ( int n = 0; n < nimports; n++ ) {
+        const char *import_str = string_get( imports[n] );
+
+        int libname_name_offset = !strncmp( libname, "lib", 3 ) ? 3 : 0;
+        int imports_name_offset = !strncmp( import_str, "lib", 3 ) ? 3 : 0;
+
+        if ( !strcmp( libname + libname_name_offset, import_str + imports_name_offset ) ) {
+            return n;
+        }
+    }
+
     return -1;
 }
 
@@ -440,7 +452,7 @@ static void import_module( const char * filename ) {
 
 #if defined( WIN32 )
 #define DLLEXT      ".dll"
-#elif defined(TARGET_MAC)
+#elif defined(__APPLE__)
 #define DLLEXT      ".dylib"
 #else
 #define DLLEXT      ".so"
