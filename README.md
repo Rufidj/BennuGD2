@@ -4,7 +4,7 @@ Welcome to BennuGD2! BennuGD2 is a game development system focused on ease of us
 
 ## How to Build BennuGD2
 
-### Unix
+### Unix - Ubuntu/Debian
 
 **Step 1: Build SDL_gpu**
 
@@ -20,6 +20,33 @@ Welcome to BennuGD2! BennuGD2 is a game development system focused on ease of us
    ```
    ./build.sh linux clean
    ```
+
+For Ubuntu, you may need to install the following packages:
+
+```bash
+sudo apt install binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libvlc-dev libsdl2-mixer-dev
+```
+
+### Other Distros
+
+For other distributions, you might need to install the equivalent packages:
+
+- **Fedora**:
+  ```bash
+  sudo dnf install binutils git cmake gcc-c++ zlib-devel SDL2-devel mesa-libGLU-devel SDL2_image-devel libvlc-devel SDL2_mixer-devel
+  ```
+
+- **Arch Linux**:
+  ```bash
+  sudo pacman -S git cmake gcc zlib sdl2 glu sdl2_image vlc sdl2_mixer
+  ```
+
+- **openSUSE**:
+  ```bash
+  sudo zypper install git cmake gcc-c++ zlib-devel SDL2-devel libglvnd-devel libSDL2_image-devel libvlc-devel libSDL2_mixer-devel
+  ```
+
+You can adapt these commands based on the package managers and package names of your specific Linux distribution.
 
 ### Windows 64
 
@@ -57,6 +84,48 @@ cp dependencies/x86_64-w64-mingw32/* build/x86_64-w64-mingw32/bin/
 ```
 
 This should successfully build BennuGD2 for Windows using MSYS2.
+
+## Setup Environment
+
+### For Unix
+
+Add the following environment variables to your shell profile (e.g., `.bashrc`, `.zshrc`) for your BennuGD2 installation:
+
+```bash
+# BENNUGD2 DEV
+
+# Set the path to your BennuGD2 installation directory
+export BGD2DEV=<path_to_your_BennuGD2_installation_directory>
+
+# Setup for Linux systems
+export PATH=$BGD2DEV/build/linux-gnu/bin:$PATH
+export LD_LIBRARY_PATH=$BGD2DEV/build/linux-gnu/bin:$LD_LIBRARY_PATH
+
+# For other platforms:
+# Replace `linux-gnu` in the paths according to the desired platform.
+
+# aarch64-none-elf
+# export PATH=$BGD2DEV/build/aarch64-none-elf/bin:$PATH
+# export LD_LIBRARY_PATH=$BGD2DEV/build/aarch64-none-elf/bin:$LD_LIBRARY_PATH
+
+# i386-linux-gnu
+# export PATH=$BGD2DEV/build/i386-linux-gnu/bin:$PATH
+# export LD_LIBRARY_PATH=$BGD2DEV/build/i386-linux-gnu/bin:$LD_LIBRARY_PATH
+
+# i686-w64-mingw32
+# export PATH=$BGD2DEV/build/i686-w64-mingw32/bin:$PATH
+# export LD_LIBRARY_PATH=$BGD2DEV/build/i686-w64-mingw32/bin:$LD_LIBRARY_PATH
+
+# x86_64-apple-darwin14
+# export PATH=$BGD2DEV/build/x86_64-apple-darwin14/bin:$PATH
+# export DYLD_LIBRARY_PATH=$BGD2DEV/build/x86_64-apple-darwin14/bin:$DYLD_LIBRARY_PATH
+
+# x86_64-w64-mingw32
+# export PATH=$BGD2DEV/build/x86_64-w64-mingw32/bin:$PATH
+# export LD_LIBRARY_PATH=$BGD2DEV/build/x86_64-w64-mingw32/bin:$LD_LIBRARY_PATH
+```
+
+Please replace `<path_to_your_BennuGD2_installation_directory>` with the actual path where BennuGD2 is installed on your system.
 
 ## License
 
