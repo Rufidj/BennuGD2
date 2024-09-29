@@ -1,0 +1,68 @@
+runs-on: self-hostedname: Build BennuGD2
+
+# Ejecutar el flujo de trabajo en estos eventos
+on:
+  push:
+    branches:
+      - main  # Ejecutar en cada push a la rama 'main'
+  pull_request:
+    branches:
+      - main  # Ejecutar en cada pull request hacia la rama 'main'
+
+# Definir los trabajos (jobs)
+jobs:
+  build:
+    runs-on: windows-latest  # Utilizar un entorno Windows
+
+    steps:
+      # Paso 1: Instalar MSYS2 y actualizar los paquetes
+      - name: Install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            git
+            patch
+            cmake
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-emacs
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-SDL2_image
+            mingw-w64-x86_64-SDL2_mixer
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libogg
+            mingw-w64-x86_64-libvorbis
+            mingw-w64-x86_64-libtheora
+            mingw-w64-x86_64-libmodplug
+            mingw-w64-x86_64-libmikmod
+            mingw-w64-x86_64-libtre-git
+            mingw-w64-x86_64-flac
+            mingw-w64-x86_64-openal
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-libwebp
+
+      # Paso 2: Clonar el repositorio
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Paso 3: Configurar MSYS2 environment y actualizar submódulos
+      - name: Update submodules
+        run: |
+          git submodule update --init --recursive
+
+      # Paso 4: Construir SDL_gpu
+      - name: Build SDL_gpu
+        run: |
+          cd vendor
+          ./build-sdl-gpu.sh windows
+
+      # Paso 5: Compilar BennuGD2
+      - name: Build BennuGD2
+        run: |
+          ./build.sh windows
+          cp dependencies/x86_64-w64-mingw32/* build/x86_64-w64-mingw32/bin/
