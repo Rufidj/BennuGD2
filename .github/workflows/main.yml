@@ -1,26 +1,23 @@
-runs-on: self-hostedname: Build BennuGD2
+name: Build BennuGD2
 
-# Ejecutar el flujo de trabajo en estos eventos
 on:
   push:
     branches:
-      - main  # Ejecutar en cada push a la rama 'main'
+      - main
   pull_request:
     branches:
-      - main  # Ejecutar en cada pull request hacia la rama 'main'
+      - main
 
-# Definir los trabajos (jobs)
 jobs:
   build:
-    runs-on: windows-latest  # Utilizar un entorno Windows
+    runs-on: windows-latest
 
     steps:
-      # Paso 1: Instalar MSYS2 y actualizar los paquetes
       - name: Install MSYS2
         uses: msys2/setup-msys2@v2
         with:
           update: true
-          install: >-
+          install: |
             git
             patch
             cmake
@@ -46,23 +43,19 @@ jobs:
             mingw-w64-x86_64-libjpeg-turbo
             mingw-w64-x86_64-libwebp
 
-      # Paso 2: Clonar el repositorio
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Paso 3: Configurar MSYS2 environment y actualizar submódulos
       - name: Update submodules
-        run: |
-          git submodule update --init --recursive
+        run: git submodule update --init --recursive
 
-      # Paso 4: Construir SDL_gpu
       - name: Build SDL_gpu
         run: |
           cd vendor
           ./build-sdl-gpu.sh windows
 
-      # Paso 5: Compilar BennuGD2
       - name: Build BennuGD2
         run: |
           ./build.sh windows
           cp dependencies/x86_64-w64-mingw32/* build/x86_64-w64-mingw32/bin/
+
