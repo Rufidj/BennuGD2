@@ -58,3 +58,11 @@ jobs:
       - name: Build BennuGD2
         run: |
           ./build.sh windows
+
+      # Guardar los artefactos
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: build/x86_64-w64-mingw32/bin/  # Ruta a los archivos generados
+
