@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Raycasting en HTML5</title>
+  <style>
+    /* Estilos para el lienzo donde se renderizará el raycasting */
+    canvas {
+      border: 1px solid black;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="raycastingCanvas" width="640" height="480"></canvas>
+
+  <script>
+    window.onload = function() {
+      const canvas = document.getElementById('raycastingCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const player = {
+        x: 100, // Posición inicial x del jugador
+        y: 100, // Posición inicial y del jugador
+        fov: Math.PI, // Campo de visión del jugador en radianes (180 grados)
+        numRays: 100, // Número de rayos a lanzar
+        angle: Math.PI / 4, // Ángulo inicial del jugador (45 grados)
+      };
+
+      function castRays() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < player.numRays; i++) {
+          const rayAngle = player.angle - player.fov / 2 + (i / player.numRays) * player.fov;
+
+          const rayLength = 200; // Longitud del rayo
+          const x2 = player.x + rayLength * Math.cos(rayAngle);
+          const y2 = player.y + rayLength * Math.sin(rayAngle);
+
+          ctx.beginPath();
+          ctx.moveTo(player.x, player.y);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = 'red';
+          ctx.stroke();
+        }
+
+        // Dibujar al jugador como un círculo en la posición actual
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = 'blue';
+        ctx.fill();
+
+        requestAnimationFrame(castRays);
+      }
+
+      castRays();
+    };
+  </script>
+</body>
+</html>
