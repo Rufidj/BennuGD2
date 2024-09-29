@@ -564,17 +564,17 @@ uint64_t compile_sizeof( VARSPACE * here, int64_t * content_size, int64_t * cont
 
     /* Base datatypes */
 
-         if ( token.code == identifier_qword )    base = 8;
-    else if ( token.code == identifier_int64 )    base = 8;
-    else if ( token.code == identifier_double )   base = 8;
-    else if ( token.code == identifier_string )   base = 8;
-    else if ( token.code == identifier_dword )    base = 4;
-    else if ( token.code == identifier_int32 )    base = 4;
-    else if ( token.code == identifier_float )    base = 4;
-    else if ( token.code == identifier_short )    base = 2;
-    else if ( token.code == identifier_word )     base = 2;
-    else if ( token.code == identifier_char )     base = 1;
-    else if ( token.code == identifier_byte )     base = 1;
+         if ( token.code == identifier_uint64 )     base = 8;
+    else if ( token.code == identifier_int64 )      base = 8;
+    else if ( token.code == identifier_double )     base = 8;
+    else if ( token.code == identifier_string )     base = 8;
+    else if ( token.code == identifier_uint32 )     base = 4;
+    else if ( token.code == identifier_int32 )      base = 4;
+    else if ( token.code == identifier_float )      base = 4;
+    else if ( token.code == identifier_int16 )      base = 2;
+    else if ( token.code == identifier_uint16 )     base = 2;
+    else if ( token.code == identifier_char )       base = 1;
+    else if ( token.code == identifier_uint8 )      base = 1;
     else {
         usertype = typedef_by_name( token.code );
         if ( usertype ) base = typedef_size( *usertype );
@@ -2047,7 +2047,7 @@ expresion_result compile_value() {
         if ( cproc->params == -1 ) {
             cproc->params = param_count;
         } else if ( cproc->params != param_count ) {
-            if ( cproc->minparams == -1 || cproc->minparams > param_count ) {
+            if ( cproc->minparams == -1 || cproc->minparams > param_count || cproc->params < param_count ) {
                 compile_error( MSG_INCORRECT_PARAMC, identifier_name( cproc->identifier ), cproc->minparams == -1 ? cproc->params : cproc->minparams );
             }
             for ( int i = param_count; i < cproc->params; i++ ) {
@@ -2085,10 +2085,17 @@ expresion_result compile_value() {
 
 }
 
+static int compile_factor_recursion_level = 0;
+
 /* Step 14 */
 expresion_result compile_factor() {
     expresion_result res, part;
     BASETYPE t;
+
+    compile_factor_recursion_level++;
+
+    if ( compile_factor_recursion_level > 2048 ) compile_error( MSG_TOO_COMPLEX );
+
 
     token_next();
 
@@ -2116,6 +2123,7 @@ expresion_result compile_factor() {
                 } else {
                     res.fvalue   = -part.fvalue;
                 }
+                compile_factor_recursion_level--;
                 return res;
             }
             compile_error( MSG_NUMBER_REQUIRED );
@@ -2132,6 +2140,7 @@ expresion_result compile_factor() {
                 res.value    = !part.value;
                 res.fvalue   = ( double )!part.fvalue;
                 res.type     = part.type;
+                compile_factor_recursion_level--;
                 return res;
             }
             compile_error( MSG_NUMBER_REQUIRED );
@@ -2151,6 +2160,7 @@ expresion_result compile_factor() {
                 res.constant = part.constant;
                 res.value    = ~part.value;
                 res.type     = part.type /*typedef_new( TYPE_INT )*/;
+                compile_factor_recursion_level--;
                 return res;
             }
             compile_error( MSG_NUMBER_REQUIRED );
@@ -2164,6 +2174,7 @@ expresion_result compile_factor() {
             res.asignation = 1;
             res.lvalue = 1;
             res.type = part.type;
+            compile_factor_recursion_level--;
             return res;
         } else if ( token.type == IDENTIFIER && token.code == identifier_minusminus ) { /* "--" */
             part = compile_factor();
@@ -2174,6 +2185,7 @@ expresion_result compile_factor() {
             res.asignation = 1;
             res.lvalue = 1;
             res.type = part.type;
+            compile_factor_recursion_level--;
             return res;
         }
     }
@@ -2202,6 +2214,7 @@ expresion_result compile_factor() {
                     VARSPACE * v = typedef_members( part.type );
                     if ( !v->vars ) {
                         compile_error( MSG_STRUCT_REQUIRED );
+                        compile_factor_recursion_level--;
                         return res; /* Avoid scan-build warning */
                     }
                     part = compile_sublvalue( v, v->vars[0].offset, NULL );
@@ -2275,6 +2288,8 @@ expresion_result compile_factor() {
 
     token_back();
 
+    compile_factor_recursion_level--;
+
     return part;
 }
 
@@ -2346,6 +2361,10 @@ expresion_result compile_operand() {
 
                 case    MN_DWORD:
                     res.type = typedef_new( TYPE_INT32 );
+                    break;
+
+                case    MN_WORD:
+                    res.type = typedef_new( TYPE_WORD );
                     break;
 
                 case    MN_BYTE:
@@ -3611,6 +3630,7 @@ void compile_block( PROCDEF * p ) {
                         codeblock_label_set( code, et1, code->current );
                         compile_block( p );
                         codeblock_label_set( code, et2, code->current );
+                        if ( token.code == identifier_else ) compile_error( MSG_ELSE_WOUT_IF );
                         break;
                     } else if ( token.type == IDENTIFIER && token.code == identifier_elseif ) { /* "ELSEIF" */
                         if ( dcb_options & DCB_DEBUG ) codeblock_add( code, MN_SENTENCE, line_count + ( current_file << 20 ) );

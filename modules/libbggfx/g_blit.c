@@ -185,12 +185,17 @@ int gr_create_image_for_graph( GRAPH * gr ) {
 
         gr_update_texture(gr);
 
-        gr->type = BITMAP_TEXTURE_TARGET;
+//        gr->type = BITMAP_TEXTURE_TARGET;
     }
-    else if ( gr->type != BITMAP_TEXTURE_TARGET ) return 1;
+//    else if ( gr->type != BITMAP_TEXTURE_TARGET ) {
+//        return 1;
+//    }
 #endif
 #ifdef USE_SDL2_GPU
-    if ( !gr->tex ) gr->tex = GPU_CreateImage( gr->width, gr->height, GPU_FORMAT_RGBA );
+    if ( !gr->tex ) {
+        gr->tex = GPU_CreateImage( gr->width, gr->height, GPU_FORMAT_RGBA );
+        if ( gr->tex ) GPU_SetSnapMode( gr->tex, GPU_SNAP_NONE );
+    }
     if ( !gr->tex ) {
         printf ("error in image creation\n" );
         return 1;
@@ -411,7 +416,11 @@ int gr_prepare_renderer( GRAPH * dest, REGION * clip, int64_t flags, BLENDMODE *
         }
     }
 
-    if ( dest ) SDL_SetRenderTarget( gRenderer, dest->tex );
+    if ( dest ) {
+        SDL_SetRenderTarget( gRenderer, dest->tex );
+        dest->dirty = 1;
+    }
+
 //    if ( dest ) { SDL_SetRenderTarget( gRenderer, dest->tex ); SDL_SetTextureBlendMode( dest->tex, SDL_BLENDMODE_NONE ); }
 
     SDL_RenderSetClipRect( gRenderer, &rect );
@@ -495,7 +504,7 @@ void gr_blit(   GRAPH * dest,
     /* Create segments if needed */
 
     if ( !gr->tex && !gr->segments ) {
-        if ( gr->width > gMaxTextureSize || gr->height > gMaxTextureSize ) {
+        if ( gMaxTextureSize && ( gr->width > gMaxTextureSize || gr->height > gMaxTextureSize ) ) {
             int64_t nsegx = ( gr->width - 1 ) / gMaxTextureSize + 1,
                     nsegy = ( gr->height - 1 ) / gMaxTextureSize + 1;
             int64_t x, y, offx, offy, seg, w, h;
@@ -533,7 +542,7 @@ void gr_blit(   GRAPH * dest,
                     srcrect.w = w;
                     srcrect.h = h;
 #ifdef USE_SDL2
-                    gr->segments[seg].tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_STATIC, w, h );
+                    gr->segments[seg].tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET /*SDL_TEXTUREACCESS_STATIC*/, w, h );
                     if ( !gr->segments[seg].tex ) {
                         printf ("error creando multi textura RO [%s]\n", SDL_GetError() );
                         return;
@@ -559,6 +568,7 @@ void gr_blit(   GRAPH * dest,
                         printf ("error creando multi textura RO [%s]\n", SDL_GetError() );
                         return;
                     }
+                    GPU_SetSnapMode( gr->segments[seg].tex, GPU_SNAP_NONE );
 #endif
                 }
             }
@@ -600,7 +610,7 @@ void gr_blit(   GRAPH * dest,
         }
 #ifdef USE_SDL2
         else {
-            gr->tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_STATIC, gr->width, gr->height );
+            gr->tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET /*SDL_TEXTUREACCESS_STATIC*/, gr->width, gr->height );
             if ( !gr->tex ) {
                 printf ("error creando textura RO [%s]\n", SDL_GetError() );
                 return;
@@ -608,7 +618,8 @@ void gr_blit(   GRAPH * dest,
 
             gr_update_texture(gr);
         }
-        gr->type = BITMAP_TEXTURE_STATIC;
+//        gr->type = BITMAP_TEXTURE_STATIC;
+//        gr->type = BITMAP_TEXTURE_TARGET;
 #endif
     }
 
@@ -730,7 +741,9 @@ void gr_blit(   GRAPH * dest,
 
             GPU_Target * dst = dest ? dest->tex->target : gRenderer;
 
-            GPU_BlitTransformX( tex, gr_clip, dst, ( float ) scrx, ( float ) scry, ( float ) centerx - offx, ( float ) centery - offy, ( float ) angle / -1000.0, scalex_adjusted, scaley_adjusted );
+            if ( dest ) dest->dirty = 1;
+
+            GPU_BlitTransformX( tex, gr_clip, dst, ( float ) ( ( int ) scrx ), ( float ) ( ( int ) scry ), ( float ) ( ( int ) ( centerx - offx ) ), ( float ) ( ( int ) ( centery - offy ) ), ( float ) angle / -1000.0, scalex_adjusted, scaley_adjusted );
 #endif
         }
     } else {
@@ -758,7 +771,9 @@ void gr_blit(   GRAPH * dest,
 
         GPU_Target * dst = dest ? dest->tex->target : gRenderer;
 
-        GPU_BlitTransformX( gr->tex, gr_clip, dst, ( float ) scrx, ( float ) scry, ( float ) centerx, ( float ) centery, ( float ) angle / -1000.0, scalex_adjusted, scaley_adjusted );
+        if ( dest ) dest->dirty = 1;
+
+        GPU_BlitTransformX( gr->tex, gr_clip, dst, ( float ) ( ( int ) scrx ), ( float ) ( ( int ) scry ), ( float ) ( ( int ) centerx ), ( float ) ( ( int ) centery ), ( float ) angle / -1000.0, scalex_adjusted, scaley_adjusted );
 #endif
     }
 

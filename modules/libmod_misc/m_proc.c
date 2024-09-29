@@ -399,7 +399,7 @@ int64_t libmod_misc_proc_get_id( INSTANCE * my, int64_t * params ) {
     }
 
     while ( ( ptr = instance_get_by_type( params[0], ctx ) ) ) {
-        if ( /*ptr != my &&*/ ( LOCQWORD( libmod_misc, ptr, STATUS ) & ( STATUS_RUNNING | STATUS_SLEEPING | STATUS_FROZEN ) ) ) {
+        if ( ptr != my && ( LOCQWORD( libmod_misc, ptr, STATUS ) & ( STATUS_RUNNING | STATUS_SLEEPING | STATUS_FROZEN ) ) ) {
             return LOCQWORD( libmod_misc, ptr, PROCESS_ID );
         }
     }
@@ -413,6 +413,14 @@ int64_t libmod_misc_proc_get_status( INSTANCE * my, int64_t * params ) {
     INSTANCE * i;
     if ( !params[0] || !( i = instance_get( params[0] ) ) ) return 0;
     return LOCQWORD( libmod_misc, i, STATUS );
+}
+
+/* ----------------------------------------------------------------- */
+
+int64_t libmod_misc_proc_get_type( INSTANCE * my, int64_t * params ) {
+    INSTANCE * i;
+    if ( !params[0] || !( i = instance_get( params[0] ) ) ) return 0;
+    return LOCQWORD( libmod_misc, i, PROCESS_TYPE );
 }
 
 /* ----------------------------------------------------------------- */
@@ -508,6 +516,7 @@ int64_t libmod_misc_proc_resume0( INSTANCE * my, int64_t * params ) {
 }
 
 /* ----------------------------------------------------------------- */
+
 #if 0
 int64_t libmod_misc_proc_pause1( INSTANCE * my, int64_t * params ) {
     return __libmod_misc_proc_pause( my, params[0] );

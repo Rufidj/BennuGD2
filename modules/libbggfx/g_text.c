@@ -50,6 +50,7 @@ typedef struct _text {
     int64_t y;
     int64_t z;
     int64_t alignment;
+    int64_t region;
 
     Uint8 alpha;
     Uint8 color_r;
@@ -458,6 +459,7 @@ static int info_text( void * what, REGION * bbox, int64_t * z, int64_t * drawme 
 void draw_text( void * what, REGION * clip ) {
     TEXT * text = ( TEXT * ) what;
     const char * str = get_text( text );
+    REGION region;
 
     // Splinter
     if ( !str || !*str ) return;
@@ -467,8 +469,16 @@ void draw_text( void * what, REGION * clip ) {
         return;
     }
 
+    if ( text->region > 0 && text->region < MAX_REGIONS ) {
+        region = regions[ text->region ];
+    } else {
+        region = regions[ 0 ];
+    }
+
+    if ( clip ) region_union( &region, clip );
+
     /* Draw the text */
-    if ( !gr_text_put( 0, what, clip, text->fontid, text->_x, text->_y, ( const unsigned char * ) str ) ) gr_text_destroy( text->id );
+    if ( !gr_text_put( 0, what, &region, text->fontid, text->_x, text->_y, ( const unsigned char * ) str ) ) gr_text_destroy( text->id );
 }
 
 /* --------------------------------------------------------------------------- */
@@ -507,6 +517,7 @@ int64_t gr_text_new2( int64_t fontid, int64_t x, int64_t y, int64_t z, int64_t a
     texts[textid].z = z;
     texts[textid].alignment = alignment;
     texts[textid].text = text ? strdup( text ) : NULL;
+    texts[textid].region = GLOINT64( libbggfx, TEXT_REGIONID );
 
     texts[textid].alpha = GLOBYTE( libbggfx, TEXT_ALPHA );
     texts[textid].color_r = GLOBYTE( libbggfx, TEXT_COLORR );
@@ -743,7 +754,6 @@ int64_t gr_text_put( GRAPH * dest, void * ptext, REGION * clip, int64_t fontid, 
         current_color[ 1 ] = * ( g = &( ( TEXT * ) ptext )->color_g );
         current_color[ 2 ] = * ( b = &( ( TEXT * ) ptext )->color_b );
         working_watch = ( ( TEXT * ) ptext )->watch_colors;
-
     } else {
         alpha = GLOBYTE( libbggfx, TEXT_ALPHA );
         current_color[ 0 ] = * ( r = GLOADDR( libbggfx, TEXT_COLORR ) );
@@ -759,8 +769,13 @@ int64_t gr_text_put( GRAPH * dest, void * ptext, REGION * clip, int64_t fontid, 
     int64_t blend_mode = GLOQWORD( libbggfx, TEXT_BLEND_MODE );
     CUSTOM_BLENDMODE * custom_blend_mode = GLOADDR( libbggfx, TEXT_CUSTOM_BLEND_MODE );
 
-    if ( !dest )    shader_activate( * ( BGD_SHADER ** ) GLOADDR( libbggfx, TEXT_SHADER_ID ) );
-    else            shader_deactivate();
+    if ( !dest ) {
+        shader_activate( * ( BGD_SHADER ** ) GLOADDR( libbggfx, TEXT_SHADER_ID ) );
+        BGD_SHADER_PARAMETERS * shader_params = * ( BGD_SHADER_PARAMETERS ** ) GLOADDR( libbggfx, TEXT_SHADER_PARAMS );
+        if ( shader_params ) shader_apply_parameters( shader_params );
+    }
+    else
+        shader_deactivate();
 
     if ( f->fontmap ) {
         switch ( f->charset ) {
@@ -943,6 +958,7 @@ void * gr_text_alloc() {
     t->z = 0;
     t->alignment = 0;
     t->text = NULL;
+    t->region = GLOINT64( libbggfx, TEXT_REGIONID );
 
     t->alpha = GLOBYTE( libbggfx, TEXT_ALPHA );
     t->color_r = GLOBYTE( libbggfx, TEXT_COLORR );

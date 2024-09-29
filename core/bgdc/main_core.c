@@ -53,8 +53,8 @@ static struct {
 
     { "NULL"                    , TYPE_QWORD,   0LL                 },
 
-    { "FALSE"                   , TYPE_QWORD,   0LL                 },
-    { "TRUE"                    , TYPE_QWORD,   !0LL                },
+    { "FALSE"                   , TYPE_BYTE,    0                   },
+    { "TRUE"                    , TYPE_BYTE,    !0                  },
 
     { "OS_WIN32"                , TYPE_QWORD,   OS_WIN32            },
     { "OS_LINUX"                , TYPE_QWORD,   OS_LINUX            },
@@ -71,29 +71,49 @@ static struct {
     { "OS_ANDROID"              , TYPE_QWORD,   OS_ANDROID          },
     { "OS_IOS"                  , TYPE_QWORD,   OS_IOS              },
     { "OS_SWITCH"               , TYPE_QWORD,   OS_SWITCH           },
-
-    { "MIN_INT"                 , TYPE_INT,     INT64_MIN           },
-    { "MAX_INT"                 , TYPE_INT,     INT64_MAX           },
+    { "OS_PS3"                  , TYPE_QWORD,   OS_PS3              },
 
     { "MIN_INT64"               , TYPE_INT,     INT64_MIN           },
     { "MAX_INT64"               , TYPE_INT,     INT64_MAX           },
-    { "MIN_LONG"                , TYPE_INT,     INT64_MIN           },
-    { "MAX_LONG"                , TYPE_INT,     INT64_MAX           },
-    { "MAX_QWORD"               , TYPE_QWORD,   UINT64_MAX          },
-
     { "MIN_INT32"               , TYPE_INT32,   INT32_MIN           },
     { "MAX_INT32"               , TYPE_INT32,   INT32_MAX           },
-    { "MAX_DWORD"               , TYPE_DWORD,   UINT32_MAX          },
+    { "MIN_INT16"               , TYPE_SHORT,   INT16_MIN           },
+    { "MAX_INT16"               , TYPE_SHORT,   INT16_MAX           },
+    { "MIN_INT8"                , TYPE_SBYTE,   INT8_MIN            },
+    { "MAX_INT8"                , TYPE_SBYTE,   INT8_MAX            },
 
-    { "MIN_SHORT"               , TYPE_SHORT,   INT16_MIN           },
-    { "MAX_SHORT"               , TYPE_SHORT,   INT16_MAX           },
+    { "MIN_UINT64"              , TYPE_QWORD,   0                   },
+    { "MAX_UINT64"              , TYPE_QWORD,   UINT64_MAX          },
+    { "MIN_UINT32"              , TYPE_DWORD,   0                   },
+    { "MAX_UINT32"              , TYPE_DWORD,   UINT32_MAX          },
+    { "MIN_UINT16"              , TYPE_WORD ,   0                   },
+    { "MAX_UINT16"              , TYPE_WORD ,   UINT16_MAX          },
+    { "MIN_UINT8"               , TYPE_BYTE ,   0                   },
+    { "MAX_UINT8"               , TYPE_BYTE ,   UINT8_MAX           },
+
+    { "MIN_BYTE"                , TYPE_BYTE ,   0                   },
+    { "MAX_BYTE"                , TYPE_BYTE ,   UINT8_MAX           },
+    { "MIN_WORD"                , TYPE_WORD ,   0                   },
     { "MAX_WORD"                , TYPE_WORD ,   UINT16_MAX          },
+    { "MIN_DWORD"               , TYPE_DWORD,   0                   },
+    { "MAX_DWORD"               , TYPE_DWORD,   UINT32_MAX          },
+    { "MIN_QWORD"               , TYPE_QWORD,   0                   },
+    { "MAX_QWORD"               , TYPE_QWORD,   UINT64_MAX          },
 
     { "MIN_SBYTE"               , TYPE_SBYTE,   INT8_MIN            },
     { "MAX_SBYTE"               , TYPE_SBYTE,   INT8_MAX            },
-    { "MAX_BYTE"                , TYPE_BYTE ,   UINT8_MAX           },
+    { "MIN_SHORT"               , TYPE_SHORT,   INT16_MIN           },
+    { "MAX_SHORT"               , TYPE_SHORT,   INT16_MAX           },
+    { "MIN_INT"                 , TYPE_INT,     INT64_MIN           },
+    { "MAX_INT"                 , TYPE_INT,     INT64_MAX           },
+    { "MIN_LONG"                , TYPE_INT,     INT64_MIN           },
+    { "MAX_LONG"                , TYPE_INT,     INT64_MAX           },
 
+    { "MIN_CHAR"                , TYPE_BYTE ,   0                   },
     { "MAX_CHAR"                , TYPE_BYTE ,   UINT8_MAX           },
+
+    { "MIN_ULONG"               , TYPE_QWORD,   0                   },
+    { "MAX_ULONG"               , TYPE_QWORD,   UINT64_MAX          },
 
     { "BENNUGD_VERSION"         , TYPE_BYTE ,   0xff                },
 
@@ -121,31 +141,59 @@ static char * locals_def =
     "int bigbro;\n"
     "int priority;\n";
 
-
 static struct {
     char * name;
     char * value;
 } defines[] = {
-    { "BYTE_MAX"    , "((BYTE)  255)"                   },
-    { "WORD_MAX"    , "((WORD)  65535)"                 },
-    { "DWORD_MAX"   , "((DWORD) 4294967295)"            },
-    { "QWORD_MAX"   , "((QWORD) 18446744073709551615)"  },
+    { "INT64_MIN"    , "MIN_INT64"       },
+    { "INT64_MAX"    , "MAX_INT64"       },
+    { "INT32_MIN"    , "MIN_INT32"       },
+    { "INT32_MAX"    , "MAX_INT32"       },
+    { "INT16_MIN"    , "MIN_INT16"       },
+    { "INT16_MAX"    , "MAX_INT16"       },
+    { "INT8_MIN"     , "MIN_INT8"        },
+    { "INT8_MAX"     , "MAX_INT8"        },
 
-    { "CHAR_MIN"    , "-128"                            },
-    { "CHAR_MAX"    , "127"                             },
-    { "SHORT_MIN"   , "-32768"                          },
-    { "SHORT_MAX"   , "32767"                           },
-    { "INT32_MIN"   , "-2147483648"                     },
-    { "INT32_MAX"   , "2147483647"                      },
-    { "INT_MIN"     , "-9223372036854775808"            },
-    { "INT_MAX"     , "9223372036854775807"             },
+    { "UINT64_MIN"   , "MIN_UINT64"      },
+    { "UINT64_MAX"   , "MAX_UINT64"      },
+    { "UINT32_MIN"   , "MIN_UINT32"      },
+    { "UINT32_MAX"   , "MAX_UINT32"      },
+    { "UINT16_MIN"   , "MIN_UINT16"      },
+    { "UINT16_MAX"   , "MAX_UINT16"      },
+    { "UINT8_MIN"    , "MIN_UINT8"       },
+    { "UINT8_MAX"    , "MAX_UINT8"       },
 
-    { "UINT8_MAX"    , "BYTE_MAX"                       },
-    { "UINT16_MAX"   , "WORD_MAX"                       },
-    { "UINT32_MAX"   , "DWORD_MAX"                      },
-    { "UINT_MAX"     , "QWORD_MAX"                      },
+    { "BYTE_MIN"     , "MIN_BYTE"        },
+    { "BYTE_MAX"     , "MAX_BYTE"        },
+    { "WORD_MIN"     , "MIN_WORD"        },
+    { "WORD_MAX"     , "MAX_WORD"        },
+    { "DWORD_MIN"    , "MIN_DWORD"       },
+    { "DWORD_MAX"    , "MAX_DWORD"       },
+    { "QWORD_MIN"    , "MIN_QWORD"       },
+    { "QWORD_MAX"    , "MAX_QWORD"       },
 
-    { NULL          , NULL                              }
+    { "SBYTE_MIN"    , "MIN_SBYTE"       },
+    { "SBYTE_MAX"    , "MAX_SBYTE"       },
+    { "SHORT_MIN"    , "MIN_SHORT"       },
+    { "SHORT_MAX"    , "MAX_SHORT"       },
+    { "INT_MIN"      , "MIN_INT"         },
+    { "INT_MAX"      , "MAX_INT"         },
+    { "LONG_MIN"     , "MIN_LONG"        },
+    { "LONG_MAX"     , "MAX_LONG"        },
+
+    { "CHAR_MIN"     , "MIN_CHAR"        },
+    { "CHAR_MAX"     , "MAX_CHAR"        },
+
+    { "ULONG_MIN"    , "MIN_ULONG"       },
+    { "ULONG_MAX"    , "MAX_ULONG"       },
+
+    { "MIN_BOOL"     , "FALSE"           },
+    { "MAX_BOOL"     , "TRUE"            },
+
+    { "BOOL_MIN"     , "MIN_BOOL"        },
+    { "BOOL_MAX"     , "MAX_BOOL"        },
+
+    { NULL           , NULL              }
 };
 
 void core_init() {

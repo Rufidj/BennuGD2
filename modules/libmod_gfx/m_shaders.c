@@ -42,6 +42,24 @@
 
 /* --------------------------------------------------------------------------- */
 
+int64_t libmod_gfx_shader_get_language( INSTANCE * my, int64_t * params ) {
+    return ( int64_t ) shader_get_language();
+}
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_get_min_version( INSTANCE * my, int64_t * params ) {
+    return ( int64_t ) shader_get_min_version();
+}
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_get_max_version( INSTANCE * my, int64_t * params ) {
+    return ( int64_t ) shader_get_max_version();
+}
+
+/* --------------------------------------------------------------------------- */
+
 int64_t libmod_gfx_shader_create( INSTANCE * my, int64_t * params ) {
     BGD_SHADER * shader = shader_create(( char * ) string_get( params[ 0 ] ),
                                         ( char * ) string_get( params[ 1 ] )
@@ -58,20 +76,7 @@ int64_t libmod_gfx_shader_free(  INSTANCE * my, int64_t * params ) {
     return 1;
 }
 
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_activate( INSTANCE * my, int64_t * params ) {
-    shader_activate( ( BGD_SHADER * ) ( intptr_t ) params[ 0 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_deactivate( INSTANCE * my, int64_t * params ) {
-    shader_deactivate();
-    return 1;
-}
-
+#if 0
 /* --------------------------------------------------------------------------- */
 
 int64_t libmod_gfx_shader_getattributelocation( INSTANCE * my, int64_t * params ) {
@@ -79,6 +84,7 @@ int64_t libmod_gfx_shader_getattributelocation( INSTANCE * my, int64_t * params 
     string_discard( params[ 1 ] );
     return ( int64_t ) loc;
 }
+#endif
 
 /* --------------------------------------------------------------------------- */
 
@@ -90,165 +96,160 @@ int64_t libmod_gfx_shader_getuniformlocation( INSTANCE * my, int64_t * params ) 
 
 /* --------------------------------------------------------------------------- */
 
-int64_t libmod_gfx_shader_setshaderimage( INSTANCE * my, int64_t * params ) {
-    GRAPH * map = bitmap_get( params[ 0 ], params[ 1 ] );
+int64_t libmod_gfx_shader_create_parameters( INSTANCE * my, int64_t * params ) {
+    return ( int64_t )( intptr_t ) shader_create_parameters( params[ 0 ] );
+}
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_free_parameters( INSTANCE * my, int64_t * params ) {
+    shader_free_parameters( ( BGD_SHADER_PARAMETERS * )( intptr_t ) params[ 0 ] );
+    return 1;
+}
+
+/* --------------------------------------------------------------------------- */
+/* Set functions                                                               */
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_setparam( INSTANCE * my, int64_t * params ) {
+    void * param = ( void * )( intptr_t ) params[ 0 ];
+    if ( !param ) return -1;
+    int type = params[ 1 ];
+    if ( type != UNIFORM_INT && type != UNIFORM_UINT ) return -1;
+    int location = params[ 2 ];
+    if ( location == -1 ) return -1;
+    return shader_set_param( ( BGD_SHADER_PARAMETERS * ) param, type, location, 0, ( void * )( intptr_t ) params[ 3 ], 0, 0, 0, 0, 0 );
+}
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_setparam_float( INSTANCE * my, int64_t * params ) {
+    void * param = ( void * )( intptr_t ) params[ 0 ];
+    if ( !param ) return -1;
+    int type = params[ 1 ];
+    if ( type != UNIFORM_FLOAT ) return -1;
+    int location = params[ 2 ];
+    if ( location == -1 ) return -1;
+    float value = *( float * ) &params[ 3 ];
+    return shader_set_param( ( BGD_SHADER_PARAMETERS * ) param, type, location, 0, ( void * )( intptr_t ) *(( int32_t * )&value ), 0, 0, 0, 0, 0 );
+}
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_setparam_image( INSTANCE * my, int64_t * params ) {
+    void * param = ( void * )( intptr_t ) params[ 0 ];
+    if ( !param ) return -1;
+    int type = params[ 1 ];
+    if ( type != SHADER_IMAGE ) return -1;
+    int location = params[ 2 ];
+    if ( location == -1 ) return -1;
+    GRAPH * map = bitmap_get( params[ 3 ], params[ 4 ] );
     if ( !map ) return -1;
-    shader_setshaderimage( map, params[ 2 ], params[ 3 ] );
-    return 1;
+    return shader_set_param( ( BGD_SHADER_PARAMETERS * ) param, type, location, 0, ( void * ) map, params[ 5 ], 0, 0, 0, 0 );
 }
 
 /* --------------------------------------------------------------------------- */
 
-int64_t libmod_gfx_shader_setattributei( INSTANCE * my, int64_t * params ) {
-    shader_setattributei( ( int ) params[ 0 ], ( int32_t ) params[ 1 ] );
-    return 1;
+int64_t libmod_gfx_shader_setparam_vector( INSTANCE * my, int64_t * params ) {
+    void * param = ( void * )( intptr_t ) params[ 0 ];
+    if ( !param ) return -1;
+    int type = params[ 1 ];
+    if ( type != UNIFORM_INT_ARRAY  && type != UNIFORM_UINT_ARRAY  && type != UNIFORM_FLOAT_ARRAY &&
+         type != UNIFORM_INT2_ARRAY && type != UNIFORM_UINT2_ARRAY && type != UNIFORM_FLOAT2_ARRAY &&
+         type != UNIFORM_INT3_ARRAY && type != UNIFORM_UINT3_ARRAY && type != UNIFORM_FLOAT3_ARRAY &&
+         type != UNIFORM_INT4_ARRAY && type != UNIFORM_UINT4_ARRAY && type != UNIFORM_FLOAT4_ARRAY 
+        ) return -1;
+    int location = params[ 2 ];
+    if ( location == -1 ) return -1;
+    return shader_set_param( ( BGD_SHADER_PARAMETERS * ) param, type, location, params[ 3 ], ( void * )( intptr_t ) params[ 4 ], 0, 0, 0, 0, 0 );
 }
 
 /* --------------------------------------------------------------------------- */
 
-int64_t libmod_gfx_shader_setattributeiv( INSTANCE * my, int64_t * params ) {
-    shader_setattributeiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( int32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
+int64_t libmod_gfx_shader_setparam_matrix( INSTANCE * my, int64_t * params ) {
+    void * param = ( void * )( intptr_t ) params[ 0 ];
+    if ( !param ) return -1;
+    int type = params[ 1 ];
+    if ( type != UNIFORM_MATRIX ) return -1;
+    int location = params[ 2 ];
+    if ( location == -1 ) return -1;
+    return shader_set_param( ( BGD_SHADER_PARAMETERS * ) param, type, location, 0, ( void * )( intptr_t ) params[ 3 ], 0, params[ 4 ], params[ 5 ], params[ 6 ], params[ 7 ] );
+}
+
+/* --------------------------------------------------------------------------- */
+/* Get functions                                                               */
+
+/* --------------------------------------------------------------------------- */
+
+int64_t libmod_gfx_shader_getparam( INSTANCE *my, int64_t *params ) {
+    void *param = (void *)(intptr_t)params[0];
+    if (!param) return -1;
+    int location = params[1];
+    if (location == -1) return -1;
+
+    void *values;
+    int type;
+
+    if (shader_get_param((BGD_SHADER_PARAMETERS *)param, location, &type, NULL, &values, NULL, NULL, NULL, NULL, NULL) == 0) {
+        if ( params[2] ) *(int64_t *)(intptr_t)params[2] = type;
+        if ( type != UNIFORM_INT && type != UNIFORM_UINT && type != UNIFORM_FLOAT ) return -1;
+        *(void **)(intptr_t)params[3] = values;
+        return 0;
+    } else {
+        return -1;
+    }
 }
 
 /* --------------------------------------------------------------------------- */
 
-int64_t libmod_gfx_shader_setattributeui( INSTANCE * my, int64_t * params ) {
-    shader_setattributeui( ( int ) params[ 0 ], ( uint32_t ) params[ 1 ] );
-    return 1;
+int64_t libmod_gfx_shader_getparam_vector( INSTANCE *my, int64_t *params ) {
+    void *param = (void *)(intptr_t)params[0];
+    if (!param) return -1;
+    int location = params[1];
+    if (location == -1) return -1;
+
+    int type, n_values;
+    void *values;
+
+    if (shader_get_param((BGD_SHADER_PARAMETERS *)param, location, &type, &n_values, &values, NULL, NULL, NULL, NULL, NULL ) == 0) {
+        if ( params[2] ) *(int64_t *)(intptr_t)params[2] = type;
+        if ( type != UNIFORM_INT_ARRAY  && type != UNIFORM_UINT_ARRAY  && type != UNIFORM_FLOAT_ARRAY &&
+             type != UNIFORM_INT2_ARRAY && type != UNIFORM_UINT2_ARRAY && type != UNIFORM_FLOAT2_ARRAY &&
+             type != UNIFORM_INT3_ARRAY && type != UNIFORM_UINT3_ARRAY && type != UNIFORM_FLOAT3_ARRAY &&
+             type != UNIFORM_INT4_ARRAY && type != UNIFORM_UINT4_ARRAY && type != UNIFORM_FLOAT4_ARRAY 
+            ) return -1;
+        *(int64_t *)(intptr_t)params[3] = n_values;
+        *(void **)(intptr_t)params[4] = values;
+        return 0;
+    } else {
+        return -1;
+    }
 }
 
 /* --------------------------------------------------------------------------- */
 
-int64_t libmod_gfx_shader_setattributeuiv( INSTANCE * my, int64_t * params ) {
-    shader_setattributeuiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( uint32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
+int64_t libmod_gfx_shader_getparam_matrix( INSTANCE *my, int64_t *params ) {
+    void *param = (void *)(intptr_t)params[0];
+    if (!param) return -1;
+    int location = params[1];
+    if (location == -1) return -1;
 
-/* --------------------------------------------------------------------------- */
+    int type, num_matrices, num_rows, num_columns, transpose;
+    void *values;
 
-int64_t libmod_gfx_shader_setattributef( INSTANCE * my, int64_t * params ) {
-    shader_setattributef( ( int ) params[ 0 ], *( float * ) &params[ 1 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setattributefv( INSTANCE * my, int64_t * params ) {
-    shader_setattributefv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( float * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformi( INSTANCE * my, int64_t * params ) {
-    shader_setuniformi( ( int ) params[ 0 ], ( int32_t ) params[ 1 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformiv( INSTANCE * my, int64_t * params ) {
-    shader_setuniformiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( int32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform2iv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform2iv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( int32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform3iv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform3iv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( int32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform4iv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform4iv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( int32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformui( INSTANCE * my, int64_t * params ) {
-    shader_setuniformui( ( int ) params[ 0 ], ( uint32_t ) params[ 1 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformuiv( INSTANCE * my, int64_t * params ) {
-    shader_setuniformuiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( uint32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform2uiv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform2uiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( uint32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform3uiv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform3uiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( uint32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform4uiv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform4uiv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( uint32_t * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformf( INSTANCE * my, int64_t * params ) {
-    shader_setuniformf( ( int ) params[ 0 ], *( float * ) &params[ 1 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformfv( INSTANCE * my, int64_t * params ) {
-    shader_setuniformfv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( float * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform2fv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform2fv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( float * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform3fv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform3fv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( float * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniform4fv( INSTANCE * my, int64_t * params ) {
-    shader_setuniform4fv( ( int ) params[ 0 ], ( int ) params[ 1 ], ( float * ) ( intptr_t ) params[ 2 ] );
-    return 1;
-}
-
-/* --------------------------------------------------------------------------- */
-
-int64_t libmod_gfx_shader_setuniformmatrix( INSTANCE * my, int64_t * params ) {
-    shader_setuniformmatrix( ( int ) params[ 0 ], ( int ) params[ 1 ], ( int ) params[ 2 ], ( int ) params[ 3 ], ( int ) params[ 4 ], ( float * ) ( intptr_t ) params[ 5 ] );
-    return 1;
+    if (shader_get_param((BGD_SHADER_PARAMETERS *)param, location, &type, NULL, &values, NULL, &num_matrices, &num_rows, &num_columns, &transpose) == 0) {
+        if ( params[2] ) *(int64_t *)(intptr_t)params[2] = type;
+        if ( type != UNIFORM_MATRIX ) return -1;
+        *(void **)(intptr_t)params[3] = values;
+        *(int64_t *)(intptr_t)params[4] = num_matrices;
+        *(int64_t *)(intptr_t)params[5] = num_rows;
+        *(int64_t *)(intptr_t)params[6] = num_columns;
+        *(int64_t *)(intptr_t)params[7] = transpose;
+        return 0;
+    } else {
+        return -1;
+    }
 }
 
 /* --------------------------------------------------------------------------- */

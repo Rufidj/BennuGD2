@@ -66,9 +66,10 @@ PRIVATE
 	int dot_pos;
 
 BEGIN
-	window_set_title("SudoQ v0.8 - Bombergames Soft 2016");
 	set_fps (60, 1) ;
 	set_mode (320,240);
+
+	window_set_title("SudoQ v0.8 - Bombergames Soft 2016");
 
 	graficos=fpg_load("sudoq.fpg");
 	window_set_icon(graficos,18);
@@ -86,8 +87,8 @@ BEGIN
 	raton(1);
 
 	// carga el tablero tal y como lo dejamos
-	if (fexists("save.dat"))
-		fichero=fopen("save.dat",O_READ);
+	if (fexists(get_pref_path("bennugd.org", "sudoq") + "save.dat"))
+		fichero=fopen(get_pref_path("bennugd.org", "sudoq") + "save.dat",O_READ);
 		fread(fichero,savegame);
 		fclose(fichero);
 
@@ -280,7 +281,7 @@ BEGIN
 			savegame.sudoku_finalizado=sudoku_finalizado;
 			savegame.skin=skin;
 
-			fichero=fopen("save.dat",O_WRITE);
+			fichero=fopen(get_pref_path("bennugd.org", "sudoq") + "save.dat",O_WRITE);
 			fwrite(fichero ,savegame);
 			fclose(fichero);
 

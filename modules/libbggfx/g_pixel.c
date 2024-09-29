@@ -44,11 +44,15 @@
  *      1, 8 or 16-bit integer with the pixel value
  *
  */
-
+#if 0
 int64_t gr_get_pixel( GRAPH * gr, int64_t x, int64_t y ) {
-    if ( !gr || !gr->tex ) return -1;
+    if ( !gr ) return -1;
 
     if ( x < 0 || y < 0 ) return -1;
+
+    if ( gr_create_image_for_graph( gr ) ) return -1;
+
+    if ( !gr->tex ) return -1;
 
 #ifdef USE_SDL2
     if ( x >= ( int64_t ) gr->width || y >= ( int64_t ) gr->height ) return -1;
@@ -58,10 +62,8 @@ int64_t gr_get_pixel( GRAPH * gr, int64_t x, int64_t y ) {
 #endif
 
 #ifdef USE_SDL2
-    if ( gr_create_image_for_graph( gr ) ) return -1;
-
-    SDL_Texture* auxTexture = SDL_CreateTexture(gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET, 1, 1);
-    SDL_SetRenderTarget(gRenderer, auxTexture);
+    SDL_Texture* auxTexture = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET, 1, 1 );
+    SDL_SetRenderTarget( gRenderer, auxTexture );
 
     SDL_SetRenderDrawColor( gRenderer, 0, 0, 0, 0 );
     SDL_RenderClear( gRenderer );
@@ -73,9 +75,11 @@ int64_t gr_get_pixel( GRAPH * gr, int64_t x, int64_t y ) {
 
     Uint32 pixelColor;
 
-    SDL_RenderReadPixels(gRenderer, NULL, gPixelFormat->format, &pixelColor, sizeof(Uint32));
+    SDL_RenderReadPixels( gRenderer, NULL, gPixelFormat->format, &pixelColor, sizeof( Uint32 ) );
 
-    SDL_DestroyTexture(auxTexture);
+    SDL_DestroyTexture( auxTexture );
+
+    SDL_SetRenderTarget( gRenderer, NULL );
 
     return pixelColor;
 #endif
@@ -85,6 +89,25 @@ int64_t gr_get_pixel( GRAPH * gr, int64_t x, int64_t y ) {
     return SDL_MapRGBA( gPixelFormat, c.r, c.g, c.b, c.a );
 #endif
 }
+#else
+
+int64_t gr_get_pixel( GRAPH * gr, int64_t x, int64_t y ) {
+
+    if ( !gr ) return -1;
+
+    if ( x < 0 || y < 0 ) return -1;
+
+    if ( gr_create_image_for_graph( gr ) ) return -1;
+
+    if ( !gr->tex ) return -1;
+
+    bitmap_update_surface( gr );
+
+    if ( x >= ( int64_t ) gr->surface->w || y >= ( int64_t ) gr->surface->h ) return -1;
+
+    return *( uint32_t * ) ( ( ( uint8_t * ) gr->surface->pixels ) + ( y * gr->surface->pitch + x * 4 ) );
+}
+#endif
 
 /* --------------------------------------------------------------------------- */
 /*
@@ -125,12 +148,14 @@ void gr_put_pixel( GRAPH * gr, int64_t x, int64_t y, int64_t color ) {
     SDL_SetRenderDrawColor( gRenderer, c.r, c.g, c.b, c.a );
     SDL_Rect rect = { x, y, 1, 1 };
     SDL_RenderFillRect( gRenderer, &rect );
+    SDL_SetRenderTarget( gRenderer, NULL );
 #endif
 #ifdef USE_SDL2_GPU
     SDL_Color c;
     SDL_GetRGBA( color, gPixelFormat, &c.r, &c.g, &c.b, &c.a ) ;
-    // +1 for GPU_Pixel bug???
-    GPU_Pixel( gr->tex->target, ( float ) x, ( float ) y + 1, c );
+    GPU_Pixel( gr->tex->target, ( float ) x, ( float ) y, c );
+
+    gr->dirty = 1;
 #endif
 }
 

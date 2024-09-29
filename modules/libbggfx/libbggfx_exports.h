@@ -51,7 +51,8 @@ DLCONSTANT  __bgdexport( libbggfx, constants_def )[] = {
     { "MODE_WAITVSYNC"                  , TYPE_QWORD    , MODE_WAITVSYNC                },
     { "WAITVSYNC"                       , TYPE_QWORD    , MODE_WAITVSYNC                },
 
-    { "MODE_MODAL"                      , TYPE_QWORD    , MODE_MODAL                    },  /* GRAB INPU */
+    { "MODE_GRAB_INPUT"                 , TYPE_QWORD    , MODE_GRAB_INPUT               },  /* GRAB INPUT */
+    { "MODE_MODAL"                      , TYPE_QWORD    , MODE_GRAB_INPUT               },  /* GRAB INPUT */
     { "MODE_FRAMELESS"                  , TYPE_QWORD    , MODE_FRAMELESS                },  /* FRAMELESS window */
 
     { "SRA_PRESERVE"                    , TYPE_QWORD    , SRA_PRESERVE                  },
@@ -109,6 +110,13 @@ DLCONSTANT  __bgdexport( libbggfx, constants_def )[] = {
     { "GL_MAX"                          , TYPE_QWORD    , 0x8008                        },
     { "GL_FUNC_SUBTRACT"                , TYPE_QWORD    , 0x800A                        },
     { "GL_FUNC_REVERSE_SUBTRACT"        , TYPE_QWORD    , 0x800B                        },
+
+    { "SHADER_LANGUAGE_NONE"            , TYPE_QWORD    , SHADER_LANGUAGE_NONE          },
+    { "SHADER_LANGUAGE_ARB_ASSEMBLY"    , TYPE_QWORD    , SHADER_LANGUAGE_ARB_ASSEMBLY  },
+    { "SHADER_LANGUAGE_GLSL"            , TYPE_QWORD    , SHADER_LANGUAGE_GLSL          },
+    { "SHADER_LANGUAGE_GLSLES"          , TYPE_QWORD    , SHADER_LANGUAGE_GLSLES        },
+    { "SHADER_LANGUAGE_HLSL"            , TYPE_QWORD    , SHADER_LANGUAGE_HLSL          },
+    { "SHADER_LANGUAGE_CG"              , TYPE_QWORD    , SHADER_LANGUAGE_CG            },
 
     /* Scroll */
     { "C_SCROLL"                        , TYPE_QWORD    , C_SCROLL                      },
@@ -186,51 +194,51 @@ DLCONSTANT  __bgdexport( libbggfx, constants_def )[] = {
 char * __bgdexport( libbggfx, types_def ) =
     /* m_draw */
     "TYPE G_POINT\n"
-    "   INT x;\n"
-    "   INT y;\n"
+    "   INT x=0;\n"
+    "   INT y=0;\n"
     "END\n"
 
     "TYPE G_POINTW\n"
-    "   INT32 x;\n"
-    "   INT32 y;\n"
+    "   INT32 x=0;\n"
+    "   INT32 y=0;\n"
     "END\n"
 
     "TYPE G_POINTF\n"
-    "   FLOAT x;\n"
-    "   FLOAT y;\n"
+    "   FLOAT x=0;\n"
+    "   FLOAT y=0;\n"
     "END\n"
 
     "TYPE G_POINTD\n"
-    "   DOUBLE x;\n"
-    "   DOUBLE y;\n"
+    "   DOUBLE x=0;\n"
+    "   DOUBLE y=0;\n"
     "END\n"
 
     "TYPE G_RECT\n"
-    "   INT x;\n"
-    "   INT y;\n"
-    "   INT w;\n"
-    "   INT h;\n"
+    "   INT x=0;\n"
+    "   INT y=0;\n"
+    "   INT w=0;\n"
+    "   INT h=0;\n"
     "END\n"
 
     "TYPE G_RECTW\n"
-    "   INT32 x;\n"
-    "   INT32 y;\n"
-    "   INT32 w;\n"
-    "   INT32 h;\n"
+    "   INT32 x=0;\n"
+    "   INT32 y=0;\n"
+    "   INT32 w=0;\n"
+    "   INT32 h=0;\n"
     "END\n"
 
     "TYPE G_RECTF\n"
-    "   FLOAT x;\n"
-    "   FLOAT y;\n"
-    "   FLOAT w;\n"
-    "   FLOAT h;\n"
+    "   FLOAT x=0;\n"
+    "   FLOAT y=0;\n"
+    "   FLOAT w=0;\n"
+    "   FLOAT h=0;\n"
     "END\n"
 
     "TYPE G_RECTD\n"
-    "   DOUBLE x;\n"
-    "   DOUBLE y;\n"
-    "   DOUBLE w;\n"
-    "   DOUBLE h;\n"
+    "   DOUBLE x=0;\n"
+    "   DOUBLE y=0;\n"
+    "   DOUBLE w=0;\n"
+    "   DOUBLE h=0;\n"
     "END\n"
 
     "TYPE G_CUSTOM_BLENDMODE\n"
@@ -278,6 +286,7 @@ char * __bgdexport( libbggfx, globals_def ) =
 
     /* text */
     "STRUCT text\n"
+    "   INT region=-1;\n"
     "   INT z=-512;\n"
     "   INT flags;\n"
     "   BYTE alpha=255;\n"
@@ -287,6 +296,7 @@ char * __bgdexport( libbggfx, globals_def ) =
     "   INT blendmode=" TOSTRING(BLEND_DISABLED) ";\n"
     "   G_CUSTOM_BLENDMODE custom_blendmode;\n"
     "   UINT * shader=NULL;\n"
+    "   INT * shader_params=NULL;"
     "END\n"
 
     /* backgound */
@@ -304,18 +314,19 @@ char * __bgdexport( libbggfx, globals_def ) =
     "   INT blendmode=" TOSTRING(BLEND_DISABLED) ";\n"
     "   G_CUSTOM_BLENDMODE custom_blendmode;\n"
     "   UINT * shader=NULL;\n"
+    "   INT * shader_params=NULL;"
     "END\n"
 
     /* scroll */
     "STRUCT scroll[63]\n"
-    "   DOUBLE x0;\n"
-    "   DOUBLE y0;\n"
-    "   DOUBLE x1;\n"
-    "   DOUBLE y1;\n"
+    "   DOUBLE x0=0;\n"
+    "   DOUBLE y0=0;\n"
+    "   DOUBLE x1=0;\n"
+    "   DOUBLE y1=0;\n"
     "   INT z=512;\n"
-    "   INT camera;\n"
-    "   DOUBLE ratio=200.0;\n"
-    "   DOUBLE speed;\n"
+    "   INT camera=0;\n"
+    "   DOUBLE ratio=0;\n"
+    "   DOUBLE speed=0;\n"
     "   INT region1=-1;\n"
     "   INT region2=-1;\n"
     "   INT flags1;\n"
@@ -334,7 +345,9 @@ char * __bgdexport( libbggfx, globals_def ) =
     "   INT blendmode2=" TOSTRING(BLEND_DISABLED) ";\n"
     "   G_CUSTOM_BLENDMODE custom_blendmode2;\n"
     "   UINT * shader1=NULL;\n"
+    "   INT * shader_params1=NULL;"
     "   UINT * shader2=NULL;\n"
+    "   INT * shader_params2=NULL;"
     "END\n"
     ;
 
@@ -347,8 +360,8 @@ char * __bgdexport( libbggfx, locals_def ) =
     "INT cnumber;\n"
 
     /* Render */
-    "DOUBLE x;\n"
-    "DOUBLE y;\n"
+    "DOUBLE x=0;\n"
+    "DOUBLE y=0;\n"
     "INT z;\n"
     "INT file;\n"
     "INT graph;\n"
@@ -364,7 +377,7 @@ char * __bgdexport( libbggfx, locals_def ) =
     "INT render_file=0;\n"
     "INT render_graph=0;\n"
 
-    "G_RECT clip = 0, 0, 0, 0;\n"
+    "G_RECT clip=0, 0, 0, 0;\n"
     "G_POINTD center = POINT_UNDEFINED, POINT_UNDEFINED;\n"
 
     "BYTE alpha=255;\n"
@@ -381,7 +394,8 @@ char * __bgdexport( libbggfx, locals_def ) =
     "INT blendmode=" TOSTRING(BLEND_DISABLED) ";\n"
     "G_CUSTOM_BLENDMODE custom_blendmode;\n"
 
-    "UINT * shader = NULL;\n"
+    "UINT * shader=NULL;\n"
+    "INT * shader_params=NULL;"
     ;
 #endif
 

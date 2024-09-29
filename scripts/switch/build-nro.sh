@@ -44,38 +44,38 @@ while IFS= read -r string; do
             continue;
         fi
 
-        if [[ "$string" == *".."* || "$string" == /* ]]; then
-            # Use realpath to obtain the full path of the file
-            full_path="$(realpath "$string")"
-
-            # Get the filename from the full path
-            file_name="$(basename "$full_path")"
-
-            # Get the current directory path and add a slash
-            cut_path=$(dirname $PWD)/
-
-            # Get the relative path within "output"
-            relative_path="${full_path#$cut_path}"
-
-            curr_dir=$(basename $PWD)/
-
-            relative_path="${relative_path#$curr_dir}"
-
-            if [[ -d "$relative_path" ]]; then
-                relative_path="$relative_path/"
-            fi
-
-            sed -i "s|$string|$relative_path|g" "$new_prg_file"
-
-            # Copy the file to the output folder while preserving the relative structure
-            mkdir -p "$dir_output/romfs/$(dirname "$relative_path")"
-            cp "$string" "$dir_output/romfs/$relative_path"
-
-        else
+#        if [[ "$string" == *".."* || "$string" == /* ]]; then
+#            # Use realpath to obtain the full path of the file
+#            full_path="$(realpath "$string")"
+#
+#            # Get the filename from the full path
+#            file_name="$(basename "$full_path")"
+#
+#            # Get the current directory path and add a slash
+#            cut_path=$(dirname $PWD)/
+#
+#            # Get the relative path within "output"
+#            relative_path="${full_path#$cut_path}"
+#
+#            curr_dir=$(basename $PWD)/
+#
+#            relative_path="${relative_path#$curr_dir}"
+#
+#            if [[ -d "$relative_path" ]]; then
+#                relative_path="$relative_path/"
+#            fi
+#
+#            sed -i "s|$string|$relative_path|g" "$new_prg_file"
+#
+#            # Copy the file to the output folder while preserving the relative structure
+#            mkdir -p "$dir_output/romfs/$(dirname "$relative_path")"
+#            cp "$string" "$dir_output/romfs/$relative_path"
+#
+#        else
             # Copy the file to the output folder while preserving the relative structure
             mkdir -p "$dir_output/romfs/$(dirname "$string")"
             cp "$string" "$dir_output/romfs/$string"
-        fi
+#        fi
 
     fi
 done < <(grep -oE $regex "$new_prg_file")

@@ -269,8 +269,6 @@ end
 
 process main()
 begin
-    window_set_title("GOODY the remake 1.5");
-
     desktop_get_size(&desktop_width,&desktop_height);
 
     if ( os_id == os_switch )
@@ -297,6 +295,8 @@ begin
         screen.fullscreen=true;
         set_mode(640,480);
     End
+
+    window_set_title("GOODY the remake 1.5");
 
     frame;
 
@@ -504,7 +504,7 @@ begin
                   p_completa=1;
                   screen.fullscreen=false;
                   set_mode(640,480);
-                    window_move((desktop_width-640)/2,(desktop_height-480)/2);
+                  window_move((desktop_width-640)/2,(desktop_height-480)/2);
                   put_screen(gmenu,1);
 
              End
@@ -7691,7 +7691,7 @@ begin
     fade_off(2000); While(fade_info.fading) Frame; End
 
     file=0;
-    mid = media_load( "data2/final.gdm", &graph, 640, 360 );
+    mid = media_load( "data2/final.gdm", &graph, 0 );
     map_clear(0,graph,rgba(0,0,0,0));
     x=320; y=240;
 

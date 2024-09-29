@@ -41,6 +41,8 @@
 #include <process.h>
 #endif
 
+#include "SDL.h"
+
 /* ---------------------------------------------------------------------- */
 
 #include "libmod_misc.h"
@@ -66,7 +68,7 @@ int64_t libmod_misc_sys_exec( INSTANCE * my, int64_t * params ) {
     // Execute program
 #ifdef WIN32
     status = spawnvp( mode, filename, ( char * const * )argv );
-#elif defined( __SWITCH__ )
+#elif defined( __SWITCH__ ) || defined( PS3_PPU )
     status = -1;
 #else
     if (( child = fork() ) == -1 ) {
@@ -111,6 +113,27 @@ int64_t libmod_misc_sys_getenv( INSTANCE * my, int64_t * params ) {
     string_discard( params[0] ) ;
     string_use( str ) ;
     return str ;
+}
+
+/* ----------------------------------------------------------------- */
+
+int64_t libmod_misc_sys_get_pref_language( INSTANCE * my, int64_t * params ) {
+    int64_t str;
+    SDL_Locale *locales = SDL_GetPreferredLocales();
+	
+    if (locales == NULL) {
+        str = string_new( "" );
+    } else {
+        if (locales[0].language != NULL) {
+            str = string_new( locales[0].language );
+        } else {
+            str = string_new( "" );
+        }
+    }
+
+    SDL_free(locales);
+    string_use(str);
+    return str;
 }
 
 /* ----------------------------------------------------------------- */

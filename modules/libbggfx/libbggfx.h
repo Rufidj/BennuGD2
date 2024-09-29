@@ -60,6 +60,7 @@ enum {
     FOCUS_STATUS,
     MOUSE_STATUS,
 
+    TEXT_REGIONID,
     TEXT_Z,
     TEXT_FLAGS,
     TEXT_ALPHA,
@@ -75,6 +76,7 @@ enum {
     TEXT_EQUATION_RGB,
     TEXT_EQUATION_ALPHA,
     TEXT_SHADER_ID,
+    TEXT_SHADER_PARAMS,
 
     /* backgound */
     BACKGROUND_FILE,
@@ -96,6 +98,7 @@ enum {
     BACKGROUND_EQUATION_RGB,
     BACKGROUND_EQUATION_ALPHA,
     BACKGROUND_SHADER_ID,
+    BACKGROUND_SHADER_PARAMS,
 
     /*Scroll*/
     SCROLLS
@@ -144,7 +147,8 @@ enum {
     DST_ALPHA,
     EQUATION_RGB,
     EQUATION_ALPHA,
-    SHADER_ID
+    SHADER_ID,
+    SHADER_PARAMS
 };
 
 #endif
@@ -176,10 +180,7 @@ enum {
 #include "g_draw.h"
 #include "g_screen.h"
 #include "g_pathfind.h"
-
-#ifdef LIBVLC_ENABLED
 #include "g_media.h"
-#endif
 
 /* --------------------------------------------------------------------------- */
 

@@ -26,81 +26,149 @@
 /* --------------------------------------------------------------------------- */
 
 #include <SDL.h>
+
 #include <stdlib.h>
 #include <string.h>
 
 #include "libbggfx.h"
+#include "files.h"
 
 /* --------------------------------------------------------------------------- */
 
 BGD_SHADER * g_current_shader = NULL;
 
+/*
+    sample headers:
+
+    GPU_LANGUAGE_GLSL
+
+        #version 130
+        #version 120
+        #version 110
+
+    GPU_LANGUAGE_GLSLES
+
+        #version 300 es
+        precision mediump int
+        precision mediump float;
+
+*/
+
 /* --------------------------------------------------------------------------- */
+/**
+ * @brief Retrieves the shader language used by the current renderer.
+ *
+ * @return An integer representing the shader language. Returns -1 if the renderer is not available.
+ */
+
+int shader_get_language() {
+#ifdef USE_SDL2_GPU
+    GPU_Renderer * renderer = GPU_GetCurrentRenderer();
+    if ( !renderer ) return -1;
+    return renderer->shader_language;
+#elif 0 // USE_SDL2
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(SDL_GetRenderer(SDL_GetWindowFromID(0)), &info) != 0) return -1;
+    
+    if (info.name && strcmp(info.name, "opengl") == 0) {
+        SDL_GLContext glContext = SDL_GL_CreateContext(SDL_GetWindowFromID(0));
+        if (glContext) {
+            const char* versionStr = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+            SDL_GL_DeleteContext(glContext);
+            if (versionStr)
+                return 0; // Assuming OpenGL shader language
+        }
+    }
+#endif
+    return -1;
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Retrieves the minimum supported shader version by the current renderer.
+ *
+ * @return An integer representing the minimum shader version. Returns -1 if the renderer is not available.
+ */
+
+int shader_get_min_version() {
+#ifdef USE_SDL2_GPU
+    GPU_Renderer * renderer = GPU_GetCurrentRenderer();
+    if ( !renderer ) return -1;
+    return renderer->min_shader_version;
+#elif 0 // USE_SDL2
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(SDL_GetRenderer(SDL_GetWindowFromID(0)), &info) != 0) return -1;
+    
+    if (info.name && strcmp(info.name, "opengl") == 0) {
+        SDL_GLContext glContext = SDL_GL_CreateContext(SDL_GetWindowFromID(0));
+        if (glContext) {
+            const char* versionStr = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+            SDL_GL_DeleteContext(glContext);
+            if (versionStr) {
+                int major, minor;
+                if (sscanf(versionStr, "%d.%d", &major, &minor) == 2) {
+                    return major * 100 + minor * 10;
+                }
+            }
+        }
+    }    
+#endif
+    return -1;
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Retrieves the maximum supported shader version by the current renderer.
+ *
+ * @return An integer representing the maximum shader version. Returns -1 if the renderer is not available.
+ */
+
+int shader_get_max_version() {
+#ifdef USE_SDL2_GPU
+    GPU_Renderer * renderer = GPU_GetCurrentRenderer();
+    if ( !renderer ) return -1;
+    return renderer->max_shader_version;
+#elif 0 // USE_SDL2
+#endif
+    return -1;
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Creates a shader program from provided vertex and fragment shaders.
+ *
+ * @param vertex A string containing the source code of the vertex shader.
+ * @param fragment A string containing the source code of the fragment shader.
+ *
+ * @return A pointer to the created shader program. Returns NULL if creation fails.
+ */
 
 BGD_SHADER * shader_create( char * vertex, char * fragment ) {
 #ifdef USE_SDL2_GPU
     uint32_t vertex_shader = 0, frags_shader = 0;
-    char * source = NULL, * source2 = NULL;
-    int header_size;
-    const char * header = "";
-    BGD_SHADER * shader = malloc( sizeof( BGD_SHADER ) );
-
-    if ( !shader ) return NULL;
 
     GPU_Renderer * renderer = GPU_GetCurrentRenderer();
-
-    // Get size from header
-    if ( renderer->shader_language == GPU_LANGUAGE_GLSL ) {
-        if ( renderer->max_shader_version >= 130 ) header = "#version 130\n";
-        else if ( renderer->max_shader_version >= 120 ) header = "#version 120\n";
-        else header = "#version 110\n";  // Maybe this is good enough?
-    } else if( renderer->shader_language == GPU_LANGUAGE_GLSLES ) header = "#version 100\nprecision mediump int;\nprecision mediump float;\n";
-
-    header_size = strlen( header );
-
-    // Allocate source buffer
-    source = ( char * ) malloc( header_size + strlen( vertex ) + 1 );
-    if ( !source ) {
-        free( shader );
+    if ( !renderer ) {
         return NULL;
     }
 
-    // Prepend header
-    strcpy( source, header );
-    strcat( source, vertex );
+    BGD_SHADER * shader = malloc( sizeof( BGD_SHADER ) );
+    if ( !shader ) return NULL;
 
     // Compile the shader
-    if ( !( vertex_shader = GPU_CompileShader( GPU_VERTEX_SHADER, source ) ) ) {
+    if ( !( vertex_shader = GPU_CompileShader( GPU_VERTEX_SHADER, vertex ) ) ) {
         printf("ERROR compiling vertex shader: %s\n", GPU_GetShaderMessage());
-        free( source );
         free( shader );
         return NULL;
     }
-
-    // Allocate source buffer
-    source2 = ( char * ) realloc( source, header_size + strlen( fragment ) + 1 );
-    if ( !source2 ) {
-        GPU_FreeShader( vertex_shader );
-        free( source );
-        free( shader );
-        return NULL;
-    }
-
-    // Prepend header
-    strcpy( source2, header );
-    strcat( source2, fragment );
 
     // Compile the shader
-    if ( !( frags_shader = GPU_CompileShader( GPU_FRAGMENT_SHADER, source2 ) ) ) {
+    if ( !( frags_shader = GPU_CompileShader( GPU_FRAGMENT_SHADER, fragment ) ) ) {
         printf("ERROR compiling fragment shader: %s\n", GPU_GetShaderMessage());
         GPU_FreeShader( vertex_shader );
-        free( source2 );
         free( shader );
         return NULL;
     }
-
-    // Clean up
-    free( source2 );
 
     if ( !( shader->shader = GPU_LinkShaders( vertex_shader, frags_shader ) ) ) {
         printf("ERROR linking shaders: %s\n", GPU_GetShaderMessage());
@@ -111,15 +179,90 @@ BGD_SHADER * shader_create( char * vertex, char * fragment ) {
     }
 
     shader->block = GPU_LoadShaderBlock( shader->shader, "bgd_Vertex", "bgd_TexCoord", "bgd_Color", "bgd_ModelViewProjectionMatrix" );
+
 //    GPU_ActivateShaderProgram( shader->shader, &shader->block );
 
     return shader;
-#else
-    return NULL;
+#elif 0 // USE_SDL2
+    GLuint programID = glCreateProgram();
+
+    // Create and compile vertex shader
+    GLuint vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShaderID, 1, (const GLchar**)&vertex, NULL);
+    glCompileShader(vertexShaderID);
+
+    // Check vertex shader
+    GLint success = 0;
+    glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetShaderInfoLog(vertexShaderID, 512, NULL, infoLog);
+        printf("ERROR compiling vertex shader: %s\n", infoLog);
+        glDeleteShader(vertexShaderID);
+        glDeleteProgram(programID);
+        return NULL;
+    }
+
+    // Create and compile fragment shader
+    GLuint fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShaderID, 1, (const GLchar**)&fragment, NULL);
+    glCompileShader(fragmentShaderID);
+
+    // Check fragment shader
+    glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetShaderInfoLog(fragmentShaderID, 512, NULL, infoLog);
+        printf("ERROR compiling fragment shader: %s\n", infoLog);
+        glDeleteShader(vertexShaderID);
+        glDeleteShader(fragmentShaderID);
+        glDeleteProgram(programID);
+        return NULL;
+    }
+
+    // Attach shaders to program and link
+    glAttachShader(programID, vertexShaderID);
+    glAttachShader(programID, fragmentShaderID);
+    glLinkProgram(programID);
+
+    // Check linking
+    glGetProgramiv(programID, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(programID, 512, NULL, infoLog);
+        printf("ERROR linking shaders: %s\n", infoLog);
+        glDeleteShader(vertexShaderID);
+        glDeleteShader(fragmentShaderID);
+        glDeleteProgram(programID);
+        return NULL;
+    }
+
+    // Clean up shaders
+    glDeleteShader(vertexShaderID);
+    glDeleteShader(fragmentShaderID);
+
+    // Allocate memory for shader structure
+    BGD_SHADER* shader = malloc(sizeof(BGD_SHADER));
+    if (!shader) {
+        printf("ERROR allocating memory for shader\n");
+        glDeleteProgram(programID);
+        return NULL;
+    }
+
+    // Set shader program ID
+    shader->shader = programID;
+
+    return shader;
 #endif
+    return NULL;
 }
 
 /* --------------------------------------------------------------------------- */
+/**
+ * @brief Activates the specified shader program for rendering.
+ *
+ * @param shader A pointer to the shader program to activate.
+ */
 
 void shader_activate( BGD_SHADER * shader ) {
 #ifdef USE_SDL2_GPU
@@ -129,231 +272,427 @@ void shader_activate( BGD_SHADER * shader ) {
         GPU_ActivateShaderProgram( shader ? shader->shader : 0, shader ? &shader->block : NULL );
         g_current_shader = shader;
     }
+#elif 0 // USE_SDL2
+    if (shader && shader->shader) {
+        glUseProgram(shader->shader);
+        g_current_shader = shader;
+    }
 #endif
 }
 
 /* --------------------------------------------------------------------------- */
+/**
+ * @brief Deactivates the currently active shader program.
+ */
 
 void shader_deactivate( void ) {
 #ifdef USE_SDL2_GPU
     GPU_DeactivateShaderProgram();
     g_current_shader = NULL;
+#elif 0 // USE_SDL2
+    glUseProgram(0);
+    g_current_shader = NULL;
 #endif
 }
 
 /* --------------------------------------------------------------------------- */
+/**
+ * @brief Sets a parameter for a shader program.
+ *
+ * @param params A pointer to the BGD_SHADER_PARAMETERS structure containing the parameters.
+ * @param type The type of parameter to set.
+ * @param location The location of the parameter in the shader program.
+ * @param n_values The number of values in the parameter.
+ * @param values A pointer to the values of the parameter.
+ * @param image_unit The image unit of the parameter (for image parameters).
+ * @param num_matrices The number of matrices (for matrix parameters).
+ * @param num_rows The number of rows in each matrix (for matrix parameters).
+ * @param num_columns The number of columns in each matrix (for matrix parameters).
+ * @param transpose Whether the matrices should be transposed (for matrix parameters).
+ *
+ * @return Returns 0 on success, 1 if the parameter is not found.
+ */
 
-int shader_getattributelocation( BGD_SHADER * shader, const char * name ) {
-#ifdef USE_SDL2_GPU
-    if ( !shader ) return -1;
-    return ( int ) GPU_GetAttributeLocation( shader->shader, name );
-#else
-    return -1;
+int shader_set_param(   BGD_SHADER_PARAMETERS * params,
+                        int type,
+                        int location,
+                        int n_values,
+                        void *values,
+                        int image_unit,
+                        int num_matrices,
+                        int num_rows,
+                        int num_columns,
+                        int transpose )
+{
+#if defined( USE_SDL2_GPU ) // || defined( USE_SDL2 )
+    BGD_SHADER_PARAM *param = NULL;
+
+    for ( int i = 0; i < params->nparams; ++i ) {
+        if ( !param && params->params[ i ].location == -1 ) param = &params->params[ i ];
+        if ( params->params[ i ].location == location ) {
+            param = &params->params[ i ];
+            break;
+        }
+    }
+
+    if ( !param ) return 1;
+
+    param->type = type;
+    param->location = location;
+    param->n_values = n_values;
+    param->values = values;
+
+    // shader_image
+    param->image_unit = image_unit;
+
+    // matrix
+    param->num_matrices = num_matrices;
+    param->num_rows = num_rows;
+    param->num_columns = num_columns;
+    param->transpose = transpose;
+#endif
+    return 0;
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Retrieves the parameter information for a shader program.
+ *
+ * This function retrieves the parameter information for a shader program.
+ *
+ * @param params A pointer to the BGD_SHADER_PARAMETERS structure containing the parameters.
+ * @param location The location of the parameter to retrieve.
+ * @param type Pointer to store the type of the parameter.
+ * @param n_values Pointer to store the number of values in the parameter.
+ * @param values Pointer to store the values of the parameter.
+ * @param image_unit Pointer to store the image unit of the parameter (for image parameters).
+ * @param num_matrices Pointer to store the number of matrices (for matrix parameters).
+ * @param num_rows Pointer to store the number of rows in each matrix (for matrix parameters).
+ * @param num_columns Pointer to store the number of columns in each matrix (for matrix parameters).
+ * @param transpose Pointer to store whether the matrices should be transposed (for matrix parameters).
+ *
+ * @return Returns 0 on success, 1 if the parameter with the specified location is not found.
+ */
+
+int shader_get_param(   BGD_SHADER_PARAMETERS *params,
+                        int location,
+                        int *type,
+                        int *n_values,
+                        void **values,
+                        int *image_unit,
+                        int *num_matrices,
+                        int *num_rows,
+                        int *num_columns,
+                        int *transpose) {
+#if defined( USE_SDL2_GPU ) // || defined( USE_SDL2 )
+    for (int i = 0; i < params->nparams; ++i) {
+        if (params->params[i].location == location) {
+            if (type) *type = params->params[i].type;
+            if (n_values) *n_values = params->params[i].n_values;
+            if (values) *values = params->params[i].values;
+            if (image_unit) *image_unit = params->params[i].image_unit;
+            if (num_matrices) *num_matrices = params->params[i].num_matrices;
+            if (num_rows) *num_rows = params->params[i].num_rows;
+            if (num_columns) *num_columns = params->params[i].num_columns;
+            if (transpose) *transpose = params->params[i].transpose;
+            return 0;
+        }
+    }
+    return 1; // Parameter with specified location not found
+#endif
+    return 0;
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Creates and initializes a BGD_SHADER_PARAMETERS structure.
+ *
+ * This function creates and initializes a BGD_SHADER_PARAMETERS structure.
+ *
+ * @param num_params The number of parameters to allocate space for.
+ *
+ * @return A pointer to the created BGD_SHADER_PARAMETERS structure, or NULL if memory allocation fails.
+ */
+
+BGD_SHADER_PARAMETERS * shader_create_parameters( int num_params ) {
+#if defined( USE_SDL2_GPU ) // || defined( USE_SDL2 )
+    BGD_SHADER_PARAMETERS* params = (BGD_SHADER_PARAMETERS*)malloc(sizeof(BGD_SHADER_PARAMETERS));
+    if (!params) {
+        // Handle memory allocation error
+        return NULL;
+    }
+
+    params->nparams = num_params;
+    params->params = (BGD_SHADER_PARAM*)calloc(num_params, sizeof(BGD_SHADER_PARAM));
+    if (!params->params) {
+        // Handle memory allocation error
+        free(params);
+        return NULL;
+    }
+
+    for ( int i = 0; i < num_params; ++i ) params->params[ i ].type = params->params[ i ].location = -1;
+
+    return params;
+#endif
+    return 0;
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Frees the memory allocated for a BGD_SHADER_PARAMETERS structure.
+ *
+ * This function frees the memory allocated for a BGD_SHADER_PARAMETERS structure.
+ *
+ * @param params A pointer to the BGD_SHADER_PARAMETERS structure to free.
+ */
+
+void shader_free_parameters( BGD_SHADER_PARAMETERS* params ) {
+#if defined( USE_SDL2_GPU ) // || defined( USE_SDL2 )
+    if (params) {
+        free(params->params);
+        free(params);
+    }
 #endif
 }
 
 /* --------------------------------------------------------------------------- */
+/**
+ * @brief Retrieves the location of a uniform variable in the specified shader program.
+ *
+ * This function retrieves the location of a uniform variable in the specified shader program.
+ *
+ * @param shader A pointer to the shader program.
+ * @param name The name of the uniform variable.
+ *
+ * @return The location of the uniform variable, or -1 if the variable is not found.
+ */
 
 int shader_getuniformlocation( BGD_SHADER * shader, const char * name ) {
 #ifdef USE_SDL2_GPU
     if ( !shader ) return -1;
     return ( int ) GPU_GetUniformLocation( shader->shader, name );
+#elif 0 // USE_SDL2
+    if (!shader) return -1;
+    return glGetUniformLocation(shader->shader, name);
 #else
     return -1;
 #endif
 }
 
 /* --------------------------------------------------------------------------- */
-
-void shader_setshaderimage( GRAPH * image, int location, int image_unit ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetShaderImage( image->tex, location, image_unit );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setattributei( int location, int32_t value ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetAttributei( location, value );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setattributeiv( int location, int nvalues, int32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetAttributeiv( location, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setattributeui( int location, uint32_t value ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetAttributeui( location, value );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setattributeuiv( int location, int nvalues, uint32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetAttributeuiv( location, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setattributef( int location, float value ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetAttributef( location, value );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setattributefv( int location, int nvalues, float * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetAttributefv( location, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformi( int location, int32_t value ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformi( location, value );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformiv( int location, int nvalues, int32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformiv( location, 1, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform2iv( int location, int nvalues, int32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformiv( location, 2, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform3iv( int location, int nvalues, int32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformiv( location, 3, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform4iv( int location, int nvalues, int32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformiv( location, 4, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformui( int location, uint32_t value ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformui( location, value );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformuiv( int location, int nvalues, uint32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformuiv( location, 1, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform2uiv( int location, int nvalues, uint32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformuiv( location, 2, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform3uiv( int location, int nvalues, uint32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformuiv( location, 3, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform4uiv( int location, int nvalues, uint32_t * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformuiv( location, 4, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformf( int location, float value ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformf( location, value );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformfv( int location, int nvalues, float * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformfv( location, 1, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform2fv( int location, int nvalues, float * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformfv( location, 2, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform3fv( int location, int nvalues, float * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformfv( location, 3, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniform4fv( int location, int nvalues, float * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformfv( location, 4, nvalues, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
-
-void shader_setuniformmatrix( int location, int num_matrices, int num_rows, int num_columns, int transpose, float * values ) {
-#ifdef USE_SDL2_GPU
-    GPU_SetUniformMatrixfv( location, num_matrices, num_rows, num_columns, ( GPU_bool ) transpose, values );
-#endif
-}
-
-/* --------------------------------------------------------------------------- */
+/**
+ * @brief Frees the memory allocated for a shader program.
+ *
+ * This function frees the memory allocated for a shader program.
+ *
+ * @param shader A pointer to the shader program to free.
+ */
 
 void shader_free( BGD_SHADER * shader ) {
 #ifdef USE_SDL2_GPU
     if ( !shader ) return;
     GPU_FreeShaderProgram( shader->shader );
     free( shader );
+#elif 0 // USE_SDL2
+    if (!shader) return;
+    glDeleteProgram(shader->shader);
+    free(shader);
+#endif
+}
+
+/* --------------------------------------------------------------------------- */
+/**
+ * @brief Applies settings using BGD_SHADER_PARAMETERS to a shader program.
+ *
+ * This function applies settings using BGD_SHADER_PARAMETERS to a shader program.
+ *
+ * @param params A pointer to the BGD_SHADER_PARAMETERS structure containing the settings.
+ */
+
+void shader_apply_parameters( BGD_SHADER_PARAMETERS* params ) {
+#ifdef USE_SDL2_GPU
+    // Handle case of null parameters
+    if (!params) return;
+
+    for (uint32_t i = 0; i < params->nparams; ++i) {
+        BGD_SHADER_PARAM *param = &params->params[i];
+
+        switch (param->type) {
+            case SHADER_IMAGE:
+                GPU_SetShaderImage( ( ( GRAPH * ) ( param->values ))->tex, param->location, param->image_unit );
+                break;
+
+#if 0
+            case ATTRIBUTE_INT:
+                GPU_SetAttributei( param->location, ( int32_t ) param->value );
+                break;
+
+            case ATTRIBUTE_INT_ARRAY:
+                GPU_SetAttributeiv( param->location, param->nvalues, ( int32_t * ) param->values );
+                break;
+
+            case ATTRIBUTE_UINT:
+                GPU_SetAttributeui( param->location, ( uint32_t ) param->value );
+                break;
+
+            case ATTRIBUTE_UINT_ARRAY:
+                GPU_SetAttributeuiv( param->location, param->n_values, ( uint32_t * ) param->values );
+                break;
+
+            case ATTRIBUTE_FLOAT:
+                GPU_SetAttributef( location, *( float * ) &param->values );
+                break;
+
+            case ATTRIBUTE_FLOAT_ARRAY:
+                GPU_SetAttributefv( param->location, param->n_values, ( float * )param->values );
+                break;
+#endif
+            case UNIFORM_INT:
+                GPU_SetUniformi( param->location, param->value );
+                break;
+
+            case UNIFORM_INT_ARRAY:
+                GPU_SetUniformiv( param->location, 1, param->n_values, ( int32_t * ) param->values );
+                break;
+
+            case UNIFORM_INT2_ARRAY:
+                GPU_SetUniformiv( param->location, 2, param->n_values, ( int32_t * ) param->values );
+                break;
+
+            case UNIFORM_INT3_ARRAY:
+                GPU_SetUniformiv( param->location, 3, param->n_values, ( int32_t * ) param->values );
+                break;
+
+            case UNIFORM_INT4_ARRAY:
+                GPU_SetUniformiv( param->location, 4, param->n_values, ( int32_t * ) param->values );
+                break;
+
+            case UNIFORM_UINT:
+                GPU_SetUniformui( param->location, param->uvalue );
+                break;
+
+            case UNIFORM_UINT_ARRAY:
+                GPU_SetUniformuiv( param->location, 1, param->n_values, ( uint32_t * ) param->values );
+                break;
+
+            case UNIFORM_UINT2_ARRAY:
+                GPU_SetUniformuiv( param->location, 2, param->n_values, ( uint32_t * ) param->values );
+                break;
+
+            case UNIFORM_UINT3_ARRAY:
+                GPU_SetUniformuiv( param->location, 3, param->n_values, ( uint32_t * ) param->values );
+                break;
+
+            case UNIFORM_UINT4_ARRAY:
+                GPU_SetUniformuiv( param->location, 4, param->n_values, ( uint32_t * ) param->values );
+                break;
+
+            case UNIFORM_FLOAT:
+                GPU_SetUniformf( param->location, param->fvalue );
+                break;
+
+            case UNIFORM_FLOAT_ARRAY:
+                GPU_SetUniformfv( param->location, 1, param->n_values, ( float * ) param->values );
+                break;
+
+            case UNIFORM_FLOAT2_ARRAY:
+                GPU_SetUniformfv( param->location, 2, param->n_values, ( float * ) param->values );
+                break;
+
+            case UNIFORM_FLOAT3_ARRAY:
+                GPU_SetUniformfv( param->location, 3, param->n_values, ( float * ) param->values );
+                break;
+
+            case UNIFORM_FLOAT4_ARRAY:
+                GPU_SetUniformfv( param->location, 4, param->n_values, ( float * ) param->values );
+                break;
+
+            case UNIFORM_MATRIX:
+                GPU_SetUniformMatrixfv( param->location, param->num_matrices, param->num_rows, param->num_columns, ( GPU_bool ) param->transpose, param->values );
+                break;
+
+            default:
+                // Handle invalid parameter type
+                break;
+        }
+    }
+#elif 0 // USE_SDL2
+    // Handle case of null parameters
+    if (!params) return;
+
+    for (uint32_t i = 0; i < params->nparams; ++i) {
+        BGD_SHADER_PARAM* param = &params->params[i];
+
+        switch (param->type) {
+            case UNIFORM_INT:
+                glUniform1i(param->location, param->value);
+                break;
+
+            case UNIFORM_INT_ARRAY:
+                glUniform1iv(param->location, param->n_values, (const GLint*)param->values);
+                break;
+
+            case UNIFORM_INT2_ARRAY:
+                glUniform2iv(param->location, param->n_values, (const GLint*)param->values);
+                break;
+
+            case UNIFORM_INT3_ARRAY:
+                glUniform3iv(param->location, param->n_values, (const GLint*)param->values);
+                break;
+
+            case UNIFORM_INT4_ARRAY:
+                glUniform4iv(param->location, param->n_values, (const GLint*)param->values);
+                break;
+
+            case UNIFORM_UINT:
+                glUniform1ui(param->location, param->uvalue);
+                break;
+
+            case UNIFORM_UINT_ARRAY:
+                glUniform1uiv(param->location, param->n_values, (const GLuint*)param->values);
+                break;
+
+            case UNIFORM_UINT2_ARRAY:
+                glUniform2uiv(param->location, param->n_values, (const GLuint*)param->values);
+                break;
+
+            case UNIFORM_UINT3_ARRAY:
+                glUniform3uiv(param->location, param->n_values, (const GLuint*)param->values);
+                break;
+
+            case UNIFORM_UINT4_ARRAY:
+                glUniform4uiv(param->location, param->n_values, (const GLuint*)param->values);
+                break;
+
+            case UNIFORM_FLOAT:
+                glUniform1f(param->location, param->fvalue);
+                break;
+
+            case UNIFORM_FLOAT_ARRAY:
+                glUniform1fv(param->location, param->n_values, (const GLfloat*)param->values);
+                break;
+
+            case UNIFORM_FLOAT2_ARRAY:
+                glUniform2fv(param->location, param->n_values, (const GLfloat*)param->values);
+                break;
+
+            case UNIFORM_FLOAT3_ARRAY:
+                glUniform3fv(param->location, param->n_values, (const GLfloat*)param->values);
+                break;
+
+            case UNIFORM_FLOAT4_ARRAY:
+                glUniform4fv(param->location, param->n_values, (const GLfloat*)param->values);
+                break;
+
+            case UNIFORM_MATRIX:
+                glUniformMatrix4fv(param->location, param->num_matrices, param->transpose, (const GLfloat*)param->values);
+                break;
+
+            default:
+                // Handle invalid parameter type
+                break;
+        }
+    }
 #endif
 }
 

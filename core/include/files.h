@@ -85,10 +85,10 @@ extern int    file_qgets       (file * fp, char * buffer, int len) ;
 extern int    file_qputs       (file * fp, char * buffer) ;
 extern int    file_gets        (file * fp, char * buffer, int len) ;
 extern int    file_puts        (file * fp, char * buffer) ;
-extern int    file_size        (file * fp) ;
-extern int    file_pos         (file * fp) ;
+extern long   file_size        (file * fp) ;
+extern long   file_pos         (file * fp) ;
 extern int    file_flush       (file * fp) ;
-extern int    file_seek        (file * fp, int pos, int where) ;
+extern int    file_seek        (file * fp, long pos, int where) ;
 extern void   file_rewind      (file * fp) ;
 extern void   file_addp        (const char * path) ;
 extern void   file_close       (file * fp) ;
@@ -97,7 +97,6 @@ extern int    file_move        (const char * source_file, const char * target_fi
 extern int    file_exists      (const char * filename) ;
 extern void   file_add_xfile   (file * fp, const char * stubname, long offset, char * name, int size) ;
 extern int    file_eof         (file * fp) ;
-extern FILE * file_fp          (file * fp) ;
 
 extern void   xfile_init       (int maxfiles);
 

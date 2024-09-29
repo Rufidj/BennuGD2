@@ -116,6 +116,9 @@ typedef struct {
 #endif
     } * segments;
 
+    // used for get_pixel
+    int dirty; // used for get_pixel
+
 } GRAPH;
 
 /* --------------------------------------------------------------------------- */
@@ -132,6 +135,8 @@ extern void bitmap_set_cbox( GRAPH * map, int64_t code, int64_t shape, int64_t x
 extern CBOX * bitmap_get_cbox( GRAPH * map, int64_t code );
 extern void bitmap_remove_cbox( GRAPH * map, int64_t code );
 extern CBOX * bitmap_get_cbox_by_pos( GRAPH * map, int64_t pos );
+
+extern void bitmap_update_surface( GRAPH * gr );
 
 /* --------------------------------------------------------------------------- */
 

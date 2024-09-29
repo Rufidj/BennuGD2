@@ -77,6 +77,7 @@ int renderer_height = 0;
 SDL_Window * gWindow = NULL;
 
 #ifdef USE_SDL2
+// shaders -> SDL_GLContext glContext = NULL;
 SDL_Renderer * gRenderer = NULL;
 #else
 GPU_Target * gRenderer = NULL;
@@ -197,10 +198,12 @@ int gr_set_mode( int width, int height, int flags ) {
     renderer_height = height;
 
     fullscreen = ( flags & MODE_FULLSCREEN ) ? 1 : 0 ;
-    grab_input = ( flags & MODE_MODAL ) ? 1 : 0 ;
+    grab_input = ( flags & MODE_GRAB_INPUT ) ? 1 : 0 ;
     frameless = ( flags & MODE_FRAMELESS ) ? 1 : 0 ;
     waitvsync = ( flags & MODE_WAITVSYNC ) ? 1 : 0 ;
     fullscreen |= GLOQWORD( libbggfx, fullscreen );
+
+    int64_t current_scale_resolution_aspectratio = scale_resolution_aspectratio;
 
     scale_resolution = GLOQWORD( libbggfx, SCALE_RESOLUTION );
     scale_resolution_aspectratio = GLOQWORD( libbggfx, SCALE_RESOLUTION_ASPECTRATIO );
@@ -217,16 +220,21 @@ int gr_set_mode( int width, int height, int flags ) {
         renderer_height = ( int ) scale_resolution % 10000L ;
     }
 
+    SDL_SetHint( SDL_HINT_GRAB_KEYBOARD, "1" );
+
 #ifdef USE_SDL2
     SDL_SetHint( SDL_HINT_RENDER_VSYNC, waitvsync ? "1" : "0" );
-
     if ( !gWindow ) {
         //Create window
         int sdl_flags = SDL_WINDOW_SHOWN;
         if ( frameless ) sdl_flags |= SDL_WINDOW_BORDERLESS;
         if ( fullscreen ) sdl_flags |= SDL_WINDOW_FULLSCREEN;
         if ( grab_input ) sdl_flags |= SDL_WINDOW_INPUT_GRABBED;
+#ifdef PS3_PPU
+        gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, renderer_width, renderer_height, sdl_flags );
+#else
         gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, renderer_width, renderer_height, sdl_flags | SDL_WINDOW_OPENGL );
+#endif
         if( gWindow == NULL ) return -1;
     } else {
         SDL_SetWindowFullscreen( gWindow, fullscreen  ? SDL_WINDOW_FULLSCREEN : 0 );
@@ -236,17 +244,41 @@ int gr_set_mode( int width, int height, int flags ) {
         SDL_SetWindowPosition( gWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED );
     }
 
+#if 0 // USE_SDL2
+    if ( !glContext ) {
+        glContext = SDL_GL_CreateContext(gWindow);
+        if (!glContext) return -1;
+
+        GLenum glewError = glewInit();
+        if (glewError != GLEW_OK) {
+            printf("Error: Failed to initialize GLEW: %s\n", glewGetErrorString(glewError));
+            SDL_GL_DeleteContext(glContext);
+            glContext = NULL;
+            return -1;
+        }
+    }
+#endif
+
+#ifndef PS3_PPU
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+#endif
 
     if ( !gRenderer ) {
         //Create renderer for window
+#ifdef PS3_PPU
+        gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE );
+//        gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+#else
         gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+#endif
         if( gRenderer == NULL ) {
             printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
             return -1;
         }
         SDL_GetRendererInfo( gRenderer, &gRendererInfo );
+
         gMaxTextureSize = gRendererInfo.max_texture_width;
+
         show_renderer_info( &gRendererInfo );
 //        printf( "max texture size: %d x %d\n", gRendererInfo.max_texture_width, gRendererInfo.max_texture_height );
     }
@@ -280,6 +312,11 @@ int gr_set_mode( int width, int height, int flags ) {
 
         GPU_SetViewport( gRenderer, GPU_MakeRect(0, 0, renderer_width, renderer_height) );
         GPU_SetVirtualResolution( gRenderer, renderer_width, renderer_height );
+
+        gWindow = SDL_GetWindowFromID( gRenderer->context->windowID );
+
+        SDL_SetWindowBordered( gWindow, frameless ? SDL_FALSE : SDL_TRUE );
+        SDL_SetWindowGrab( gWindow, grab_input ? SDL_TRUE : SDL_FALSE );
     }
 
     if ( waitvsync ) {
@@ -295,13 +332,12 @@ int gr_set_mode( int width, int height, int flags ) {
         if ( current.w != renderer_width || current.h != renderer_height ) {
             renderer_width = current.w;
             renderer_height = current.h;
-            if ( !scale_resolution || scale_resolution == -1 ) {
-                scale_resolution = renderer_width * 1000 + renderer_height;
+            if ( scale_resolution == -1 ) {
+                scale_resolution = renderer_width * 10000 + renderer_height;
                 scale_resolution_aspectratio = SRA_PRESERVE;
             }
         }
     }
-
 #endif
 
 #ifdef USE_SDL2
@@ -313,7 +349,7 @@ int gr_set_mode( int width, int height, int flags ) {
 
     scr_initialized = 1 ;
 
-    if ( scale_resolution && scale_resolution != -1 && ( renderer_width != width || renderer_height != height ) ) {
+    if ( scale_resolution != -1 && ( renderer_width != width || renderer_height != height || scale_resolution_aspectratio != current_scale_resolution_aspectratio ) ) {
         switch ( scale_resolution_aspectratio ) {
             case SRA_PRESERVE:
 #ifdef USE_SDL2

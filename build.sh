@@ -72,6 +72,28 @@ build_app() {
     cd -
 }
 
+#!/bin/bash
+
+# Function to search for the library in the given paths
+search_lib() {
+    local -n result=$1
+    local paths=("${!2}")
+
+    # Initialize the result
+    result=""
+
+    # Iterate through the list of paths and search for the library
+    for path in "${paths[@]}"; do
+        # Search for the corresponding library in the path
+        result=$(find "${path}" -name "$4" 2>/dev/null)
+
+        # If the library is found, assign the result and exit the loop
+        if [[ -n "${result}" ]]; then
+            break
+        fi
+    done
+}
+
 BUILD_TYPE=Release
 STATIC_ENABLED=0
 LIBRARY_BUILD_TYPE=SHARED
@@ -96,13 +118,13 @@ do
             USE_SDL2_GPU=1
             ;;
 
-        windows)
+        windows|win)
             TARGET=x86_64-w64-mingw32
             COMPILER="-MINGW"
             SDL2GPUDIR="../../vendor/sdl-gpu/build/$ENV{TARGET}"
             if [ "$MSYSTEM" = "" ]; then
                 # linux
-                CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/Toolchain-cross-mingw32-linux.cmake -DSDL2_INCLUDE_DIR=/usr/x86_64-w64-mingw32/include/SDL2"
+                CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/Toolchain-cross-mingw32-linux.cmake -DSDL2_INCLUDE_DIR=/usr/${TARGET}/include/SDL2"
             fi
             ;;
 
@@ -121,22 +143,47 @@ do
 
         linux)
             TARGET=linux-gnu
-            LIBVLC=1
             ;;
 
-        windows32)
+        ps3)
+            TARGET=powerpc64-ps3-elf
+            STATIC_ENABLED=1
+            USE_SDL2=1
+            USE_SDL2_GPU=0
+            COMPILER="-mcpu=cell"
+            CMAKE_EXTRA="-DPS3_PPU=1 -DSDL2_INCLUDE_DIR=${PS3DEV}/portlibs/ppu/include/SDL2 -DSDL2_LIBRARY=${PS3DEV}/portlibs/ppu/lib/libSDL2.a -DSDL2_IMAGE_INCLUDE_DIR=${PS3DEV}/portlibs/ppu/include/SDL2 -DSDL2_IMAGE_LIBRARY=${PS3DEV}/portlibs/ppu/lib/libSDL2_image.a -DSDL2_MIXER_INCLUDE_DIR=${PS3DEV}/portlibs/ppu/include/SDL2 -DSDLMIXER_LIBRARY=${PS3DEV}/portlibs/ppu/lib/libSDL2_mixer.a -DZLIB_LIBRARY=-lz -DZLIB_INCLUDE_DIR=${PS3DEV}/portlibs/ppu/include -DCMAKE_INCLUDE_PATH=${PS3DEV}/portlibs/ppu/include
+                -DBUILD_TARGET=interpreter"
+#            -I${PS3DEV}/portlibs/ppu/include 
+#            -L${PS3DEV}/portlibs/ppu/lib 
+#            -lSDL2_image -lSDL2 -lm -lgcm_sys -lrsx -lsysutil -lrt -llv2 -lio -laudio
+            ;;
+
+        windows32|win32)
             TARGET=i686-w64-mingw32
+            COMPILER="-MINGW"
             if [ "$MSYSTEM" = "" ]; then
                 # linux
-                CMAKE_EXTRA="-DBUILD_WIN32=ON -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/Toolchain-cross-mingw32-linux.cmake -DSDL2_INCLUDE_DIR=/usr/i686-w64-mingw32/include/SDL2 -DSDL2_LIBRARY=/usr/${TARGET}/bin/SDL2.dll -DSDL2_IMAGE_LIBRARY=/usr/${TARGET}/bin/SDL2_image.dll -DSDLMIXER_LIBRARY=/usr/${TARGET}/bin/SDL2_mixer.dll"
+                CMAKE_EXTRA="-DBUILD_WIN32=ON -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/Toolchain-cross-mingw32-linux.cmake -DSDL2_INCLUDE_DIR=/usr/${TARGET}/include/SDL2 -DSDL2_LIBRARY=/usr/${TARGET}/bin/SDL2.dll -DSDL2_IMAGE_LIBRARY=/usr/${TARGET}/bin/SDL2_image.dll -DSDLMIXER_LIBRARY=/usr/${TARGET}/bin/SDL2_mixer.dll -DSDL2_IMAGE_INCLUDE_DIR=/usr/${TARGET}/include/"
             fi
             ;;
 
         linux32)
             TARGET=i386-linux-gnu
+
             if [ "$MSYSTEM" = "" ]; then
+                paths=(
+                    "/usr/lib/${TARGET}"
+                    "/usr/lib32"
+                    # Add more paths if necessary
+                )
+
+                # Call the function to search for each library
+                search_lib SDL2_LIBRARY paths[@] x86_64 "libSDL2.so"
+                search_lib SDL2_IMAGE_LIBRARY paths[@] x86_64 "libSDL2_image.so"
+                search_lib SDLMIXER_LIBRARY paths[@] x86_64 "libSDL2_mixer.so"
+
                 # linux
-                CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/linux_i686.toolchain.cmake -DSDL2_INCLUDE_DIR=/usr/include/SDL2 -DSDL2_LIBRARY=/usr/lib/${TARGET}/libSDL2-2.0.so.0 -DSDL2_IMAGE_LIBRARY=/usr/lib/${TARGET}/libSDL2_image-2.0.so.0 -DSDLMIXER_LIBRARY=/usr/lib/${TARGET}/libSDL2_mixer-2.0.so.0"
+                CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/linux_i686.toolchain.cmake -DSDL2_INCLUDE_DIR=/usr/include/SDL2 -DSDL2_LIBRARY=${SDL2_LIBRARY} -DSDL2_IMAGE_LIBRARY=${SDL2_IMAGE_LIBRARY} -DSDLMIXER_LIBRARY=${SDLMIXER_LIBRARY}"
             fi
             ;;
 
@@ -144,6 +191,8 @@ do
             TARGET=x86_64-apple-darwin14
             CMAKE_EXTRA="-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10 -DSDL2_INCLUDE_DIR=${SDKROOT}/../../macports/pkgs/opt/local/include/SDL2 -DSDL2_LIBRARY=${SDKROOT}/../../macports/pkgs/opt/local/lib/libSDL2.dylib -DSDL2_LIBRARIES=${SDKROOT}/../../macports/pkgs/opt/local/lib/libSDL2.dylib -DSDL2_IMAGE_INCLUDE_DIR=${SDKROOT}/../../macports/pkgs/opt/local/include/SDL2 -DSDL2_IMAGE_LIBRARY=${SDKROOT}/../../macports/pkgs/opt/local/lib/libSDL2_image.dylib -DSDL2_Mixer_INCLUDE_DIRS=${SDKROOT}/../../macports/pkgs/opt/local/include/SDL2 -DSDLMIXER_LIBRARY=${SDKROOT}/../../macports/pkgs/opt/local/lib/libSDL2_mixer.dylib -DCMAKE_C_COMPILER=${SDKROOT}/../../bin/o64-clang -DCMAKE_CXX_COMPILER=${SDKROOT}/../../bin/o64-clang++  -DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_SYSROOT=${SDKROOT}/../../SDK/MacOSX10.10.sdk"
             CMAKE_EXTRA+=" -DCMAKE_C_FLAGS=-Wno-pointer-sign"
+            EXTRA_CFLAGS+="-I${SDKROOT}/../../macports/pkgs/opt/local/include"
+            STDLIBSFLAGS="-L${SDKROOT}/../../macports/pkgs/opt/local/lib"
             ;;
 
         static)
@@ -205,7 +254,6 @@ then
 
         linux)
             TARGET=linux-gnu
-            LIBVLC=1
             ;;
     esac
 
@@ -213,12 +261,6 @@ then
     then
         show_help
     fi
-fi
-
-if [ "$LIBVLC" == "1" ]
-then
-    EXTRA_CFLAGS+=" -DLIBVLC_ENABLED=1"
-    MISC_FLAGS+=" -DLIBVLC_ENABLED=1"
 fi
 
 if [ "$USE_SDL2" == "1" ]
@@ -234,6 +276,9 @@ if [ "$STATIC_ENABLED" == "1" ]
 then
     EXTRA_CFLAGS+=" -D__STATIC__"
     LIBRARY_BUILD_TYPE=STATIC
+    cd core
+    ./make-fakedl.sh
+    cd -
 fi
 
 export PKG_CONFIG_PATH
@@ -252,7 +297,26 @@ fi
 echo "### Building BennuGD ($TARGET) ###"
 mkdir -p build/$TARGET 2>/dev/null
 cd build/$TARGET
-cmake ../.. $DEBUG ${CMAKE_CXX_COMPILER} -DINCLUDE_DIRECTORIES="${INCLUDE_DIRECTORIES}" -DCMAKE_BUILD_TYPE=$BUILD_TYPE $CMAKE_EXTRA $VERBOSE -DEXTRA_CFLAGS="$EXTRA_CFLAGS" $MISC_FLAGS -DLIBRARY_BUILD_TYPE=$LIBRARY_BUILD_TYPE
+if [ "$TARGET" == "powerpc64-ps3-elf" ]
+then
+    AS=ppu-as \
+    CC=ppu-gcc \
+    CXX=ppu-g++ \
+    AR=ppu-ar \
+    LD=ppu-gcc \
+    STRIP=ppu-strip \
+    OBJCOPY=ppu-objcopy \
+    PATH=$PS3DEV/bin:$PS3DEV/ppu/bin:$PATH \
+    PORTLIBS=$PS3DEV/portlibs/ppu \
+    CFLAGS_INIT="" \
+    CXXFLAGS_INIT="-D_GLIBCX11_USE_C99_STDIO" \
+    CMAKE_INCLUDE_DIRECTORIES=$PS3DEV/ppu/include:$PS3DEV/ppu/include/simdmath \
+    CMAKE_LIBRARY_DIRECTORIES=$PS3DEV/ppu/lib \
+    CMAKE_PREFIX_PATH=$PS3DEV/ppu \
+    cmake ../.. $DEBUG ${CMAKE_CXX_COMPILER} -DINCLUDE_DIRECTORIES="${INCLUDE_DIRECTORIES}" -DCMAKE_BUILD_TYPE=$BUILD_TYPE $CMAKE_EXTRA $VERBOSE -DEXTRA_CFLAGS="$EXTRA_CFLAGS" $MISC_FLAGS -DLIBRARY_BUILD_TYPE=$LIBRARY_BUILD_TYPE -DSTDLIBSFLAGS="${STDLIBSFLAGS}"
+else
+    cmake ../.. $DEBUG ${CMAKE_CXX_COMPILER} -DINCLUDE_DIRECTORIES="${INCLUDE_DIRECTORIES}" -DCMAKE_BUILD_TYPE=$BUILD_TYPE $CMAKE_EXTRA $VERBOSE -DEXTRA_CFLAGS="$EXTRA_CFLAGS" $MISC_FLAGS -DLIBRARY_BUILD_TYPE=$LIBRARY_BUILD_TYPE -DSTDLIBSFLAGS="${STDLIBSFLAGS}"
+fi
 if grep -q "CMAKE_GENERATOR:INTERNAL=Ninja" CMakeCache.txt; then
     ninja
 elif grep -q "CMAKE_GENERATOR:INTERNAL=Unix Makefiles" CMakeCache.txt; then

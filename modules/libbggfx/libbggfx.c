@@ -60,6 +60,7 @@ DLVARFIXUP __bgdexport( libbggfx, globals_fixup )[] = {
     { "wm_info.focus_status"                            , NULL, -1, -1 },
     { "wm_info.mouse_status"                            , NULL, -1, -1 },
 
+    { "text.region"                                     , NULL, -1, -1 },
     { "text.z"                                          , NULL, -1, -1 },
     { "text.flags"                                      , NULL, -1, -1 },
     { "text.alpha"                                      , NULL, -1, -1 },
@@ -75,6 +76,7 @@ DLVARFIXUP __bgdexport( libbggfx, globals_fixup )[] = {
     { "text.custom_blendmode.equation_rgb"              , NULL, -1, -1 },
     { "text.custom_blendmode.equation_alpha"            , NULL, -1, -1 },
     { "text.shader"                                     , NULL, -1, -1 },
+    { "text.shader_params"                              , NULL, -1, -1 },
 
     /* backgound */
     { "background.file"                                 , NULL, -1, -1 },
@@ -96,10 +98,9 @@ DLVARFIXUP __bgdexport( libbggfx, globals_fixup )[] = {
     { "background.custom_blendmode.equation_rgb"        , NULL, -1, -1 },
     { "background.custom_blendmode.equation_alpha"      , NULL, -1, -1 },
     { "background.shader"                               , NULL, -1, -1 },
+    { "background.shader_params"                        , NULL, -1, -1 },
 
     { "scroll"                                          , NULL, -1, -1 },
-
-    { "shader"                                          , NULL, -1, -1 },
 
     { NULL                                              , NULL, -1, -1 }
 };
@@ -146,6 +147,7 @@ DLVARFIXUP __bgdexport( libbggfx, locals_fixup )[] = {
     { "custom_blendmode.equation_rgb"                   , NULL, -1, -1 },
     { "custom_blendmode.equation_alpha"                 , NULL, -1, -1 },
     { "shader"                                          , NULL, -1, -1 },
+    { "shader_params"                                   , NULL, -1, -1 },
 
     { NULL                                              , NULL, -1, -1 }
 };
@@ -196,16 +198,18 @@ void __bgdexport( libbggfx, instance_destroy_hook )( INSTANCE * r ) {
 /* --------------------------------------------------------------------------- */
 
 void __bgdexport( libbggfx, module_initialize )() {
-    grlib_init() ;
+    grlib_init();
     gr_video_init();
     gr_font_init();
     frame_init();
     gr_fade_initalize();
+    media_init();
 }
 
 /* --------------------------------------------------------------------------- */
 
 void __bgdexport( libbggfx, module_finalize )() {
+    media_exit();
     frame_exit();
     gr_video_exit();
 }
