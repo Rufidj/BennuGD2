@@ -62,7 +62,7 @@ jobs:
 
       - name: List files in build directory
         run: |
-          ls -R build/
+          ls -R build\x86_64-w64-mingw32
 
       # Guardar los artefactos
       - name: Upload Artifacts
