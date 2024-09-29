@@ -58,4 +58,3 @@ jobs:
       - name: Build BennuGD2
         run: |
           ./build.sh windows
-          cp dependencies/x86_64-w64-mingw32/* build/x86_64-w64-mingw32/bin/
