@@ -14,10 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install MinGW-w64 and SDL2 dependencies
+      - name: Install MinGW-w64 and dependencies
         run: |
           sudo apt update
           sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev
+
+      - name: Install SDL2 for MinGW
+        run: |
+          wget https://libsdl.org/release/SDL2-devel-2.26.5-windows-x64.zip
+          unzip SDL2-devel-2.26.5-windows-x64.zip -d $HOME/SDL2
+          export CMAKE_PREFIX_PATH=$HOME/SDL2
 
       - name: Clone BennuGD2 repository
         run: |
@@ -28,7 +34,10 @@ jobs:
       - name: Build SDL GPU
         run: |
           cd BennuGD2/vendor
-          ./build-sdl-gpu.sh windows clean
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_PREFIX_PATH=$HOME/SDL2
+          make
 
       - name: Build BennuGD2
         run: |
