@@ -14,10 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install MinGW-w64 and SDL2
+      - name: Install MinGW-w64 and SDL2 dependencies
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev
+          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev
 
       - name: Clone BennuGD2 repository
         run: |
