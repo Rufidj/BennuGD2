@@ -47,36 +47,32 @@ jobs:
       - name: Update submodules
         run: git submodule update --init --recursive
 
-      - name: Install SDL2 with CMake Support
+      - name: Install SDL2 and dependencies
         run: |
-          pacman -Syu --noconfirm && \
-          pacman -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-SDL2-devel
-        shell: msys2
+          echo "Updating and installing SDL2 and dependencies..."
+          C:/msys64/usr/bin/pacman.exe -Syu --noconfirm
+          C:/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-SDL2-devel
 
       - name: Set up CMake with MinGW
         run: |
-          cmake -G "MinGW Makefiles" \
+          C:/msys64/mingw64/bin/cmake.exe -G "MinGW Makefiles" \
             -DZLIB_LIBRARY=/mingw64/lib/libz.a \
             -DZLIB_INCLUDE_DIR=/mingw64/include \
             -DSDL2_DIR=/mingw64/lib/cmake/SDL2 \
             -DCMAKE_PREFIX_PATH=/mingw64
-        shell: msys2
 
       - name: Build SDL_gpu
         run: |
           cd vendor
-          ./build-sdl-gpu.sh windows
-        shell: msys2
+          C:/msys64/mingw64/bin/bash.exe ./build-sdl-gpu.sh windows
 
       - name: Build BennuGD2
         run: |
-          ./build.sh windows
-        shell: msys2
+          C:/msys64/mingw64/bin/bash.exe ./build.sh windows
 
       - name: List files in build directory
         run: |
-          ls -R build/x86_64-w64-mingw32
-        shell: msys2
+          C:/msys64/mingw64/bin/bash.exe -c "ls -R build/x86_64-w64-mingw32"
 
       # Guardar los artefactos
       - name: Upload Artifacts
@@ -84,6 +80,7 @@ jobs:
         with:
           name: build-artifacts
           path: build/x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+
 
 
 
