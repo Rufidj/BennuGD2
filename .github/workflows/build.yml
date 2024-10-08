@@ -30,33 +30,31 @@ jobs:
       - name: Update submodules
         run: git submodule update --init --recursive
 
-      - name: Install dependencies in MSYS2
+      - name: Create Build Script
         run: |
-          echo "Installing SDL2 and dependencies..."
-          C:/msys64/usr/bin/pacman.exe -Syu --noconfirm && \
-          C:/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-zlib mingw-w64-x86_64-libpng
-        shell: msys2
+          echo "#!/bin/bash" > build_script.sh
+          echo "pacman -Syu --noconfirm" >> build_script.sh
+          echo "pacman -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-zlib mingw-w64-x86_64-libpng" >> build_script.sh
+          echo "cmake -S . -B build -G 'MinGW Makefiles' -DZLIB_LIBRARY=/mingw64/lib/libz.a -DZLIB_INCLUDE_DIR=/mingw64/include -DSDL2_DIR=/mingw64/lib/cmake/SDL2 -DCMAKE_PREFIX_PATH=/mingw64" >> build_script.sh
+          echo "cmake --build build --config Release" >> build_script.sh
+          chmod +x build_script.sh
 
-      - name: Build BennuGD2
+      - name: Run Build Script
         run: |
-          C:/msys64/mingw64/bin/cmake.exe -S . -B build -G "MinGW Makefiles" \
-            -DZLIB_LIBRARY=/mingw64/lib/libz.a \
-            -DZLIB_INCLUDE_DIR=/mingw64/include \
-            -DSDL2_DIR=/mingw64/lib/cmake/SDL2 \
-            -DCMAKE_PREFIX_PATH=/mingw64 && \
-          C:/msys64/mingw64/bin/cmake.exe --build build --config Release
+          C:/msys64/usr/bin/bash.exe ./build_script.sh
         shell: msys2
 
       - name: List files in build directory
         run: |
           C:/msys64/mingw64/bin/bash.exe -c "ls -R build"
-        
+
       # Guardar los artefactos
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-artifacts
           path: build # Ajusta esta ruta según sea necesario
+
 
 
 
