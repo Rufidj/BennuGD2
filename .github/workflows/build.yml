@@ -22,13 +22,13 @@ jobs:
             git
             patch
             cmake
-            mingw-w64-x86_64-toolchain  # Instala la toolchain de MinGW
+            mingw-w64-x86_64-toolchain  
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-SDL2
             mingw-w64-x86_64-SDL2_image
             mingw-w64-x86_64-SDL2_mixer
             mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-zlib  # Asegúrate de que ZLIB esté instalado
+            mingw-w64-x86_64-zlib  
             mingw-w64-x86_64-libogg
             mingw-w64-x86_64-libvorbis
             mingw-w64-x86_64-libtheora
