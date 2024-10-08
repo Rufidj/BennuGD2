@@ -1,0 +1,43 @@
+name: Build for Windows
+
+on:
+  push:
+    branches:
+      - main  # Cambia esto si deseas que el workflow se ejecute en otra rama
+  workflow_dispatch:  # Permite la ejecución manual del flujo de trabajo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install MinGW-w64 and SDL2 dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev
+
+      - name: Clone BennuGD2 repository
+        run: |
+          git clone https://github.com/SplinterGU/BennuGD2.git
+          cd BennuGD2/
+          git submodule update --init --recursive
+
+      - name: Build SDL GPU
+        run: |
+          cd BennuGD2/vendor
+          ./build-sdl-gpu.sh linux clean
+
+      - name: Build BennuGD2
+        run: |
+          cd BennuGD2
+          ./build.sh windows clean
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: BennuGD2-artifacts
+          path: |
+            bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
