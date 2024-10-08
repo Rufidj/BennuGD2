@@ -14,34 +14,46 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Install MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: |
-            git
-            patch
-            cmake
-            mingw-w64-x86_64-toolchain
-
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
-      - name: Create Build Script
+      - name: Download SDL2
         run: |
-          echo "#!/bin/bash" > build_script.sh
-          echo "pacman -Syu --noconfirm" >> build_script.sh
-          echo "pacman -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-zlib mingw-w64-x86_64-libpng" >> build_script.sh
-          echo "cmake -S . -B build -G 'MinGW Makefiles' -DZLIB_LIBRARY=/mingw64/lib/libz.a -DZLIB_INCLUDE_DIR=/mingw64/include -DSDL2_DIR=/mingw64/lib/cmake/SDL2 -DCMAKE_PREFIX_PATH=/mingw64" >> build_script.sh
-          echo "cmake --build build --config Release" >> build_script.sh
-          chmod +x build_script.sh
+          curl -L https://www.libsdl.org/release/SDL2-devel-2.26.1-mingw.tar.gz --output SDL2.tar.gz
+          tar -xzf SDL2.tar.gz
+          mkdir -p C:/msys64/mingw64/lib/
+          mkdir -p C:/msys64/mingw64/include/
+          cp -r SDL2-2.26.1/x86_64-w64-mingw32/lib/* C:/msys64/mingw64/lib/
+          cp -r SDL2-2.26.1/x86_64-w64-mingw32/include/* C:/msys64/mingw64/include/
 
-      - name: Run Build Script
+      - name: Download SDL2_image
         run: |
-          C:/msys64/usr/bin/bash.exe ./build_script.sh
+          curl -L https://www.libsdl.org/projects/SDL_image/release/SDL2_image-devel-2.6.2-mingw.tar.gz --output SDL2_image.tar.gz
+          tar -xzf SDL2_image.tar.gz
+          cp -r SDL2_image-2.6.2/x86_64-w64-mingw32/lib/* C:/msys64/mingw64/lib/
+          cp -r SDL2_image-2.6.2/x86_64-w64-mingw32/include/* C:/msys64/mingw64/include/
+
+      - name: Download SDL2_mixer
+        run: |
+          curl -L https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-devel-2.6.3-mingw.tar.gz --output SDL2_mixer.tar.gz
+          tar -xzf SDL2_mixer.tar.gz
+          cp -r SDL2_mixer-2.6.3/x86_64-w64-mingw32/lib/* C:/msys64/mingw64/lib/
+          cp -r SDL2_mixer-2.6.3/x86_64-w64-mingw32/include/* C:/msys64/mingw64/include/
+
+      - name: Install remaining dependencies
+        run: |
+          mkdir -p C:/msys64/mingw64/lib/
+          mkdir -p C:/msys64/mingw64/include/
+          # Aquí puedes agregar más dependencias si es necesario, descargándolas manualmente
+
+      - name: Build BennuGD2
+        run: |
+          C:/msys64/mingw64/bin/cmake.exe -S . -B build -G "MinGW Makefiles" \
+            -DZLIB_LIBRARY=C:/msys64/mingw64/lib/libz.a \
+            -DZLIB_INCLUDE_DIR=C:/msys64/mingw64/include \
+            -DSDL2_DIR=C:/msys64/mingw64/lib/cmake/SDL2 \
+            -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 && \
+          C:/msys64/mingw64/bin/cmake.exe --build build --config Release
         shell: msys2
 
       - name: List files in build directory
@@ -54,6 +66,7 @@ jobs:
         with:
           name: build-artifacts
           path: build # Ajusta esta ruta según sea necesario
+
 
 
 
