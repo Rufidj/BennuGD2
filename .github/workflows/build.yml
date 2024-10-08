@@ -22,7 +22,7 @@ jobs:
             git
             patch
             cmake
-            mingw-w64-x86_64-toolchain  # Asegúrate de instalar la toolchain de MinGW
+            mingw-w64-x86_64-toolchain  
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-make
