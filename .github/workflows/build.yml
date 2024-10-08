@@ -22,13 +22,13 @@ jobs:
             git
             patch
             cmake
-            mingw-w64-x86_64-toolchain  
+            mingw-w64-x86_64-toolchain  # Asegúrate de que la toolchain de MinGW esté instalada
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-SDL2
             mingw-w64-x86_64-SDL2_image
             mingw-w64-x86_64-SDL2_mixer
             mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-zlib  
+            mingw-w64-x86_64-zlib  # Asegúrate de que ZLIB esté instalado
             mingw-w64-x86_64-libogg
             mingw-w64-x86_64-libvorbis
             mingw-w64-x86_64-libtheora
@@ -57,12 +57,6 @@ jobs:
         run: |
           echo "Adding MinGW to PATH"
           echo "C:/msys64/mingw64/bin" >> $GITHUB_ENV
-
-      - name: Set compiler environment variables
-        run: |
-          echo "CC=gcc" >> $GITHUB_ENV
-          echo "CXX=g++" >> $GITHUB_ENV
-        shell: bash
 
       - name: Build BennuGD2
         run: |
