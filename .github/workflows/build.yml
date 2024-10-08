@@ -1,68 +1,28 @@
-name: Build BennuGD2
+name: Compilar BennuGD2
 
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # Permite la ejecución manual del flujo de trabajo
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Descargar código
+        uses: actions/checkout@v2
 
-      - name: Download SDL2
+      - name: Instalar dependencias
         run: |
-          curl -L https://www.libsdl.org/release/SDL2-devel-2.26.1-mingw.tar.gz --output SDL2.tar.gz
-          tar -xzf SDL2.tar.gz
-          mkdir -p C:/msys64/mingw64/lib/
-          mkdir -p C:/msys64/mingw64/include/
-          cp -r SDL2-2.26.1/x86_64-w64-mingw32/lib/* C:/msys64/mingw64/lib/
-          cp -r SDL2-2.26.1/x86_64-w64-mingw32/include/* C:/msys64/mingw64/include/
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libpng-dev libsdl2-dev git
 
-      - name: Download SDL2_image
+      - name: Compilar BennuGD2
         run: |
-          curl -L https://www.libsdl.org/projects/SDL_image/release/SDL2_image-devel-2.6.2-mingw.tar.gz --output SDL2_image.tar.gz
-          tar -xzf SDL2_image.tar.gz
-          cp -r SDL2_image-2.6.2/x86_64-w64-mingw32/lib/* C:/msys64/mingw64/lib/
-          cp -r SDL2_image-2.6.2/x86_64-w64-mingw32/include/* C:/msys64/mingw64/include/
+          cd core
+          make -j$(nproc)
 
-      - name: Download SDL2_mixer
-        run: |
-          curl -L https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-devel-2.6.3-mingw.tar.gz --output SDL2_mixer.tar.gz
-          tar -xzf SDL2_mixer.tar.gz
-          cp -r SDL2_mixer-2.6.3/x86_64-w64-mingw32/lib/* C:/msys64/mingw64/lib/
-          cp -r SDL2_mixer-2.6.3/x86_64-w64-mingw32/include/* C:/msys64/mingw64/include/
-
-      - name: Install remaining dependencies
-        run: |
-          mkdir -p C:/msys64/mingw64/lib/
-          mkdir -p C:/msys64/mingw64/include/
-          # Aquí puedes agregar más dependencias si es necesario, descargándolas manualmente
-
-      - name: Build BennuGD2
-        run: |
-          C:/msys64/mingw64/bin/cmake.exe -S . -B build -G "MinGW Makefiles" \
-            -DZLIB_LIBRARY=C:/msys64/mingw64/lib/libz.a \
-            -DZLIB_INCLUDE_DIR=C:/msys64/mingw64/include \
-            -DSDL2_DIR=C:/msys64/mingw64/lib/cmake/SDL2 \
-            -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 && \
-          C:/msys64/mingw64/bin/cmake.exe --build build --config Release
-        shell: msys2
-
-      - name: List files in build directory
-        run: |
-          C:/msys64/mingw64/bin/bash.exe -c "ls -R build"
-
-      # Guardar los artefactos
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifacts
-          path: build # Ajusta esta ruta según sea necesario
+      - name: Verificar compilación
+        run: ./bgdi --version
