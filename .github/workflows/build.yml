@@ -1,4 +1,4 @@
-name: Build for Ubuntu
+name: Build for Windows
 
 on:
   push:
@@ -40,4 +40,4 @@ jobs:
         with:
           name: BennuGD2-artifacts
           path: |
-            build/linux-gnu/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+            BennuGD2/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
