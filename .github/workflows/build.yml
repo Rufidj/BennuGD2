@@ -50,21 +50,26 @@ jobs:
       - name: Update submodules
         run: git submodule update --init --recursive
 
+      - name: Set up CMake with MinGW
+        run: |
+          cmake -G "MinGW Makefiles" -DZLIB_LIBRARY=C:/msys64/mingw64/lib/libz.a -DZLIB_INCLUDE_DIR=C:/msys64/mingw64/include
+        shell: bash
+
       - name: Build SDL_gpu
         run: |
           cd vendor
           ./build-sdl-gpu.sh windows
-        shell: bash  # Especificar que se use Bash para ejecutar el script
+        shell: bash
 
       - name: Build BennuGD2
         run: |
           ./build.sh windows
-        shell: bash  # Especificar que se use Bash para ejecutar el script
+        shell: bash
 
       - name: List files in build directory
         run: |
           ls -R build\x86_64-w64-mingw32
-        shell: bash  # Asegurar que se utilice Bash también para listar los archivos
+        shell: bash
 
       # Guardar los artefactos
       - name: Upload Artifacts
@@ -72,4 +77,5 @@ jobs:
         with:
           name: build-artifacts
           path: build\x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+
 
