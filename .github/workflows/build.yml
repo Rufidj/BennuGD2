@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main  # Cambia esto si deseas que el workflow se ejecute en otra rama
+  workflow_dispatch:  # Permite la ejecución manual del flujo de trabajo
 
 jobs:
   build:
