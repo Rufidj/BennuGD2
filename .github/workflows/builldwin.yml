@@ -17,7 +17,7 @@ jobs:
       - name: Install MinGW-w64 and SDL2 dependencies
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev zlib1g-dev
+          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev
 
       - name: Clone BennuGD2 repository
         run: |
@@ -41,4 +41,3 @@ jobs:
           name: BennuGD2-artifacts
           path: |
             bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
-
