@@ -1,29 +1,30 @@
-name: Compilar BennuGD2
+name: Compilar BennuGD2 en Windows
 
 on:
   push:
     branches:
       - main
   pull_request:
-  workflow_dispatch:  # Permite la ejecución manual
+  workflow_dispatch:  # Permite ejecución manual
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Descargar código
         uses: actions/checkout@v2
 
-      - name: Instalar dependencias
+      - name: Instalar MSYS2 y dependencias
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake libpng-dev libsdl2-dev git
+          choco install -y msys2
+          refreshenv
+          msys2 -c "pacman -Syu --noconfirm"
+          msys2 -c "pacman -S --noconfirm base-devel mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-pkg-config mingw-w64-x86_64-cmake"
 
       - name: Compilar BennuGD2
         run: |
-          cd core
-          make -j$(nproc)
+          msys2 -c "cd core && make -j$(nproc)"
 
       - name: Verificar compilación
-        run: ./bgdi --version
+        run: msys2 -c "./bgdi --version"
