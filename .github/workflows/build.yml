@@ -53,9 +53,10 @@ jobs:
       - name: Set up CMake with MinGW
         run: |
           cmake -G "MinGW Makefiles" \
-            -DZLIB_LIBRARY=C:/msys64/mingw64/lib/libz.a \
-            -DZLIB_INCLUDE_DIR=C:/msys64/mingw64/include \
-            -DCMAKE_PREFIX_PATH="C:/msys64/mingw64"
+            -DZLIB_LIBRARY=/mingw64/lib/libz.a \
+            -DZLIB_INCLUDE_DIR=/mingw64/include \
+            -DSDL2_DIR=/mingw64/lib/cmake/SDL2 \
+            -DCMAKE_PREFIX_PATH=/mingw64
         shell: bash
 
       - name: Build SDL_gpu
@@ -80,6 +81,7 @@ jobs:
         with:
           name: build-artifacts
           path: build\x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+
 
 
 
