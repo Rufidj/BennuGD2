@@ -54,15 +54,17 @@ jobs:
         run: |
           cd vendor
           ./build-sdl-gpu.sh windows
+        shell: bash  # Especificar que se use Bash para ejecutar el script
 
       - name: Build BennuGD2
         run: |
           ./build.sh windows
-         
+        shell: bash  # Especificar que se use Bash para ejecutar el script
 
       - name: List files in build directory
         run: |
           ls -R build\x86_64-w64-mingw32
+        shell: bash  # Asegurar que se utilice Bash también para listar los archivos
 
       # Guardar los artefactos
       - name: Upload Artifacts
@@ -70,3 +72,4 @@ jobs:
         with:
           name: build-artifacts
           path: build\x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+
