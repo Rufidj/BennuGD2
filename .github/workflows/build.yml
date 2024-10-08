@@ -49,41 +49,36 @@ jobs:
 
       - name: Install SDL2 with CMake Support
         run: |
-          pacman -Syu --noconfirm && \
-          pacman -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-SDL2-devel
-        shell: msys2
-
+          bash -lc "pacman -Syu --noconfirm && \
+                    pacman -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-SDL2-devel"
+      
       - name: Set up CMake with MinGW
         run: |
-          cmake -G "MinGW Makefiles" \
+          bash -lc "cmake -G 'MinGW Makefiles' \
             -DZLIB_LIBRARY=/mingw64/lib/libz.a \
             -DZLIB_INCLUDE_DIR=/mingw64/include \
             -DSDL2_DIR=/mingw64/lib/cmake/SDL2 \
-            -DCMAKE_PREFIX_PATH=/mingw64
-        shell: msys2
+            -DCMAKE_PREFIX_PATH=/mingw64"
 
       - name: Build SDL_gpu
         run: |
-          cd vendor
-          ./build-sdl-gpu.sh windows
-        shell: msys2
+          bash -lc "cd vendor && ./build-sdl-gpu.sh windows"
 
       - name: Build BennuGD2
         run: |
-          ./build.sh windows
-        shell: msys2
+          bash -lc "./build.sh windows"
 
       - name: List files in build directory
         run: |
-          ls -R build\x86_64-w64-mingw32
-        shell: msys2
+          bash -lc "ls -R build/x86_64-w64-mingw32"
 
       # Guardar los artefactos
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-artifacts
-          path: build\x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+          path: build/x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+
 
 
 
