@@ -1,76 +1,37 @@
-name: Build BennuGD2
+name: Build for Windows
 
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # Permite la ejecución manual del flujo de trabajo
+      - main  # Cambia esto si deseas que el workflow se ejecute en otra rama
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Install MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: |
-            git
-            patch
-            cmake
-            mingw-w64-x86_64-toolchain  
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-SDL2
-            mingw-w64-x86_64-SDL2_image
-            mingw-w64-x86_64-SDL2_mixer
-            mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-zlib  
-            mingw-w64-x86_64-libogg
-            mingw-w64-x86_64-libvorbis
-            mingw-w64-x86_64-libtheora
-            mingw-w64-x86_64-libmodplug
-            mingw-w64-x86_64-libmikmod
-            mingw-w64-x86_64-libtre-git
-            mingw-w64-x86_64-flac
-            mingw-w64-x86_64-openal
-            mingw-w64-x86_64-libxml2
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-libwebp
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
-      - name: Build SDL_gpu
+      - name: Install MinGW-w64
         run: |
-          cd vendor
-          ./build-sdl-gpu.sh windows
-        shell: bash  # Asegúrate de usar Bash para ejecutar el script
+          sudo apt update
+          sudo apt install -y mingw-w64
 
-      - name: Set up environment for MinGW
+      - name: Clone BennuGD2 repository
         run: |
-          echo "Adding MinGW to PATH"
-          echo "C:/msys64/mingw64/bin" >> $GITHUB_ENV
+          git clone https://github.com/SplinterGU/BennuGD2.git
+          cd BennuGD2/
+          git submodule update --init --recursive
+
+      - name: Build SDL GPU
+        run: |
+          cd BennuGD2/vendor
+          ./build-sdl-gpu.sh linux clean
 
       - name: Build BennuGD2
         run: |
-          cmake -S . -B build -G "MinGW Makefiles" -DZLIB_LIBRARY=C:/msys64/mingw64/lib/libz.a -DZLIB_INCLUDE_DIR=C:/msys64/mingw64/include && cmake --build build
-        shell: bash  # Asegúrate de usar Bash para la construcción
+          cd BennuGD2
+          ./build.sh linux clean
 
-      - name: List files in build directory
-        run: |
-          ls -R build/x86_64-w64-mingw32
-        shell: bash  # Asegúrate de usar Bash para listar archivos
 
-      # Guardar los artefactos
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifacts
-          path: build/x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
