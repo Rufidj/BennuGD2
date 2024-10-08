@@ -23,23 +23,6 @@ jobs:
             patch
             cmake
             mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-emacs
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-libogg
-            mingw-w64-x86_64-libvorbis
-            mingw-w64-x86_64-libtheora
-            mingw-w64-x86_64-libmodplug
-            mingw-w64-x86_64-libmikmod
-            mingw-w64-x86_64-libtre-git
-            mingw-w64-x86_64-flac
-            mingw-w64-x86_64-openal
-            mingw-w64-x86_64-libxml2
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-libwebp
 
       - name: Checkout code
         uses: actions/checkout@v3
@@ -47,39 +30,34 @@ jobs:
       - name: Update submodules
         run: git submodule update --init --recursive
 
-      - name: Install SDL2 and dependencies
+      - name: Install dependencies in MSYS2
         run: |
-          echo "Updating and installing SDL2 and dependencies..."
-          C:/msys64/usr/bin/pacman.exe -Syu --noconfirm
-          C:/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-SDL2-devel
-
-      - name: Set up CMake with MinGW
-        run: |
-          C:/msys64/mingw64/bin/cmake.exe -G "MinGW Makefiles" \
-            -DZLIB_LIBRARY=/mingw64/lib/libz.a \
-            -DZLIB_INCLUDE_DIR=/mingw64/include \
-            -DSDL2_DIR=/mingw64/lib/cmake/SDL2 \
-            -DCMAKE_PREFIX_PATH=/mingw64
-
-      - name: Build SDL_gpu
-        run: |
-          cd vendor
-          C:/msys64/mingw64/bin/bash.exe ./build-sdl-gpu.sh windows
+          echo "Installing SDL2 and dependencies..."
+          C:/msys64/usr/bin/pacman.exe -Syu --noconfirm && \
+          C:/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-zlib mingw-w64-x86_64-libpng
+        shell: msys2
 
       - name: Build BennuGD2
         run: |
-          C:/msys64/mingw64/bin/bash.exe ./build.sh windows
+          C:/msys64/mingw64/bin/cmake.exe -S . -B build -G "MinGW Makefiles" \
+            -DZLIB_LIBRARY=/mingw64/lib/libz.a \
+            -DZLIB_INCLUDE_DIR=/mingw64/include \
+            -DSDL2_DIR=/mingw64/lib/cmake/SDL2 \
+            -DCMAKE_PREFIX_PATH=/mingw64 && \
+          C:/msys64/mingw64/bin/cmake.exe --build build --config Release
+        shell: msys2
 
       - name: List files in build directory
         run: |
-          C:/msys64/mingw64/bin/bash.exe -c "ls -R build/x86_64-w64-mingw32"
-
+          C:/msys64/mingw64/bin/bash.exe -c "ls -R build"
+        
       # Guardar los artefactos
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-artifacts
-          path: build/x86_64-w64-mingw32 # Ajusta esta ruta según sea necesario
+          path: build # Ajusta esta ruta según sea necesario
+
 
 
 
