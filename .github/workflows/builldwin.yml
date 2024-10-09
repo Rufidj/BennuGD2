@@ -21,8 +21,8 @@ jobs:
 
       - name: Install SDL2 for MinGW
         run: |
-          wget https://libsdl.org/release/SDL2-devel-2.26.5-windows-x64.zip
-          unzip SDL2-devel-2.26.5-windows-x64.zip -d $HOME/SDL2
+          wget https://libsdl.org/release/SDL2-devel-2.28.1-mingw.zip  # Actualiza la versión si es necesario
+          unzip SDL2-devel-2.28.1-mingw.zip -d $HOME/SDL2
           export CMAKE_PREFIX_PATH=$HOME/SDL2
 
       - name: Clone BennuGD2 repository
@@ -49,4 +49,4 @@ jobs:
         with:
           name: BennuGD2-artifacts
           path: |
-            bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+            BennuGD2/build/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
