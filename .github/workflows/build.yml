@@ -61,9 +61,4 @@ jobs:
           name: BennuGD2-GNU-Linux
           path: BennuGD2/build/linux-gnu/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: BennuGD2/build/linux-gnu/bin  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
-          publish_branch: gh-pages  # Cambia esto si necesitas publicar en otra rama
+   
