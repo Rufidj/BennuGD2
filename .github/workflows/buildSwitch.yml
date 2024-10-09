@@ -36,9 +36,6 @@ jobs:
       - name: Install switch-portlibs
         run: sudo dkp-pacman -S --noconfirm switch-portlibs
 
-      - name: Install switch-portlib (additional package)
-        run: sudo dkp-pacman -S --noconfirm switch-portlib
-
       - name: Clone BennuGD2 repository
         run: |
           git clone https://github.com/SplinterGU/BennuGD2.git
