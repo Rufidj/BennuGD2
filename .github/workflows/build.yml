@@ -45,4 +45,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: BennuGD2-artifacts
-          path: BennuGD2/build/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+          path: BennuGD2/build/linux-gnu/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
