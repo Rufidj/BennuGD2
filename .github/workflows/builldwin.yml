@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Permite la ejecución manual del flujo de trabajo
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,16 +14,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install CMake and MinGW-w64
+      - name: Install MinGW-w64 and dependencies
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 cmake
+          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev cmake
 
-      - name: Install SDL2 and dependencies
-        run: |
-          sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev
-
-      - name: Download SDL2 for MinGW
+      - name: Install SDL2 for MinGW
         run: |
           wget https://libsdl.org/release/SDL2-devel-2.28.1-mingw.zip
           unzip SDL2-devel-2.28.1-mingw.zip -d $HOME/SDL2
@@ -40,14 +36,10 @@ jobs:
 
       - name: Build SDL GPU
         run: |
-          export CMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32
-          export SDL2_INCLUDE_DIR=$HOME/SDL2/x86_64-w64-mingw32/include/SDL2
-          export SDL2_LIBRARY=$HOME/SDL2/x86_64-w64-mingw32/lib/libSDL2.dll
           cd BennuGD2/vendor
-          chmod +x build-sdl-gpu.sh  # Asegúrate de que el script tenga permisos de ejecución
+          export CMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32
+          export SDL2_LIBRARY=$HOME/SDL2/x86_64-w64-mingw32/lib/libSDL2.dll  # Asegúrate de que la ruta a la biblioteca sea correcta
           ./build-sdl-gpu.sh windows
-
-
 
       - name: Build BennuGD2
         run: |
@@ -59,4 +51,4 @@ jobs:
         with:
           name: BennuGD2-artifacts
           path: |
-            BennuGD2/build/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+            BennuGD2/build/**
