@@ -14,10 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install CMake and MinGW-w64 Toolchain
+      - name: Install CMake and MinGW-w64
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 cmake cmake-mingw-w64
+          sudo apt install -y mingw-w64 cmake
 
       - name: Install SDL2 and dependencies
         run: |
