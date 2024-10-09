@@ -1,10 +1,9 @@
-name: Build Switch
+name: Setup devkitPro, Build BennuGD2, and Upload Artifacts
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
   pull_request:
 
 jobs:
@@ -18,6 +17,10 @@ jobs:
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
 
+      - name: Update pacman configuration
+        run: |
+          sudo sed -i 's/Server = http:\/\/pkg.devkitpro.org\/packages/Server = https:\/\/pkg.devkitpro.org\/packages/' /etc/pacman.conf
+
       - name: Download devkitPro installer
         run: wget https://apt.devkitpro.org/install-devkitpro-pacman
 
@@ -27,18 +30,20 @@ jobs:
       - name: Run devkitPro installer
         run: sudo ./install-devkitpro-pacman
 
+      - name: Fix /etc/mtab symlink
+        run: sudo ln -s /proc/self/mounts /etc/mtab
 
       - name: Update devkitPro pacman
         run: sudo dkp-pacman -Sy
 
       - name: Install switch-dev package
-        run: sudo dkp-pacman -S switch-dev
+        run: sudo dkp-pacman -S --noconfirm switch-dev
 
       - name: Install switch-portlibs
-        run: sudo dkp-pacman -S switch-portlibs
+        run: sudo dkp-pacman -S --noconfirm switch-portlibs
 
       - name: Install switch-portlib (additional package)
-        run: sudo dkp-pacman -S switch-portlib
+        run: sudo dkp-pacman -S --noconfirm switch-portlib
 
       - name: Clone BennuGD2 repository
         run: |
