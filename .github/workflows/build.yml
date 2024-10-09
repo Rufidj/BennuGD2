@@ -35,14 +35,13 @@ jobs:
           cd BennuGD2
           ./build.sh linux clean
 
-    - name: List files in bin
-       run: |
-         cd BennuGD2
-         ls -R
+      - name: List files in bin
+        run: |
+          cd BennuGD2
+          ls -R
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: BennuGD2-artifacts
-          path: |
-            bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+          path: BennuGD2/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
