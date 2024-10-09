@@ -35,6 +35,20 @@ jobs:
           cd BennuGD2
           ./build.sh linux clean
 
+      - name: Create index.md
+        run: |
+          echo '# Lista de Archivos' > index.md
+          echo 'Bienvenido a la página de descargas de BennuGD2. A continuación se muestra una lista de los archivos disponibles:' >> index.md
+          echo '## Archivos Generados' >> index.md
+          for file in BennuGD2/build/linux-gnu/bin/*; do
+            echo "- [$(basename $file)]($file)" >> index.md
+          done
+          echo '## Instrucciones' >> index.md
+          echo '1. Haz clic en los enlaces de arriba para descargar los archivos.' >> index.md
+          echo '2. Si tienes alguna pregunta, no dudes en abrir un issue en el [repositorio de GitHub](https://github.com/Rufidj/Rufidj.github.io).' >> index.md
+          echo '---' >> index.md
+          echo '*Última actualización: $(date +%Y-%m-%d)*' >> index.md
+
       - name: List files in bin
         run: |
           cd BennuGD2
@@ -46,3 +60,10 @@ jobs:
         with:
           name: BennuGD2-GNU-Linux
           path: BennuGD2/build/linux-gnu/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: BennuGD2/build/linux-gnu/bin  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+          publish_branch: gh-pages  # Cambia esto si necesitas publicar en otra rama
