@@ -39,8 +39,8 @@ jobs:
       - name: Find Switch.cmake path
         id: switch_cmake_path
         run: |
-          # Find the Switch.cmake file
-          cmake_path=$(find /opt/devkitpro -name Switch.cmake)
+          # Find the Switch.cmake file with sudo
+          cmake_path=$(sudo find /opt/devkitpro -name Switch.cmake)
           echo "Switch CMake path: $cmake_path"
           echo "::set-output name=path::$cmake_path"
 
@@ -53,7 +53,7 @@ jobs:
       - name: Build SDL GPU
         run: |
           cd BennuGD2/vendor
-          ./build-sdl-gpu.sh switch 
+          ./build-sdl-gpu.sh switch
 
       - name: Build BennuGD2
         run: |
