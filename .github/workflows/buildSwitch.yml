@@ -36,6 +36,14 @@ jobs:
       - name: Install switch-portlibs
         run: sudo dkp-pacman -S --noconfirm switch-portlibs
 
+      - name: Find Switch.cmake path
+        id: switch_cmake_path
+        run: |
+          # Find the Switch.cmake file
+          cmake_path=$(find /opt/devkitpro -name Switch.cmake)
+          echo "Switch CMake path: $cmake_path"
+          echo "::set-output name=path::$cmake_path"
+
       - name: Clone BennuGD2 repository
         run: |
           git clone https://github.com/SplinterGU/BennuGD2.git
