@@ -23,7 +23,11 @@ jobs:
         run: |
           wget https://libsdl.org/release/SDL2-devel-2.28.1-mingw.zip  # Actualiza la versión si es necesario
           unzip SDL2-devel-2.28.1-mingw.zip -d $HOME/SDL2
-          export CMAKE_PREFIX_PATH=$HOME/runner/SDL2
+          export CMAKE_PREFIX_PATH=$HOME/SDL2
+
+      - name: Verify SDL2 installation
+        run: |
+          ls -R $HOME/SDL2  # Verifica que los archivos de SDL2 se hayan descargado y estén en su lugar
 
       - name: Clone BennuGD2 repository
         run: |
