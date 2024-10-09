@@ -35,30 +35,27 @@ jobs:
           cd BennuGD2
           ./build.sh linux clean
 
-      - name: Create index.md
-        run: |
-          echo '# Lista de Archivos' > index.md
-          echo 'Bienvenido a la página de descargas de BennuGD2. A continuación se muestra una lista de los archivos disponibles:' >> index.md
-          echo '## Archivos Generados' >> index.md
-          for file in BennuGD2/build/linux-gnu/bin/*; do
-            echo "- [$(basename $file)]($file)" >> index.md
-          done
-          echo '## Instrucciones' >> index.md
-          echo '1. Haz clic en los enlaces de arriba para descargar los archivos.' >> index.md
-          echo '2. Si tienes alguna pregunta, no dudes en abrir un issue en el [repositorio de GitHub](https://github.com/Rufidj/Rufidj.github.io).' >> index.md
-          echo '---' >> index.md
-          echo '*Última actualización: $(date +%Y-%m-%d)*' >> index.md
-
       - name: List files in bin
         run: |
           cd BennuGD2
           cd build
           ls -R
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         with:
-          name: BennuGD2-GNU-Linux
-          path: BennuGD2/build/linux-gnu/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+          tag_name: v2.0.0  # Cambia esto a la versión deseada, puedes usar `${{ github.sha }}` para un tag con el SHA
+          release_name: Release v2.0.0  # Cambia esto según tu versión
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-   
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: BennuGD2/build/linux-gnu/bin/**  # Ruta a los artefactos generados
+          asset_name: ${{ github.run_id }}.zip  # Nombre del archivo que se subirá
+          asset_content_type: application/zip
