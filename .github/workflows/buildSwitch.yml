@@ -53,10 +53,10 @@ jobs:
       - name: Build SDL GPU
         run: |
             cd BennuGD2/vendor
-            # Pass the correct toolchain file to the build script
-            TOOLCHAIN_FILE="${{ steps.switch_cmake_path.outputs.path }}"
-            ./build-sdl-gpu.sh switch clean "$TOOLCHAIN_FILE"
-            
+            # Use the environment variable in the script
+            export CMAKE_TOOLCHAIN_FILE="$SWITCH_CMAKE_PATH"
+            ./build-sdl-gpu.sh switch clean
+
       - name: Build BennuGD2
         run: |
           cd BennuGD2
