@@ -18,6 +18,10 @@ jobs:
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
 
+      - name: Update pacman configuration
+        run: |
+          sudo sed -i 's/Server = http:\/\/pkg.devkitpro.org\/packages/Server = https:\/\/pkg.devkitpro.org\/packages/' /etc/pacman.conf
+
       - name: Download devkitPro installer
         run: wget https://apt.devkitpro.org/install-devkitpro-pacman
 
@@ -51,12 +55,12 @@ jobs:
       - name: Build SDL GPU
         run: |
           cd BennuGD2/vendor
-          ./build-sdl-gpu.sh switch 
+          ./build-sdl-gpu.sh linux clean
 
       - name: Build BennuGD2
         run: |
           cd BennuGD2
-          ./build.sh switch
+          ./build.sh linux clean
 
       - name: List files in bin
         run: |
@@ -67,5 +71,5 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: BennuGD2-Switch
+          name: BennuGD2-GNU-Linux
           path: BennuGD2/build/linux-gnu/bin/**
