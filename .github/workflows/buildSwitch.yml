@@ -48,12 +48,12 @@ jobs:
       - name: Build SDL GPU
         run: |
           cd BennuGD2/vendor
-          ./build-sdl-gpu.sh linux clean
+          ./build-sdl-gpu.sh switch 
 
       - name: Build BennuGD2
         run: |
           cd BennuGD2
-          ./build.sh linux clean
+          ./build.sh switch 
 
       - name: List files in bin
         run: |
