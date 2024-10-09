@@ -1,0 +1,70 @@
+name: Build Switch
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  setup-devkitpro:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install wget
+        run: sudo apt-get update && sudo apt-get install -y wget
+
+      - name: Download devkitPro installer
+        run: wget https://apt.devkitpro.org/install-devkitpro-pacman
+
+      - name: Make installer executable
+        run: chmod +x ./install-devkitpro-pacman
+
+      - name: Run devkitPro installer
+        run: sudo ./install-devkitpro-pacman
+
+      - name: Fix /etc/mtab symlink
+        run: sudo ln -s /proc/self/mounts /etc/mtab
+
+      - name: Update devkitPro pacman
+        run: sudo dkp-pacman -Sy
+
+      - name: Install switch-dev package
+        run: sudo dkp-pacman -S switch-dev
+
+      - name: Install switch-portlibs
+        run: sudo dkp-pacman -S switch-portlibs
+
+      - name: Install switch-portlib (additional package)
+        run: sudo dkp-pacman -S switch-portlib
+
+      - name: Clone BennuGD2 repository
+        run: |
+          git clone https://github.com/SplinterGU/BennuGD2.git
+          cd BennuGD2/
+          git submodule update --init --recursive
+
+      - name: Build SDL GPU
+        run: |
+          cd BennuGD2/vendor
+          ./build-sdl-gpu.sh switch 
+
+      - name: Build BennuGD2
+        run: |
+          cd BennuGD2
+          ./build.sh switch
+
+      - name: List files in bin
+        run: |
+          cd BennuGD2
+          cd build
+          ls -R
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: BennuGD2-Switch
+          path: BennuGD2/build/linux-gnu/bin/**
