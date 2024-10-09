@@ -38,6 +38,7 @@ jobs:
       - name: List files in bin
         run: |
           cd BennuGD2
+          cd build
           ls -R
 
       - name: Upload Artifacts
