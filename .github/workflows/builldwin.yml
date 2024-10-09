@@ -3,7 +3,7 @@ name: Build for Windows
 on:
   push:
     branches:
-      - main  # Cambia esto si deseas que el workflow se ejecute en otra rama
+      - main
   workflow_dispatch:  # Permite la ejecución manual del flujo de trabajo
 
 jobs:
@@ -21,13 +21,13 @@ jobs:
 
       - name: Install SDL2 for MinGW
         run: |
-          wget https://libsdl.org/release/SDL2-devel-2.28.1-mingw.zip  # Actualiza la versión si es necesario
+          wget https://libsdl.org/release/SDL2-devel-2.28.1-mingw.zip
           unzip SDL2-devel-2.28.1-mingw.zip -d $HOME/SDL2
-          export CMAKE_PREFIX_PATH=$HOME/SDL2
+          export CMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32
 
       - name: Verify SDL2 installation
         run: |
-          ls -R $HOME/SDL2  # Verifica que los archivos de SDL2 se hayan descargado y estén en su lugar
+          ls -R $HOME/SDL2
 
       - name: Clone BennuGD2 repository
         run: |
@@ -38,7 +38,10 @@ jobs:
       - name: Build SDL GPU
         run: |
           cd BennuGD2/vendor
-          ./build-sdl-gpu.sh windows
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32 -DSDL2_INCLUDE_DIR=$HOME/SDL2/x86_64-w64-mingw32/include -DSDL2_LIBRARY=$HOME/SDL2/x86_64-w64-mingw32/lib/SDL2.dll
+          make
 
       - name: Build BennuGD2
         run: |
@@ -50,4 +53,4 @@ jobs:
         with:
           name: BennuGD2-artifacts
           path: |
-            BennuGD2/build/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+            BennuGD2/build/**
