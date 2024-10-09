@@ -39,6 +39,7 @@ jobs:
         run: |
           cd BennuGD2
           cd build
+          cd bin
           ls -R
 
       - name: Upload Artifacts
