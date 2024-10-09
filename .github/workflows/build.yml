@@ -39,11 +39,10 @@ jobs:
         run: |
           cd BennuGD2
           cd build
-          cd bin
           ls -R
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: BennuGD2-artifacts
-          path: BennuGD2/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+          path: BennuGD2/build/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
