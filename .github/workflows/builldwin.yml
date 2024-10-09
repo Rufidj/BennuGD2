@@ -40,9 +40,13 @@ jobs:
 
       - name: Build SDL GPU
         run: |
-          cd BennuGD2/vendor
-          chmod +x build-sdl-gpu.sh  # Asegúrate de que el script tenga permisos de ejecución
-          ./build-sdl-gpu.sh windows
+         export CMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32
+         export SDL2_INCLUDE_DIR=$HOME/SDL2/x86_64-w64-mingw32/include
+         export SDL2_LIBRARY=$HOME/SDL2/x86_64-w64-mingw32/lib/libSDL2.dll
+         cd BennuGD2/vendor
+         chmod +x build-sdl-gpu.sh
+         ./build-sdl-gpu.sh windows
+
 
       - name: Build BennuGD2
         run: |
