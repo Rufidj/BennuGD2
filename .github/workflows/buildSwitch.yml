@@ -27,8 +27,6 @@ jobs:
       - name: Run devkitPro installer
         run: sudo ./install-devkitpro-pacman
 
-      - name: Fix /etc/mtab symlink
-        run: sudo ln -s /proc/self/mounts /etc/mtab
 
       - name: Update devkitPro pacman
         run: sudo dkp-pacman -Sy
