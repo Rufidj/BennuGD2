@@ -37,11 +37,9 @@ jobs:
 
       - name: Build SDL GPU
         run: |
-          cd BennuGD2/vendor
-          mkdir build
-          cd build
+          cd BennuGD2/vendor/
           cmake .. -DCMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32 -DSDL2_INCLUDE_DIR=$HOME/SDL2/x86_64-w64-mingw32/include -DSDL2_LIBRARY=$HOME/SDL2/x86_64-w64-mingw32/lib/SDL2.dll
-          make
+          ./build-sdl-gpu.sh windows
 
       - name: Build BennuGD2
         run: |
