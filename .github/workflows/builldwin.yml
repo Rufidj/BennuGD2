@@ -41,10 +41,8 @@ jobs:
       - name: Build SDL GPU
         run: |
           cd BennuGD2/vendor
-          mkdir build
-          cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=/usr/share/mingw-w64/toolchain-x86_64-w64-mingw32.cmake -DCMAKE_PREFIX_PATH=$HOME/SDL2 -DSDL2_INCLUDE_DIR=$HOME/SDL2/include -DSDL2_LIBRARY=$HOME/SDL2/lib/SDL2.dll
-          make
+          chmod +x build-sdl-gpu.sh  # Asegúrate de que el script tenga permisos de ejecución
+          ./build-sdl-gpu.sh windows
 
       - name: Build BennuGD2
         run: |
@@ -56,4 +54,4 @@ jobs:
         with:
           name: BennuGD2-artifacts
           path: |
-            BennuGD2/build/**
+            BennuGD2/build/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
