@@ -76,6 +76,9 @@ jobs:
     - name: Build BennuGD2 for Switch
       run: |
         cd BennuGD2
+         export DEVKITPRO=/opt/devkitpro
+         export DEVKITARM=/opt/devkitpro/devkitARM
+         export DEVKITPPC=/opt/devkitpro/devkitPPC
         ./build.sh switch
 
     - name: Verify installation and build
