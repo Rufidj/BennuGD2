@@ -63,8 +63,8 @@ jobs:
     - name: Install and Build Theora for Switch
       run: |
         cd BennuGD2/vendor
-        git clone https://git.videolan.org/git/libogg.git
-        cd libogg
+        git clone https://github.com/xiph/ogg.git
+        cd ogg
         mkdir build
         cd build
         cmake .. -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/devkitA64/cmake/DevkitA64Toolchain.cmake
@@ -72,7 +72,7 @@ jobs:
         sudo make install
         
         cd ..
-        git clone https://git.videolan.org/git/libtheora.git
+        git clone https://github.com/xiph/libtheora.git
         cd libtheora
         mkdir build
         cd build
