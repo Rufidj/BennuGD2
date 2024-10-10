@@ -52,6 +52,17 @@ jobs:
           cd BennuGD2/
           git submodule update --init --recursive
 
+      - name: Verify build-sdl-gpu.sh exists
+        run: |
+          cd BennuGD2/vendor
+          ls -la
+          if [ -f "./build-sdl-gpu.sh" ]; then
+            echo "build-sdl-gpu.sh found."
+          else
+            echo "build-sdl-gpu.sh not found!" && exit 1
+          fi
+        shell: bash
+
       - name: Build SDL GPU for Windows
         run: |
           cd BennuGD2/vendor
