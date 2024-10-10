@@ -1,4 +1,4 @@
-![LOGO]([/ruta/a/la/imagen.jpg](https://i.ibb.co/s65SmZf/logo.webp))
+![LOGO](https://i.ibb.co/s65SmZf/logo.webp)
 
 # What is BennuGD2?
 
