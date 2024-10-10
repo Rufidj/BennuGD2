@@ -1,4 +1,4 @@
-¡(https://i.ibb.co/KcPnsVY/[Captura-de-pantalla-2024-10-10-214452.png](https://i.ibb.co/s65SmZf/logo.webp)
+¡(https://i.ibb.co/s65SmZf/logo.webp)
 # What is BennuGD2?
 
 BennuGD2 is a game development engine designed to facilitate the creation of 2D games.
