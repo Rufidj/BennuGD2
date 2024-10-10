@@ -44,7 +44,6 @@ jobs:
 
     - name: Set devkitPro environment variables
       run: |
-        export DEVKITPRO=/opt/devkitpro
         echo "export DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
         echo "export DEVKITARM=/opt/devkitpro/devkitARM" >> $GITHUB_ENV
         echo "export DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
@@ -64,6 +63,10 @@ jobs:
       run: |
         cd BennuGD2/vendor
         ./build-sdl-gpu.sh switch
+      env:
+        DEVKITPRO: ${{ env.DEVKITPRO }}
+        DEVKITARM: ${{ env.DEVKITARM }}
+        DEVKITPPC: ${{ env.DEVKITPPC }}
 
     - name: Build BennuGD2 for Switch
       run: |
