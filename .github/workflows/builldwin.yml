@@ -1,54 +1,93 @@
-name: Build for Windows
+name: Build BennuGD2 for Windows
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Install MinGW-w64 and dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y mingw-w64 libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libvorbis-dev cmake
+      - name: Update package lists
+        run: sudo apt-get update
 
-      - name: Install SDL2 for MinGW
+      - name: Install required dependencies
         run: |
-          wget https://libsdl.org/release/SDL2-devel-2.28.1-mingw.zip
-          unzip SDL2-devel-2.28.1-mingw.zip -d $HOME/SDL2
+          sudo apt-get install -y autoconf automake libtool make base-files git
+          sudo apt-get install -y mingw-w64
 
-      - name: Verify SDL2 installation
+      - name: Install specific mingw packages (i686)
         run: |
-          ls -R $HOME/SDL2
+          sudo apt-get install -y \
+            mingw-w64-i686-SDL \
+            mingw-w64-i686-SDL2 \
+            mingw-w64-i686-SDL2_mixer \
+            mingw-w64-i686-SDL_mixer \
+            mingw-w64-i686-SDL_net \
+            mingw-w64-i686-cmake \
+            mingw-w64-i686-flac \
+            mingw-w64-i686-freetype \
+            mingw-w64-i686-gcc \
+            mingw-w64-i686-libjpeg-turbo \
+            mingw-w64-i686-libmikmod \
+            mingw-w64-i686-libmodplug \
+            mingw-w64-i686-libogg \
+            mingw-w64-i686-libpng \
+            mingw-w64-i686-libtheora \
+            mingw-w64-i686-libvorbis \
+            mingw-w64-i686-libwebp \
+            mingw-w64-i686-libxmp \
+            mingw-w64-i686-mesa \
+            mingw-w64-i686-ninja \
+            mingw-w64-i686-openal \
+            mingw-w64-i686-python2 \
+            mingw-w64-i686-sqlite3 \
+            mingw-w64-i686-wavpack
+
+      - name: Install specific mingw packages (x86_64)
+        run: |
+          sudo apt-get install -y \
+            mingw-w64-x86_64-SDL2 \
+            mingw-w64-x86_64-SDL2_image \
+            mingw-w64-x86_64-SDL2_mixer \
+            mingw-w64-x86_64-cmake \
+            mingw-w64-x86_64-flac \
+            mingw-w64-x86_64-freetype \
+            mingw-w64-x86_64-gcc \
+            mingw-w64-x86_64-libjpeg-turbo \
+            mingw-w64-x86_64-libmikmod \
+            mingw-w64-x86_64-libmodplug \
+            mingw-w64-x86_64-libogg \
+            mingw-w64-x86_64-libpng \
+            mingw-w64-x86_64-libtheora \
+            mingw-w64-x86_64-libvorbis \
+            mingw-w64-x86_64-libwebp \
+            mingw-w64-x86_64-ninja \
+            mingw-w64-x86_64-openal \
+            mingw-w64-x86_64-sqlite3
 
       - name: Clone BennuGD2 repository
+        run: git clone https://github.com/SplinterGU/BennuGD2.git
+
+      - name: Initialize submodules
         run: |
-          git clone https://github.com/SplinterGU/BennuGD2.git
           cd BennuGD2/
           git submodule update --init --recursive
 
-      - name: Build SDL GPU
+      - name: Build SDL GPU for Windows
         run: |
           cd BennuGD2/vendor
-          export CMAKE_PREFIX_PATH=$HOME/SDL2/x86_64-w64-mingw32
-          export SDL2_LIBRARY=$HOME/SDL2/x86_64-w64-mingw32/lib/libSDL2.dll  # Asegúrate de que la ruta a la biblioteca sea correcta
           ./build-sdl-gpu.sh windows
 
-      - name: Build BennuGD2
+      - name: Build BennuGD2 for Windows
         run: |
-          cd BennuGD2
-          ./build.sh windows clean
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: BennuGD2-artifacts
-          path: |
-            BennuGD2/build/**
+          cd BennuGD2/
+          ./build.sh windows
