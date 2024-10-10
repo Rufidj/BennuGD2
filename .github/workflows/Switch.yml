@@ -42,6 +42,11 @@ jobs:
         sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
         sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
 
+    - name: Install CMake and Make
+      run: |
+        sudo apt install -y cmake make
+    
+
     - name: Clone BennuGD2 repository
       run: |
         git clone https://github.com/SplinterGU/BennuGD2.git
