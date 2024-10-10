@@ -63,8 +63,8 @@ jobs:
     - name: Build SDL-GPU for Switch
       run: |
         cd BennuGD2/vendor
-        cmake -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake .
-        ./build-sdl-gpu.sh switch
+        cmake -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake -Bbuild -H. 
+        cmake --build build --target all -- -j$(nproc)
 
     - name: Build BennuGD2 for Switch
       run: |
