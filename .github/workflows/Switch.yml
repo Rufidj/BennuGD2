@@ -44,8 +44,6 @@ jobs:
         sudo dkp-pacman -S switch-libtheora --noconfirm
         sudo dkp-pacman -S switch-glad --noconfirm
 
-
-
     - name: Set devkitPro environment variables
       run: |
         echo "export DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
@@ -82,10 +80,26 @@ jobs:
         export DEVKITARM=/opt/devkitpro/devkitARM
         export DEVKITPPC=/opt/devkitpro/devkitPPC
         ./build.sh switch
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          name: BennuGD2-Switch
-          path: BennuGD2/build/aarch64-none-elf/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+        tag_name: ${{ github.sha }}
+        release_name: "BennuGD2 Switch Build - ${{ github.sha }}"
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: BennuGD2/build/aarch64-none-elf/bin/bgdi.elf  # Ajusta esta ruta si es necesario
+        asset_name: bgdi.elf
+        asset_content_type: application/octet-stream
+
 
