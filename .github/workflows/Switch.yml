@@ -41,7 +41,6 @@ jobs:
         sudo dkp-pacman -S switch-sdl2_image --noconfirm
         sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
         sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
-        sudo dkp-pacman -S switch-cmake --noconfirm
 
     - name: Set devkitPro environment variables
       run: |
@@ -51,8 +50,8 @@ jobs:
 
     - name: Verify DEVKITPRO path
       run: |
-          echo "DEVKITPRO is set to: $DEVKITPRO"
-          ls -l $DEVKITPRO/cmake  
+        echo "DEVKITPRO is set to: $DEVKITPRO"
+        ls -l $DEVKITPRO/cmake
 
     - name: Clone BennuGD2 repository
       run: |
@@ -63,7 +62,7 @@ jobs:
     - name: Build SDL-GPU for Switch
       run: |
         cd BennuGD2/vendor
-        cmake -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake .
+        cmake -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake .
         ./build-sdl-gpu.sh switch
 
     - name: Build BennuGD2 for Switch
