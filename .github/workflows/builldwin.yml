@@ -52,10 +52,15 @@ jobs:
           cd BennuGD2/
           git submodule update --init --recursive
 
-      - name: Verify build-sdl-gpu.sh exists
+      - name: Debug - List files in BennuGD2/vendor
         run: |
           cd BennuGD2/vendor
           ls -la
+        shell: bash
+
+      - name: Verify build-sdl-gpu.sh exists
+        run: |
+          cd BennuGD2/vendor
           if [ -f "./build-sdl-gpu.sh" ]; then
             echo "build-sdl-gpu.sh found."
           else
