@@ -25,33 +25,6 @@ jobs:
           sudo apt-get install -y autoconf automake libtool make base-files git
           sudo apt-get install -y mingw-w64
 
-      - name: Install specific mingw packages (i686)
-        run: |
-          sudo apt-get install -y \
-            mingw-w64-i686-SDL \
-            mingw-w64-i686-SDL2 \
-            mingw-w64-i686-SDL2_mixer \
-            mingw-w64-i686-SDL_mixer \
-            mingw-w64-i686-SDL_net \
-            mingw-w64-i686-cmake \
-            mingw-w64-i686-flac \
-            mingw-w64-i686-freetype \
-            mingw-w64-i686-gcc \
-            mingw-w64-i686-libjpeg-turbo \
-            mingw-w64-i686-libmikmod \
-            mingw-w64-i686-libmodplug \
-            mingw-w64-i686-libogg \
-            mingw-w64-i686-libpng \
-            mingw-w64-i686-libtheora \
-            mingw-w64-i686-libvorbis \
-            mingw-w64-i686-libwebp \
-            mingw-w64-i686-libxmp \
-            mingw-w64-i686-mesa \
-            mingw-w64-i686-ninja \
-            mingw-w64-i686-openal \
-            mingw-w64-i686-python2 \
-            mingw-w64-i686-sqlite3 \
-            mingw-w64-i686-wavpack
 
       - name: Install specific mingw packages (x86_64)
         run: |
