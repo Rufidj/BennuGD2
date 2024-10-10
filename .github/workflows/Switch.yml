@@ -60,35 +60,18 @@ jobs:
         cd BennuGD2/
         git submodule update --init --recursive
 
-    - name: Install and Build Theora for Switch
-      run: |
-        cd BennuGD2/vendor
-        git clone https://github.com/xiph/ogg.git
-        cd ogg
-        mkdir build
-        cd build
+        - name: Build and Install libtheora for Switch
+        run: |
+          # Compilar libtheora
+          cd BennuGD2/vendor/theoraplay
+          mkdir build
+          cd build
         export DEVKITPRO=/opt/devkitpro
         export DEVKITARM=/opt/devkitpro/devkitARM
         export DEVKITPPC=/opt/devkitpro/devkitPPC
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/devkitA64/cmake/DevkitA64Toolchain.cmake
-        make
-        sudo make install
-        
-        cd ..
-        git clone https://github.com/xiph/libtheora.git
-        cd libtheora
-        mkdir build
-        cd build
-        export DEVKITPRO=/opt/devkitpro
-        export DEVKITARM=/opt/devkitpro/devkitARM
-        export DEVKITPPC=/opt/devkitpro/devkitPPC
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/devkitA64/cmake/DevkitA64Toolchain.cmake
-        make
-        sudo make install
-      env:
-        DEVKITPRO: ${{ env.DEVKITPRO }}
-        DEVKITARM: ${{ env.DEVKITARM }}
-        DEVKITPPC: ${{ env.DEVKITPPC }}
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/devkitA64/cmake/DevkitA64Toolchain.cmake
+          make
+          sudo make install
 
     - name: Build SDL-GPU for Switch
       run: |
