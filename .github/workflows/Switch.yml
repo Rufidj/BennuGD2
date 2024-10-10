@@ -63,7 +63,7 @@ jobs:
     - name: Build SDL-GPU for Switch
       run: |
         cd BennuGD2/vendor
-        ./build-sdl-gpù.sh switch
+        ./build-sdl-gpu.sh switch
 
     - name: Build BennuGD2 for Switch
       run: |
