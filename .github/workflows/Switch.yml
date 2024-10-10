@@ -1,0 +1,48 @@
+name: Setup DevkitPro for Switch
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup-devkitpro:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt update
+        sudo apt install -y libc6:i386 libncurses5:i386 libstdc++6:i386 curl git build-essential
+
+    - name: Download devkitPro pacman installer
+      run: |
+        curl https://apt.devkitpro.org/install-devkitpro-pacman -o install-devkitpro-pacman
+        chmod +x install-devkitpro-pacman
+
+    - name: Install devkitPro pacman
+      run: |
+        sudo ./install-devkitpro-pacman
+        sudo dkp-pacman -Sy
+
+    - name: Install switch dev tools
+      run: |
+        sudo dkp-pacman -S switch-dev --noconfirm
+        sudo dkp-pacman -S switch-sdl2 --noconfirm
+        sudo dkp-pacman -S switch-sdl2_gfx --noconfirm
+        sudo dkp-pacman -S switch-sdl2_image --noconfirm
+        sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
+        sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
+
+    - name: Verify installation
+      run: |
+        which switch-cmake
+        which switch-gcc
