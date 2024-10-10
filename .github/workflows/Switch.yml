@@ -44,6 +44,7 @@ jobs:
 
     - name: Set devkitPro environment variables
       run: |
+        export DEVKITPRO=/opt/devkitpro
         echo "export DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
         echo "export DEVKITARM=/opt/devkitpro/devkitARM" >> $GITHUB_ENV
         echo "export DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
@@ -51,7 +52,7 @@ jobs:
     - name: Verify DEVKITPRO path
       run: |
         echo "DEVKITPRO is set to: $DEVKITPRO"
-        ls -l $DEVKITPRO/cmake
+        ls -l /opt/devkitpro/cmake
 
     - name: Clone BennuGD2 repository
       run: |
