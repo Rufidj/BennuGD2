@@ -83,8 +83,9 @@ jobs:
         export DEVKITPPC=/opt/devkitpro/devkitPPC
         ./build.sh switch
 
-    - name: Verify installation and build
-      run: |
-        which switch-cmake
-        which switch-gcc
-        ls -l BennuGD2/bin/switch/
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+          name: BennuGD2-Switch
+          path: BennuGD2/build/aarch64-none-elf/bin/**  # Ajusta esta ruta según dónde se encuentren tus artefactos generados
+
