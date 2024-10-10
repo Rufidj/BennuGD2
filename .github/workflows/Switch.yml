@@ -87,8 +87,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.sha }}
-        release_name: "BennuGD2 Switch Build - ${{ github.sha }}"
+        tag_name: "release-${{ github.run_id }}"  # Usar un identificador más legible
+        release_name: "BennuGD2 Switch Build - ${{ github.run_id }}"
         draft: false
         prerelease: false
 
@@ -101,5 +101,3 @@ jobs:
         asset_path: BennuGD2/build/aarch64-none-elf/bin/bgdi.elf  # Ajusta esta ruta si es necesario
         asset_name: bgdi.elf
         asset_content_type: application/octet-stream
-
-
