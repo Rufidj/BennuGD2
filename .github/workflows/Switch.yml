@@ -42,7 +42,7 @@ jobs:
         sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
         sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
         sudo dkp-pacman -S switch-libtheora --noconfirm
-        sudo dkp-pacman -S switch-glad
+        sudo dkp-pacman -S switch-glad --noconfirm
 
 
 
