@@ -62,7 +62,11 @@ jobs:
 
     - name: Build SDL-GPU for Switch
       run: |
+
         cd BennuGD2/vendor
+        export DEVKITPRO=/opt/devkitpro
+        export DEVKITARM=/opt/devkitpro/devkitARM
+        export DEVKITPPC=/opt/devkitpro/devkitPPC
         ./build-sdl-gpu.sh switch
       env:
         DEVKITPRO: ${{ env.DEVKITPRO }}
