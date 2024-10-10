@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -25,10 +24,15 @@ jobs:
           sudo apt-get install -y autoconf automake libtool make base-files git
           sudo apt-get install -y mingw-w64
 
-
-      - name: Install specific mingw packages (x86_64)
+      - name: Install MSYS2
         run: |
-          sudo apt-get install -y \
+          sudo apt-get install -y wget tar
+          wget -qO- https://mirror.msys2.org/distrib/x86_64/msys2-base-x86_64-latest.tar.xz | sudo tar -xJ -C /opt
+          /opt/msys64/usr/bin/bash -lc "pacman --noconfirm -Syuu"
+      
+      - name: Install Mingw packages using MSYS2
+        run: |
+          /opt/msys64/usr/bin/bash -lc "pacman --noconfirm -S \
             mingw-w64-x86_64-SDL2 \
             mingw-w64-x86_64-SDL2_image \
             mingw-w64-x86_64-SDL2_mixer \
@@ -46,7 +50,7 @@ jobs:
             mingw-w64-x86_64-libwebp \
             mingw-w64-x86_64-ninja \
             mingw-w64-x86_64-openal \
-            mingw-w64-x86_64-sqlite3
+            mingw-w64-x86_64-sqlite3"
 
       - name: Clone BennuGD2 repository
         run: git clone https://github.com/SplinterGU/BennuGD2.git
