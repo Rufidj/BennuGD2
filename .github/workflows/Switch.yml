@@ -21,7 +21,7 @@ jobs:
       run: |
         sudo dpkg --add-architecture i386
         sudo apt update
-        sudo apt install -y libc6:i386 libncurses5:i386 libstdc++6:i386 curl git build-essential
+        sudo apt install -y libc6:i386 libncurses5:i386 libstdc++6:i386 curl git build-essential cmake make
 
     - name: Download devkitPro pacman installer
       run: |
@@ -42,10 +42,11 @@ jobs:
         sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
         sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
 
-    - name: Install CMake and Make
+    - name: Set devkitPro environment variables
       run: |
-        sudo apt install -y cmake make
-    
+        echo "export DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+        echo "export DEVKITARM=/opt/devkitpro/devkitARM" >> $GITHUB_ENV
+        echo "export DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
 
     - name: Clone BennuGD2 repository
       run: |
@@ -56,6 +57,7 @@ jobs:
     - name: Build SDL-GPU for Switch
       run: |
         cd BennuGD2/vendor
+        cmake -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/switch.cmake .
         ./build-sdl-gpu.sh switch
 
     - name: Build BennuGD2 for Switch
@@ -63,3 +65,8 @@ jobs:
         cd BennuGD2
         ./build.sh switch
 
+    - name: Verify installation and build
+      run: |
+        which switch-cmake
+        which switch-gcc
+        ls -l BennuGD2/bin/switch/
