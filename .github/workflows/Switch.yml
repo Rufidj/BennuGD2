@@ -67,6 +67,9 @@ jobs:
         cd ogg
         mkdir build
         cd build
+        export DEVKITPRO=/opt/devkitpro
+        export DEVKITARM=/opt/devkitpro/devkitARM
+        export DEVKITPPC=/opt/devkitpro/devkitPPC
         cmake .. -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/devkitA64/cmake/DevkitA64Toolchain.cmake
         make
         sudo make install
@@ -76,6 +79,9 @@ jobs:
         cd libtheora
         mkdir build
         cd build
+        export DEVKITPRO=/opt/devkitpro
+        export DEVKITARM=/opt/devkitpro/devkitARM
+        export DEVKITPPC=/opt/devkitpro/devkitPPC
         cmake .. -DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/devkitA64/cmake/DevkitA64Toolchain.cmake
         make
         sudo make install
