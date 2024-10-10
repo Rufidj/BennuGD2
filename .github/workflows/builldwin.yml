@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:   
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -17,12 +17,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install MSYS2
+      - name: Install MSYS2 using Chocolatey
         run: |
           choco install msys2 --no-progress
-          refreshenv
 
-      - name: Set up MSYS2
+      - name: Set up MSYS2 and install packages
         run: |
           C:\tools\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -Syuu"
           C:\tools\msys64\usr\bin\bash.exe -lc "pacman --noconfirm -S \
