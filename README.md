@@ -141,3 +141,12 @@ Note: Adjust the cp command above to match the platform on which the build was p
 
 ## MacOSX
 ![Marron´s Day](https://i.ibb.co/K74RMck/Captura-de-pantalla-2024-10-10-220434.png)
+## Support
+
+https://forum.bennugd.org/
+
+
+## Authors
+
+- [@SplinterGU](https://www.github.com/SplinterGU)
+
