@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -23,14 +22,15 @@ jobs:
       - name: Install required dependencies
         run: |
           sudo apt-get install -y autoconf automake libtool make base-files git
-          sudo apt-get install -y mingw-w64
+          sudo apt-get install -y mingw-w64 wget tar
 
-      - name: Install MSYS2
+      - name: Download and extract MSYS2
         run: |
-          sudo apt-get install -y wget tar
-          wget -qO- https://mirror.msys2.org/distrib/x86_64/msys2-base-x86_64-latest.tar.xz | sudo tar -xJ -C /opt
+          wget https://github.com/msys2/msys2-installer/releases/download/2023-09-06/msys2-base-x86_64-20230906.tar.xz
+          sudo mkdir -p /opt/msys64
+          sudo tar -xvf msys2-base-x86_64-20230906.tar.xz -C /opt/msys64 --strip-components=1
           /opt/msys64/usr/bin/bash -lc "pacman --noconfirm -Syuu"
-      
+
       - name: Install Mingw packages using MSYS2
         run: |
           /opt/msys64/usr/bin/bash -lc "pacman --noconfirm -S \
