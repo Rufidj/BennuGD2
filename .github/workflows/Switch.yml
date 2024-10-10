@@ -48,6 +48,11 @@ jobs:
         echo "export DEVKITARM=/opt/devkitpro/devkitARM" >> $GITHUB_ENV
         echo "export DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
 
+    - name: Verify DEVKITPRO path
+      run: |
+          echo "DEVKITPRO is set to: $DEVKITPRO"
+          ls -l $DEVKITPRO/cmake  
+
     - name: Clone BennuGD2 repository
       run: |
         git clone https://github.com/SplinterGU/BennuGD2.git
