@@ -41,7 +41,6 @@ jobs:
         sudo dkp-pacman -S switch-sdl2_image --noconfirm
         sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
         sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
-        sudo dkp-pacman -S switch-cmake --noconfirm
         pacman -S switch-libtheora --noconfirm
 
 
