@@ -1,4 +1,4 @@
-name: Setup DevkitPro for Switch
+name: Setup DevkitPro for Switch and Build BennuGD2
 
 on:
   push:
@@ -42,7 +42,19 @@ jobs:
         sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
         sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
 
-    - name: Verify installation
+    - name: Clone BennuGD2 repository
       run: |
-        which switch-cmake
-        which switch-gcc
+        git clone https://github.com/SplinterGU/BennuGD2.git
+        cd BennuGD2/
+        git submodule update --init --recursive
+
+    - name: Build SDL-GPU for Switch
+      run: |
+        cd BennuGD2/vendor
+        ./build-sdl-gpu.sh switch
+
+    - name: Build BennuGD2 for Switch
+      run: |
+        cd BennuGD2
+        ./build.sh switch
+
