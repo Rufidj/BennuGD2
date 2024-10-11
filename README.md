@@ -28,83 +28,43 @@ BennuGD2 is a game development engine designed to facilitate the creation of 2D 
 import "libmod_gfx";
 import "libmod_input";
 
-#include "../common/common.h"
-
 process main()
 begin
-    #include "../common/init_video.h"
+    screen.fullscreen = false;
+    set_mode(1280, 720);    
 
-    write(0,160,10,ALIGN_CENTER,"Hello world!");
-    write(0,160,190,ALIGN_CENTER,"(press F for switch fullscreen/window)");
+    write(0, 160, 10, ALIGN_CENTER, "Hello world!");
+    write(0, 160, 190, ALIGN_CENTER, "(press ESC to exit)");
 
     while( !key(_ESC) )
-        if ( key(_f) )
-            screen.fullscreen ^= 1;
-            set_mode(SCRW,SCRH);
-            while(key(_f)) frame; end
-        end
         frame;
     end
 end
 ```
-### Test key Example
-```c
-import "mod_gfx";
-import "mod_input";
-
-begin
-    set_mode(320,200);
-
-    int counter1, counter2, counter3;
-
-    write( 0, 160, 10, ALIGN_CENTER, "Press SPACE" );
-
-    write( 0, 150, 40, ALIGN_CENTER_RIGHT, "key( _SPACE )"      );  write_var( 0, 160, 40, ALIGN_CENTER_LEFT, counter1 );
-    write( 0, 150, 50, ALIGN_CENTER_RIGHT, "key_down( _SPACE )" );  write_var( 0, 160, 50, ALIGN_CENTER_LEFT, counter2 );
-    write( 0, 150, 60, ALIGN_CENTER_RIGHT, "key_up( _SPACE )"   );  write_var( 0, 160, 60, ALIGN_CENTER_LEFT, counter3 );
-
-    while ( !key(_ESC) )
-        if ( key     ( _SPACE ) ) counter1++; end
-        if ( key_down( _SPACE ) ) counter2++; end
-        if ( key_up  ( _SPACE ) ) counter3++; end
-        frame;
-    end
-
-end
-```
-### Sprite Example
+### Test key & Sprite Example
 ```c
 import "libmod_gfx";
 import "libmod_input";
 import "libmod_misc";
 
-const
-    scrw = 320;
-    scrh = 240;
-end
+// No need to declare main
+Begin
+   set_mode(1280, 720);
+   set_fps(60, 0);
+   player();
+   while(!key(_esc)) frame; end
+   exit();
+End
 
-process sprite( double x, y, int graph )
-private
-    int sentido = 1;
-begin
-
-    while(!key(_ESC))
-        x += 2.5 * sentido;
-        if ( x > scrw - 32 || x < 32 ) sentido = -sentido; end
-
-        frame;
-    end
-
-end
-
-process main()
-begin
-    set_mode(scrw,scrh);
-    set_fps(60,0);
-
-    sprite(scrw / 2.0, scrh / 2.0, map_load("res/smiley.png") );
-
-end
+Process player();
+Begin
+   graph = load_map("player.png");
+   loop
+      if(key(_left)) x--; end
+      if(key(_right)) x++; end
+      frame;
+   end
+End
 ```
 
 # Setup environment
