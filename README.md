@@ -1,14 +1,118 @@
-# BennuGD2
 
-Welcome to BennuGD2! BennuGD2 is a game development system focused on ease of use and portability.
+![Logo](https://camo.githubusercontent.com/0833c9c903130cd4d08f10bd4e9a5e2aebb09db3a86e76dcb251791129a67899/68747470733a2f2f692e6962622e636f2f733635536d5a662f6c6f676f2e77656270)
 
-## Setup Environment
 
-### For Unix
+# What is BennuGD2?
 
-To set up your environment for BennuGD2, add the following environment variables to your shell profile (e.g., `.bashrc`, `.zshrc`):
+BennuGD2 is a game development engine designed to facilitate the creation of 2D games.
 
-```bash
+
+## Features
+
+- SDL2: BennuGD2 utilizes SDL2 (Simple DirectMedia Layer) as its multimedia library, allowing it to efficiently handle graphics, sound, and user input across multiple platforms. SDL2 is widely used in game development and multimedia applications.
+
+- Cross-Platform: The engine supports multiple platforms, including Windows, Linux, and some game consoles. This means developers can create games that run on different operating systems without needing significant modifications to the code.
+
+- Active Community: BennuGD2 has an active community that contributes tutorials, libraries, and resources. This helps with learning and problem-solving for developers using the engine.
+
+- Ease of Use: Its design and features are geared toward allowing developers to focus more on creativity and game design rather than the complexity of the underlying code.
+
+- 2D Graphics Support: BennuGD2 specializes in 2D graphics, making it ideal for platformers, graphic adventures, and other types of games that do not require complex 3D graphics.
+
+- Integration with Other Libraries: In addition to SDL2, BennuGD2 can integrate with other libraries and tools, expanding its capabilities and allowing developers to customize their projects as needed.
+
+
+## Usage/Examples
+### Hello world Example
+```c
+import "libmod_gfx";
+import "libmod_input";
+
+#include "../common/common.h"
+
+process main()
+begin
+    #include "../common/init_video.h"
+
+    write(0,160,10,ALIGN_CENTER,"Hello world!");
+    write(0,160,190,ALIGN_CENTER,"(press F for switch fullscreen/window)");
+
+    while( !key(_ESC) )
+        if ( key(_f) )
+            screen.fullscreen ^= 1;
+            set_mode(SCRW,SCRH);
+            while(key(_f)) frame; end
+        end
+        frame;
+    end
+end
+```
+### Test key Example
+```c
+import "mod_gfx";
+import "mod_input";
+
+begin
+    set_mode(320,200);
+
+    int counter1, counter2, counter3;
+
+    write( 0, 160, 10, ALIGN_CENTER, "Press SPACE" );
+
+    write( 0, 150, 40, ALIGN_CENTER_RIGHT, "key( _SPACE )"      );  write_var( 0, 160, 40, ALIGN_CENTER_LEFT, counter1 );
+    write( 0, 150, 50, ALIGN_CENTER_RIGHT, "key_down( _SPACE )" );  write_var( 0, 160, 50, ALIGN_CENTER_LEFT, counter2 );
+    write( 0, 150, 60, ALIGN_CENTER_RIGHT, "key_up( _SPACE )"   );  write_var( 0, 160, 60, ALIGN_CENTER_LEFT, counter3 );
+
+    while ( !key(_ESC) )
+        if ( key     ( _SPACE ) ) counter1++; end
+        if ( key_down( _SPACE ) ) counter2++; end
+        if ( key_up  ( _SPACE ) ) counter3++; end
+        frame;
+    end
+
+end
+```
+### Sprite Example
+```c
+import "libmod_gfx";
+import "libmod_input";
+import "libmod_misc";
+
+const
+    scrw = 320;
+    scrh = 240;
+end
+
+process sprite( double x, y, int graph )
+private
+    int sentido = 1;
+begin
+
+    while(!key(_ESC))
+        x += 2.5 * sentido;
+        if ( x > scrw - 32 || x < 32 ) sentido = -sentido; end
+
+        frame;
+    end
+
+end
+
+process main()
+begin
+    set_mode(scrw,scrh);
+    set_fps(60,0);
+
+    sprite(scrw / 2.0, scrh / 2.0, map_load("res/smiley.png") );
+
+end
+```
+
+# Setup environment
+
+## For Unix
+
+To set up your environment for BennuGD2, add the following environment variables to your shell profile (e.g., .bashrc, .zshrc):
+~~~
 # BENNUGD2 DEV
 
 # Set the path to your BennuGD2 installation directory
@@ -38,88 +142,130 @@ export LD_LIBRARY_PATH=$BGD2DEV/build/linux-gnu/bin:$LD_LIBRARY_PATH
 
 # x86_64-w64-mingw32
 # export PATH=$BGD2DEV/build/x86_64-w64-mingw32/bin:$PATH
-```
+~~~
 
-Replace `<path_to_your_BennuGD2_installation_directory>` with the actual path where BennuGD2 is installed on your system.
+Replace <path_to_your_BennuGD2_installation_directory> with the actual path where BennuGD2 is installed on your system.
 
-## How to Build BennuGD2
 
-### Unix - Ubuntu/Debian
 
-1. **Install Essential Packages**
+## Deployment
 
-   For Ubuntu, you may need to install the following packages:
+How to Build BennuGD2
+Unix - Ubuntu/Debian
 
-   ```bash
-   sudo apt install binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
-   ```
+Install Essential Packages
 
-   For other distributions, install the equivalent packages:
+For Ubuntu, you may need to install the following packages:
+~~~
+sudo apt install binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
+~~~
+For other distributions, install the equivalent packages:
 
-   - **Fedora**:
-     ```bash
-     sudo dnf install binutils git cmake gcc-c++ zlib-devel SDL2-devel mesa-libGLU-devel SDL2_image-devel SDL2_mixer-devel libtheora-devel libogg-devel libvorbis-devel
-     ```
-   - **Arch Linux**:
-     ```bash
-     sudo pacman -S git cmake gcc zlib sdl2 glu sdl2_image sdl2_mixer libtheora libogg libvorbis
-     ```
-   - **openSUSE**:
-     ```bash
-     sudo zypper install git cmake gcc-c++ zlib-devel SDL2-devel libglvnd-devel libSDL2_image-devel libSDL2_mixer-devel libtheora-devel libogg-devel libvorbis-devel
-     ```
+    Fedora:
 
-2. **Clone and Build BennuGD2**
+    sudo dnf install binutils git cmake gcc-c++ zlib-devel SDL2-devel mesa-libGLU-devel SDL2_image-devel SDL2_mixer-devel libtheora-devel libogg-devel libvorbis-devel
 
-   Run the following commands to clone the repository and build the dependencies:
+Arch Linux:
+~~~
+sudo pacman -S git cmake gcc zlib sdl2 glu sdl2_image sdl2_mixer libtheora libogg libvorbis
+~~~
+openSUSE:
+~~~
+sudo zypper install git cmake gcc-c++ zlib-devel SDL2-devel libglvnd-devel libSDL2_image-devel libSDL2_mixer-devel libtheora-devel libogg-devel libvorbis-devel
+~~~
+~~~
+Clone and Build BennuGD2
 
-   ```bash
-   git clone https://github.com/SplinterGU/BennuGD2.git
+Run the following commands to clone the repository and build the dependencies:
 
-   cd BennuGD2/
+git clone https://github.com/SplinterGU/BennuGD2.git
 
-   git submodule update --init --recursive
+cd BennuGD2/
 
-   cd vendor
+git submodule update --init --recursive
 
-   ./build-sdl-gpu.sh linux clean
+cd vendor
 
-   cd ..
-   ./build.sh linux clean
-   ```
+./build-sdl-gpu.sh linux clean
 
-### Windows 64
+cd ..
+./build.sh linux clean
+~~~
 
-1. **Install MSYS2**
+Windows 64
+~~~
+Install MSYS2
 
-   - Download the latest version of MSYS2 from the [official website](https://www.msys2.org/).
-   - Follow the installation instructions provided on the website for your specific operating system.
-   - Open the MSYS2 terminal to begin the installation of BennuGD2.
+    Download the latest version of MSYS2 from the official website.
+    Follow the installation instructions provided on the website for your specific operating system.
+    Open the MSYS2 terminal to begin the installation of BennuGD2.
 
-2. **Build BennuGD2**
+Build BennuGD2
 
-   Copy and paste the following script into your MSYS2 terminal:
+Copy and paste the following script into your MSYS2 terminal:
 
-   ```bash
-   pacman -S --needed --noconfirm git patch cmake mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-emacs mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib mingw-w64-x86_64-libogg mingw-w64-x86_64-libvorbis mingw-w64-x86_64-libtheora mingw-w64-x86_64-libmodplug mingw-w64-x86_64-libmikmod mingw-w64-x86_64-libtre-git mingw-w64-x86_64-flac mingw-w64-x86_64-openal mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-libwebp
+pacman -S --needed --noconfirm git patch cmake mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-emacs mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib mingw-w64-x86_64-libogg mingw-w64-x86_64-libvorbis mingw-w64-x86_64-libtheora mingw-w64-x86_64-libmodplug mingw-w64-x86_64-libmikmod mingw-w64-x86_64-libtre-git mingw-w64-x86_64-flac mingw-w64-x86_64-openal mingw-w64-x86_64-libxml2 mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-libwebp
 
-   git clone https://github.com/SplinterGU/BennuGD2.git
+git clone https://github.com/SplinterGU/BennuGD2.git
 
-   cd BennuGD2/
+cd BennuGD2/
 
-   git submodule update --init --recursive
+git submodule update --init --recursive
 
-   cd vendor
+cd vendor
 
-   ./build-sdl-gpu.sh windows
+./build-sdl-gpu.sh windows
 
-   cd ..
-   ./build.sh windows
-   cp dependencies/x86_64-w64-mingw32/* build/x86_64-w64-mingw32/bin/
-   ```
+cd ..
+./build.sh windows
+cp dependencies/x86_64-w64-mingw32/* build/x86_64-w64-mingw32/bin/
+~~~
+Note: Adjust the cp command above to match the platform on which the build was performed
+# Screenshots
+## Linux
+![Antiriad](https://i.ibb.co/FBvKHZ2/antiriad.png)
 
-   **Note:** Adjust the `cp` command above to match the platform on which the build was performed.
+![Ballon Fight](https://i.ibb.co/fMXc55L/balloon-fight.png)
 
-## License
+![bubbob](https://i.ibb.co/rMLPjYC/bubbob.png)
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+![Columns](https://i.ibb.co/zHyFN23/columns.png)
+
+![Danger Quest](https://i.ibb.co/4mYzKV5/Danger-Quest.png)
+
+![Echo](https://i.ibb.co/ctM2rFx/Echo.png)
+
+![eeeek](https://i.ibb.co/JnRL9rn/eeeek.png)
+
+![Galaxians](https://i.ibb.co/Q9WMH2F/galaxians.png)
+
+![Invaders](https://i.ibb.co/6wRShy2/invaders.png)
+
+![Mr Bike](https://i.ibb.co/n0cXBNf/mrbike.png)
+
+![pacman](https://i.ibb.co/LQWMWP9/pacman.png)
+
+![Puzsion](https://i.ibb.co/HKxpYHs/puzsion.png)
+
+![Zomg](https://i.ibb.co/yPY3W1r/zomg.png)
+
+## Windows
+![Josekiller: El Ataque de los clones](https://i.ibb.co/KcPnsVY/Captura-de-pantalla-2024-10-10-214452.png)
+
+![Goody: The Remake](https://i.ibb.co/JFhHRvW/Captura-de-pantalla-2024-10-10-220022.png)
+
+## MacOSX
+![Marron´s Day](https://i.ibb.co/K74RMck/Captura-de-pantalla-2024-10-10-220434.png)
+
+
+
+
+## Support
+
+https://forum.bennugd.org/
+
+
+## Authors
+
+- [@SplinterGU](https://www.github.com/SplinterGU)
+
