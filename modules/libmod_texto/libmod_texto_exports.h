@@ -35,7 +35,7 @@
 
 // Exportar las funciones
 DLSYSFUNCS  __bgdexport(libmod_Texto, functions_exports)[] = {
-    FUNC("mostrarTexto", "S", TYPE_INT, mostrarTexto), // Cambia el tipo de retorno y los parámetros según sea necesario
+    FUNC("MOSTRAR_TEXTO", "S", TYPE_INT, mostrarTexto), // Cambia el tipo de retorno y los parámetros según sea necesario
     FUNC(0, 0, 0, 0) // Fin de la lista de funciones
 };
 
