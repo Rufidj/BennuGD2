@@ -1,18 +1,17 @@
-
 #include <stdio.h>
+#include <stdint.h>
+#include "bgddl.h"
+#include "bgdrtm.h"
 
-// Declaración de la función que se exportará
-void mostrarTexto(const char *texto);
-
-// Implementación de la función
-void mostrarTexto(const char *texto) {
+int64_t mostrarTexto( INSTANCE * my, int64_t * params ) {
+    char * texto = (char *)params[0];  // Convertir el parámetro a un string
     printf("%s\n", texto);
+    return 1; // Puedes devolver algún valor si lo necesitas
 }
 
-// Función principal del módulo para BennuGD
 int main() {
-    // Este es un punto de entrada para BennuGD, aunque no lo usaremos aquí
     return 0;
 }
+
 #include "libmod_texto_exports.h"
 
