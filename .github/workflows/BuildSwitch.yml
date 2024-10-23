@@ -1,0 +1,103 @@
+name: Setup DevkitPro for Switch and Build BennuGD2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup-devkitpro:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt update
+        sudo apt install -y libc6:i386 libncurses5:i386 libstdc++6:i386 curl git build-essential cmake make
+
+    - name: Download devkitPro pacman installer
+      run: |
+        curl https://apt.devkitpro.org/install-devkitpro-pacman -o install-devkitpro-pacman
+        chmod +x install-devkitpro-pacman
+
+    - name: Install devkitPro pacman
+      run: |
+        sudo ./install-devkitpro-pacman
+        sudo dkp-pacman -Sy
+
+    - name: Install switch dev tools
+      run: |
+        sudo dkp-pacman -S switch-dev --noconfirm
+        sudo dkp-pacman -S switch-sdl2 --noconfirm
+        sudo dkp-pacman -S switch-sdl2_gfx --noconfirm
+        sudo dkp-pacman -S switch-sdl2_image --noconfirm
+        sudo dkp-pacman -S switch-sdl2_mixer --noconfirm
+        sudo dkp-pacman -S switch-sdl2_ttf --noconfirm
+        sudo dkp-pacman -S switch-libtheora --noconfirm
+        sudo dkp-pacman -S switch-glad --noconfirm
+
+    - name: Set devkitPro environment variables
+      run: |
+        echo "export DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+        echo "export DEVKITARM=/opt/devkitpro/devkitARM" >> $GITHUB_ENV
+        echo "export DEVKITPPC=/opt/devkitpro/devkitPPC" >> $GITHUB_ENV
+
+    - name: Verify DEVKITPRO path
+      run: |
+        echo "DEVKITPRO is set to: $DEVKITPRO"
+        ls -l /opt/devkitpro/cmake
+
+    - name: Clone BennuGD2 repository
+      run: |
+        git clone https://github.com/SplinterGU/BennuGD2.git
+        cd BennuGD2/
+        git submodule update --init --recursive
+
+    - name: Build SDL-GPU for Switch
+      run: |
+        cd BennuGD2/vendor
+        export DEVKITPRO=/opt/devkitpro
+        export DEVKITARM=/opt/devkitpro/devkitARM
+        export DEVKITPPC=/opt/devkitpro/devkitPPC
+        ./build-sdl-gpu.sh switch
+      env:
+        DEVKITPRO: ${{ env.DEVKITPRO }}
+        DEVKITARM: ${{ env.DEVKITARM }}
+        DEVKITPPC: ${{ env.DEVKITPPC }}
+
+    - name: Build BennuGD2 for Switch
+      run: |
+        cd BennuGD2
+        export DEVKITPRO=/opt/devkitpro
+        export DEVKITARM=/opt/devkitpro/devkitARM
+        export DEVKITPPC=/opt/devkitpro/devkitPPC
+        ./build.sh switch
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "release-${{ github.run_id }}"  # Usar un identificador más legible
+        release_name: "BennuGD2 Switch Build - ${{ github.run_id }}"
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: BennuGD2/build/aarch64-none-elf/bin/bgdi.elf  # Ajusta esta ruta si es necesario
+        asset_name: bgdi.elf
+        asset_content_type: application/octet-stream
