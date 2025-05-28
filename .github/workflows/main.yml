@@ -1,52 +1,49 @@
-name: Build BennuGD2 for Windows
+name: Build BennuGD for Windows
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-      - name: Setup MSYS2
+      - name: Set up MSYS2
         uses: msys2/setup-msys2@v2
         with:
-          update: true
+          msystem: MINGW64
           install: >-
             base-devel
-            git
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-SDL2
-            mingw-w64-x86_64-SDL2_image
-            mingw-w64-x86_64-SDL2_mixer
-            mingw-w64-x86_64-SDL2_ttf
-            mingw-w64-x86_64-SDL2_gfx
-            mingw-w64-x86_64-libtheora
+            mingw-w64-x86_64-zlib
+            ninja
+          update: true
 
-      - name: Build BennuGD2 (Windows)
-        shell: msys2 {0}
+      - name: Fix old CMakeLists.txt in SDL_gpu
         run: |
-          git submodule update --init --recursive
-          cd vendor
-          ./build-sdl-gpu.sh windows
-          cd ..
-          ./build.sh windows
+          sed -i 's/cmake_minimum_required(VERSION 2.8)/cmake_minimum_required(VERSION 3.5)/' vendor/sdl-gpu/CMakeLists.txt
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Build SDL_gpu
+        run: ./build-sdl-gpu.sh
+
+      - name: Build BennuGD
+        run: ./build.sh windows
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
         with:
-          name: BennuGD2-Windows
-          path: BennuGD2/build/mingw-w64/bin/
+          name: bennugd-windows
+          path: bin/windows/*
