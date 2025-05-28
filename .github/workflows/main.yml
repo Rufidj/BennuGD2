@@ -29,7 +29,6 @@ jobs:
           mingw-w64-x86_64-SDL2_ttf
           mingw-w64-x86_64-SDL2_gfx
           mingw-w64-x86_64-libtheora
-          mingw-w64-x86_64-glad
 
     - name: Clone BennuGD2 repository
       shell: msys2 {0}
@@ -56,8 +55,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: "windows-release-${{ github.run_id }}"
-        release_name: "BennuGD2 Windows Build - ${{ github.run_id }}"
+        tag_name: windows-release-${{ github.run_id }}
+        release_name: BennuGD2 Windows Build - ${{ github.run_id }}
         draft: false
         prerelease: false
 
