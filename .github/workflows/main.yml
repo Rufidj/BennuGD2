@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # Necesario para publicar artefactos
+  contents: write
 
 jobs:
   build-windows:
@@ -46,7 +46,7 @@ jobs:
           ./build.sh windows
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-Windows
           path: BennuGD2/build/mingw-w64/bin/
