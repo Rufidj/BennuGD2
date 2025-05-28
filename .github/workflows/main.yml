@@ -2,60 +2,54 @@ name: Build BennuGD2 for Windows
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: msys2 {0}
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        update: true
-        install: >-
-          base-devel
-          git
-          mingw-w64-x86_64-toolchain
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-SDL2
-          mingw-w64-x86_64-SDL2_image
-          mingw-w64-x86_64-SDL2_mixer
-          mingw-w64-x86_64-SDL2_ttf
-          mingw-w64-x86_64-SDL2_gfx
-          mingw-w64-x86_64-libtheora
-          ninja
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-SDL2_image
+            mingw-w64-x86_64-SDL2_mixer
+            mingw-w64-x86_64-SDL2_ttf
+            mingw-w64-x86_64-SDL2_gfx
+            mingw-w64-x86_64-libtheora
 
-    - name: Clone BennuGD2 repository
-      shell: msys2 {0}
-      run: |
-        git clone https://github.com/Rufidj/BennuGD2.git
-        cd BennuGD2
-        git submodule update --init --recursive
+      - name: Clone submodules
+        run: |
+          git submodule update --init --recursive
 
-    - name: Build SDL-GPU for Windows
-      shell: msys2 {0}
-      run: |
-        cd BennuGD2/vendor
-        ./build-sdl-gpu.sh windows
+      - name: Build SDL_GPU for Windows
+        run: |
+          cd vendor
+          ./build-sdl-gpu.sh windows
 
-    - name: Build BennuGD2 for Windows
-      shell: msys2 {0}
-      run: |
-        cd BennuGD2
-        ./build.sh win
+      - name: Build BennuGD2 for Windows
+        run: |
+          ./build.sh windows
 
-    - name: Upload BennuGD2 artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: BennuGD2-Windows
-        path: |
-          BennuGD2/build/x86_64-w64-mingw32/bin/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: BennuGD2-Windows
+          path: build/x86_64-w64-mingw32/bin/
