@@ -45,7 +45,7 @@ jobs:
       shell: msys2 {0}
       run: |
         cd BennuGD2/vendor
-        ./build-sdl-gpu.sh win
+        ./build-sdl-gpu.sh windows
 
     - name: Build BennuGD2 for Windows
       shell: msys2 {0}
