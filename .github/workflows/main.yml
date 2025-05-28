@@ -1,0 +1,72 @@
+name: Build BennuGD2 for Windows and Create Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          base-devel
+          git
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-SDL2
+          mingw-w64-x86_64-SDL2_image
+          mingw-w64-x86_64-SDL2_mixer
+          mingw-w64-x86_64-SDL2_ttf
+          mingw-w64-x86_64-SDL2_gfx
+          mingw-w64-x86_64-libtheora
+          mingw-w64-x86_64-glad
+
+    - name: Clone BennuGD2 repository
+      shell: msys2 {0}
+      run: |
+        git clone https://github.com/Rufidj/BennuGD2.git
+        cd BennuGD2
+        git submodule update --init --recursive
+
+    - name: Build BennuGD2 for Windows
+      shell: msys2 {0}
+      run: |
+        cd BennuGD2
+        ./build.sh win
+
+    - name: Compress build output
+      shell: bash
+      run: |
+        cd BennuGD2/build/windows/bin
+        7z a ../../../BennuGD2-windows.zip *
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "windows-release-${{ github.run_id }}"
+        release_name: "BennuGD2 Windows Build - ${{ github.run_id }}"
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: BennuGD2/BennuGD2-windows.zip
+        asset_name: BennuGD2-windows.zip
+        asset_content_type: application/zip
