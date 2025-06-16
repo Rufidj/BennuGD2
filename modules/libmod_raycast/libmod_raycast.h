@@ -79,12 +79,12 @@ extern int64_t libmod_raycast_rotate_player(INSTANCE * my, int64_t * params);
 extern int64_t libmod_raycast_load_texture(INSTANCE * my, int64_t * params);  
 extern int64_t libmod_raycast_get_player_pos(INSTANCE * my, int64_t * params);  
   
-/* --------------------------------------------------------------------------- */  
-  
-// Funciones de inicialización del módulo  
-extern void __bgdexport(libmod_raycast, module_initialize)();  
-extern void __bgdexport(libmod_raycast, module_finalize)();  
-  
-/* --------------------------------------------------------------------------- */  
+/* --------------------------------------------------------------------------- */    
+    
+// Funciones de inicialización del módulo    
+extern void __bgdexport(libmod_raycast, module_initialize)();    
+extern void __bgdexport(libmod_raycast, module_finalize)();    
+    
+/* --------------------------------------------------------------------------- */
   
 #endif

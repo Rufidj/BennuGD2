@@ -1,4 +1,4 @@
-project(libmod_raycast)  
+project(libmod_raycast)  # Correcto - mantiene el nombre completo  
     
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "../../bin/")    
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "../../bin/")    

@@ -287,22 +287,22 @@ void raycast_rotate_player(RaycastEngine *engine, float angle) {
     while (engine->player.angle >= 2 * PI) engine->player.angle -= 2 * PI;  
 }  
   
-// Funciones de inicialización del módulo  
-void __bgdexport(libmod_raycast, module_initialize)() {  
+void __bgdexport(libmod_raycast, module_initialize)()  
+{  
     // Inicialización básica del motor  
     memset(&engine, 0, sizeof(RaycastEngine));  
     engine.initialized = 0;  
 }  
-  
-void __bgdexport(libmod_raycast, module_finalize)() {  
-    if (engine.initialized) {  
-        raycast_cleanup(&engine);  
-    }  
-    if (raycast_bitmap) {  
-        bitmap_destroy(raycast_bitmap);  
-        raycast_bitmap = NULL;  
-    }  
-}  
+    
+void __bgdexport(libmod_raycast, module_finalize)() {    
+    if (engine.initialized) {    
+        raycast_cleanup(&engine);    
+    }    
+    if (raycast_bitmap) {    
+        bitmap_destroy(raycast_bitmap);    
+        raycast_bitmap = NULL;    
+    }    
+}
   
 // Función de inicialización del motor de raycasting  
 int64_t libmod_raycast_init_engine(INSTANCE * my, int64_t * params) {  
@@ -447,3 +447,4 @@ int64_t libmod_raycast_get_player_pos(INSTANCE * my, int64_t * params) {
       
     return 1;  
 }
+#include "libmod_raycast_exports.h"
