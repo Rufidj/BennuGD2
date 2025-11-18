@@ -1,0 +1,108 @@
+name: Build BennuGD2
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build-windows:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up MinGW environment
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update
+          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev unzip wget
+
+      - name: Build GLEW for MinGW (x86_64)
+        run: |
+          wget -q https://github.com/nigels-com/glew/releases/download/2.2.0/glew-2.2.0.zip
+          unzip -q glew-2.2.0.zip
+          cd glew-2.2.0
+          make SYSTEM=mingw mingw64
+          sudo make SYSTEM=mingw PREFIX=/usr/x86_64-w64-mingw32 install
+          cd ..
+
+      - name: Build SDL2 dependencies
+        run: |
+          cd vendor
+          for lib in SDL2-2.28.4 SDL2_mixer-2.6.3 SDL2_image-2.6.3; do
+            cd $lib
+            sed -i 's,/usr/local,/usr,g' Makefile
+            sudo make cross
+            cd ..
+          done
+
+          for lib in libogg-1.3.5 libvorbis-1.3.7 libtheora-1.1.1; do
+            wget -q https://downloads.xiph.org/releases/${lib}.tar.gz
+            tar xzf ${lib}.tar.gz
+          done
+
+          cd libogg-1.3.5 && ./configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 && make && sudo make install && cd ..
+          cd libvorbis-1.3.7 && ./configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 && make && sudo make install && cd ..
+          cd libtheora-1.1.1 && ./configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 --disable-shared --disable-examples && make && sudo make install && cd ../..
+
+      - name: Update submodules and build BennuGD2
+        run: |
+          git submodule update --init --recursive
+          cd vendor
+          ./build-sdl-gpu.sh windows
+          cd ..
+          ./build.sh windows
+          mkdir -p packages
+          rm -f packages/*
+          if [[ -d build/x86_64-w64-mingw32/bin ]]; then
+            rar a -ep1 packages/bgd2-x86_64-w64-mingw32-$(date +"%Y-%m-%d").rar \
+              build/x86_64-w64-mingw32/bin/*.exe \
+              build/x86_64-w64-mingw32/bin/*.dll \
+              dependencies/x86_64-w64-mingw32/libSDL2_gpu.dll \
+              /usr/x86_64-w64-mingw32/bin/libogg*.dll \
+              /usr/x86_64-w64-mingw32/bin/libvorbis*.dll \
+              /usr/x86_64-w64-mingw32/bin/SDL2.dll \
+              /usr/x86_64-w64-mingw32/bin/SDL2_image.dll \
+              /usr/x86_64-w64-mingw32/bin/SDL2_mixer.dll \
+              $(find /usr/x86_64-w64-mingw32 -name 'zlib1.dll') \
+              /usr/x86_64-w64-mingw32/lib/libwinpthread-*.dll \
+              WhatsNew.txt
+          fi
+
+      - name: Upload BennuGD2 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BennuGD2-windows
+          path: packages/bgd2-x86_64-w64-mingw32-*.rar
+
+  build-macosx:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies via Homebrew
+        run: |
+          brew update
+          brew install glew sdl2 sdl2_image sdl2_mixer theora libogg libvorbis cmake pkg-config
+
+      - name: Update submodules and Build BennuGD2
+        run: |
+          git submodule update --init --recursive
+          cd vendor
+          ./build-sdl-gpu.sh macosx
+          cd ..
+          ./build.sh macosx
+          ./build.sh packages
+
+      - name: Upload BennuGD2 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BennuGD2-macosx
+          path: packages/x86_64-apple-darwin14-*.tgz
