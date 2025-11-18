@@ -22,18 +22,34 @@ jobs:
       - name: Set up environment for ${{ matrix.env }}
         run: |
           sudo apt update
+
           if [ "${{ matrix.env }}" = "linux32" ]; then
             sudo dpkg --add-architecture i386
             sudo apt update
             sudo apt install -y \
               gcc-multilib g++-multilib binutils git cmake build-essential \
-              zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 libglew-dev:i386 \
+              zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 \
               libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 \
               libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386
+
+            echo "### Building GLEW 32-bit from source ###"
+            wget https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz
+            tar -xvf glew-2.2.0.tgz
+            cd glew-2.2.0
+            make SYSTEM=linux-x86
+            sudo mkdir -p /usr/local/lib32
+            sudo cp lib/libGLEW.a /usr/local/lib32/
+            sudo cp lib/libGLEW.so /usr/local/lib32/
+            sudo cp include/GL/* /usr/local/include/GL/
+            echo "/usr/local/lib32" | sudo tee /etc/ld.so.conf.d/glew32.conf
+            sudo ldconfig
+            cd ..
           else
-            sudo apt install -y binutils git cmake build-essential zlib1g-dev \
-              libsdl2-dev libglu1-mesa-dev libglew-dev libsdl2-image-dev \
-              libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
+            sudo apt install -y \
+              binutils git cmake build-essential zlib1g-dev \
+              libsdl2-dev libglu1-mesa-dev libglew-dev \
+              libsdl2-image-dev libsdl2-mixer-dev \
+              libtheora-dev libogg-dev libvorbis-dev
           fi
 
       - name: Update submodules and Build
@@ -67,7 +83,7 @@ jobs:
             pkg-config rar libz-mingw-w64-dev unzip wget
 
           # Install GLEW for MinGW (x86_64)
-          wget -q https://github.com/nigels-com/glew/releases/download/2.2.0/glew-2.2.0.zip
+          wget -q https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.zip
           unzip -q glew-2.2.0.zip
           cd glew-2.2.0
           make SYSTEM=mingw mingw64
@@ -157,7 +173,7 @@ jobs:
             pkg-config rar libz-mingw-w64-dev unzip wget
 
           # Install GLEW for MinGW (i686)
-          wget -q https://github.com/nigels-com/glew/releases/download/2.2.0/glew-2.2.0.zip
+          wget -q https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.zip
           unzip -q glew-2.2.0.zip
           cd glew-2.2.0
           make SYSTEM=mingw mingw32
