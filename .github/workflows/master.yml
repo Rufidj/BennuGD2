@@ -5,7 +5,7 @@ on:
 
 jobs:
   linux:
-    uses: ./.github/workflows/build-linux.yml
+    uses: ./.github/workflows/build-linux64.yml
 
   windows:
     uses: ./.github/workflows/build-windows-macosx.yml
