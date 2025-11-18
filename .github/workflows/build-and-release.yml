@@ -43,8 +43,9 @@ jobs:
         uses: actions/upload-artifact@v4  
         with:  
           name: BennuGD2-${{ matrix.env }}  
-          path: packages/bgd2-*.tgz
-          build-windows:  
+          path: packages/bgd2-*.tgz  
+  
+  build-windows:  
     runs-on: ubuntu-latest  
     permissions:  
       contents: write  
@@ -117,11 +118,12 @@ jobs:
                         WhatsNew.txt; \  
           fi  
   
-       - name: Upload BennuGD2 artifacts  
-        uses: actions/upload-artifact@v3  
+      - name: Upload BennuGD2 artifacts  
+        uses: actions/upload-artifact@v4  
         with:  
           name: BennuGD2-windows  
           path: packages/bgd2-x86_64-w64-mingw32-*.rar
+            build-windows-32bit:  
     runs-on: ubuntu-latest  
     permissions:  
       contents: write  
@@ -199,8 +201,9 @@ jobs:
         uses: actions/upload-artifact@v4  
         with:  
           name: BennuGD2-windows32  
-          path: packages/bgd2-i686-w64-mingw32-*.rar
-           build-macosx:  
+          path: packages/bgd2-i686-w64-mingw32-*.rar  
+  
+  build-macosx:  
     runs-on: ubuntu-latest  
     permissions:  
       contents: write  
@@ -249,38 +252,7 @@ jobs:
         with:  
           name: BennuGD2-macosx  
           path: packages/x86_64-apple-darwin14-*.tgz
-           build-switch:  
-    runs-on: ubuntu-latest  
-    permissions:  
-      contents: write  
-  
-    steps:  
-      - name: Checkout code  
-        uses: actions/checkout@v3  
-  
-      - name: Set up DevkitPro  
-        run: |  
-          sudo apt update  
-          sudo apt install -y wget git cmake build-essential  
-          wget https://github.com/devkitPro/pacman/releases/latest/download/devkitpro-pacman.amd64.deb  
-          sudo dpkg -i devkitpro-pacman.amd64.deb  
-          sudo dkp-pacman -Sy  
-          sudo dkp-pacman -S --noconfirm switch-dev switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-libtheora switch-libogg switch-libvorbis  
-  
-      - name: Update submodules and Build  
-        run: |  
-          export DEVKITPRO=/opt/devkitpro  
-          git submodule update --init --recursive  
-          cd vendor  
-          ./build-sdl-gpu.sh switch  
-          cd ..  
-          ./build.sh switch  
-          ./build.sh packages  
-  
-      - name: Upload BennuGD2 artifacts  
-        uses: actions/upload-artifact@v4  
-        with:
-          build-switch:  
+            build-switch:  
     runs-on: ubuntu-latest  
     permissions:  
       contents: write  
