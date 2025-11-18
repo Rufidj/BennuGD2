@@ -117,12 +117,11 @@ jobs:
                         WhatsNew.txt; \  
           fi  
   
-      - name: Upload BennuGD2 artifacts  
-        uses: actions/upload-artifact@v4  
+       - name: Upload BennuGD2 artifacts  
+        uses: actions/upload-artifact@v3  
         with:  
           name: BennuGD2-windows  
-           path: packages/bgd2-x86_64-w64-mingw32-*.rar
-             build-windows-32bit:  
+          path: packages/bgd2-x86_64-w64-mingw32-*.rar
     runs-on: ubuntu-latest  
     permissions:  
       contents: write  
