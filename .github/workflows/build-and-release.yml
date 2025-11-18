@@ -31,12 +31,12 @@ jobs:
             sudo apt update
             sudo apt install -y \
               gcc-multilib g++-multilib binutils git cmake build-essential \
-              zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 \
+              zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 libglew-dev:i386 \
               libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 \
               libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386
           else
             sudo apt install -y binutils git cmake build-essential zlib1g-dev \
-              libsdl2-dev libglu1-mesa-dev libsdl2-image-dev \
+              libsdl2-dev libglu1-mesa-dev libglew-dev libsdl2-image-dev \
               libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
           fi
 
@@ -71,7 +71,15 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool \
-            pkg-config rar libz-mingw-w64-dev
+            pkg-config rar libz-mingw-w64-dev unzip wget
+
+          # Install GLEW (MinGW 64-bit)
+          wget https://github.com/nigels-com/glew/releases/download/2.2.0/glew-2.2.0.zip
+          unzip glew-2.2.0.zip
+          cd glew-2.2.0
+          make SYSTEM=mingw mingw64
+          sudo make SYSTEM=mingw PREFIX=/usr/x86_64-w64-mingw32 install
+          cd ..
 
       - name: Build dependencies
         run: |
@@ -159,7 +167,15 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool \
-            pkg-config rar libz-mingw-w64-dev
+            pkg-config rar libz-mingw-w64-dev unzip wget
+
+          # Install GLEW (MinGW 32-bit)
+          wget https://github.com/nigels-com/glew/releases/download/2.2.0/glew-2.2.0.zip
+          unzip glew-2.2.0.zip
+          cd glew-2.2.0
+          make SYSTEM=mingw mingw32
+          sudo make SYSTEM=mingw PREFIX=/usr/i686-w64-mingw32 install
+          cd ..
 
       - name: Build dependencies for 32-bit
         run: |
@@ -269,7 +285,7 @@ jobs:
             SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk \
             MACOSX_DEPLOYMENT_TARGET=10.10 \
             /opt/osxcross/target/bin/osxcross-macports -v install \
-              libtheora libsdl2 libsdl2_image libsdl2_mixer
+              libtheora libsdl2 libsdl2_image libsdl2_mixer glew
 
       - name: Update submodules and Build
         run: |
