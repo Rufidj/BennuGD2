@@ -22,7 +22,6 @@ jobs:
       - name: Set up environment for ${{ matrix.env }}
         run: |
           sudo apt update
-
           if [ "${{ matrix.env }}" = "linux32" ]; then
             sudo dpkg --add-architecture i386
             sudo apt update
@@ -32,24 +31,19 @@ jobs:
               libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 \
               libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386
 
-            echo "### Building GLEW 32-bit from source ###"
-            wget https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz
-            tar -xvf glew-2.2.0.tgz
+            # Build GLEW manually for i386
+            wget -q https://github.com/nigels-com/glew/archive/refs/tags/2.2.0.tar.gz
+            tar -xzf 2.2.0.tar.gz
             cd glew-2.2.0
-            make SYSTEM=linux-x86
-            sudo mkdir -p /usr/local/lib32
-            sudo cp lib/libGLEW.a /usr/local/lib32/
-            sudo cp lib/libGLEW.so /usr/local/lib32/
-            sudo cp include/GL/* /usr/local/include/GL/
-            echo "/usr/local/lib32" | sudo tee /etc/ld.so.conf.d/glew32.conf
-            sudo ldconfig
+            make clean
+            make extensions
+            CFLAGS="-m32" LDFLAGS="-m32" make glew.lib GLEW_DEST=/usr/lib/i386-linux-gnu
+            sudo make install GLEW_DEST=/usr LIBDIR=/usr/lib/i386-linux-gnu
             cd ..
           else
-            sudo apt install -y \
-              binutils git cmake build-essential zlib1g-dev \
-              libsdl2-dev libglu1-mesa-dev libglew-dev \
-              libsdl2-image-dev libsdl2-mixer-dev \
-              libtheora-dev libogg-dev libvorbis-dev
+            sudo apt install -y binutils git cmake build-essential zlib1g-dev \
+              libsdl2-dev libglu1-mesa-dev libglew-dev libsdl2-image-dev \
+              libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
           fi
 
       - name: Update submodules and Build
@@ -80,15 +74,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool \
-            pkg-config rar libz-mingw-w64-dev unzip wget
-
-          # Install GLEW for MinGW (x86_64)
-          wget -q https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.zip
-          unzip -q glew-2.2.0.zip
-          cd glew-2.2.0
-          make SYSTEM=mingw mingw64
-          sudo make SYSTEM=mingw PREFIX=/usr/x86_64-w64-mingw32 install
-          cd ..
+            pkg-config rar libz-mingw-w64-dev unzip wget libglew-mingw-w64-dev
 
       - name: Build dependencies
         run: |
@@ -141,6 +127,7 @@ jobs:
               build/x86_64-w64-mingw32/bin/*.exe \
               build/x86_64-w64-mingw32/bin/*.dll \
               dependencies/x86_64-w64-mingw32/libSDL2_gpu.dll \
+              /usr/x86_64-w64-mingw32/bin/glew32.dll \
               /usr/x86_64-w64-mingw32/bin/libogg*.dll \
               /usr/x86_64-w64-mingw32/bin/libvorbis*.dll \
               /usr/x86_64-w64-mingw32/bin/SDL2.dll \
@@ -170,15 +157,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool \
-            pkg-config rar libz-mingw-w64-dev unzip wget
-
-          # Install GLEW for MinGW (i686)
-          wget -q https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.zip
-          unzip -q glew-2.2.0.zip
-          cd glew-2.2.0
-          make SYSTEM=mingw mingw32
-          sudo make SYSTEM=mingw PREFIX=/usr/i686-w64-mingw32 install
-          cd ..
+            pkg-config rar libz-mingw-w64-dev unzip wget libglew-mingw-w64-dev
 
       - name: Build dependencies for 32-bit
         run: |
@@ -231,7 +210,7 @@ jobs:
               build/i686-w64-mingw32/bin/*.exe \
               build/i686-w64-mingw32/bin/*.dll \
               dependencies/i686-w64-mingw32/libSDL2_gpu.dll \
-              dependencies/i686-w64-mingw32/libgcc_s_dw2-1.dll \
+              /usr/i686-w64-mingw32/bin/glew32.dll \
               /usr/i686-w64-mingw32/bin/libogg*.dll \
               /usr/i686-w64-mingw32/bin/libvorbis*.dll \
               /usr/i686-w64-mingw32/bin/SDL2.dll \
@@ -270,7 +249,6 @@ jobs:
           mv MacOSX10.10.sdk.tar.xz tarballs/
           sudo ./tools/get_dependencies.sh
           UNATTENDED=yes ./build.sh
-          echo "#### Setup done ####"
 
       - name: Install dependencies
         run: |
@@ -319,7 +297,9 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y wget git cmake build-essential
-          wget https://github.com/devkitPro/pacman/releases/latest/download/devkitpro-pacman.amd64.deb
+          
+          # Use fixed version instead of broken "latest"
+          wget https://github.com/devkitPro/pacman/releases/download/v6.0.2/devkitpro-pacman.amd64.deb
           sudo dpkg -i devkitpro-pacman.amd64.deb
           sudo dkp-pacman -Sy
           sudo dkp-pacman -S --noconfirm \
