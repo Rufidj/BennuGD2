@@ -1,7 +1,7 @@
 name: Build Nintendo Switch
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   switch:
