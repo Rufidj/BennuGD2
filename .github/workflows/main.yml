@@ -6,6 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
+
+# ================================================================
+# LINUX 32-bit
+# ================================================================
   build-linux32:
     runs-on: ubuntu-22.04
     permissions:
@@ -21,14 +25,27 @@ jobs:
           path: |
             /usr/lib/i386-linux-gnu
             /usr/include
-          key: linux32-${{ runner.os }}-${{ hashFiles('vendor/**') }}
+            vendor
+          key: linux32-${{ hashFiles('vendor/**') }}
 
-      - name: Set up environment for linux32
+      - name: Install ALL dependencies for Linux32 (GL + GLEW)
         run: |
-          sudo apt update
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt install -y gcc-multilib g++-multilib binutils git cmake build-essential zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386
+          sudo apt install -y \
+            gcc-multilib g++-multilib binutils git cmake build-essential \
+            zlib1g-dev:i386 \
+            libsdl2-dev:i386 \
+            libsdl2-image-dev:i386 \
+            libsdl2-mixer-dev:i386 \
+            libtheora-dev:i386 \
+            libogg-dev:i386 \
+            libvorbis-dev:i386 \
+            libglu1-mesa-dev:i386 \
+            libgl1-mesa-dev:i386 \
+            mesa-common-dev:i386 \
+            libglew-dev:i386 \
+            glew-utils:i386
 
       - name: Update submodules and Build
         run: |
@@ -39,12 +56,15 @@ jobs:
           ./build.sh linux32
           ./build.sh packages
 
-      - name: Upload BennuGD2 artifacts
+      - name: Upload Linux32 package
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-linux32
           path: packages/bgd2-*.tgz
 
+# ================================================================
+# LINUX 64-bit
+# ================================================================
   build-linux:
     runs-on: ubuntu-latest
     permissions:
@@ -54,18 +74,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Linux deps
+      - name: Cache Linux64 deps
         uses: actions/cache@v4
         with:
           path: |
             /usr/lib
             /usr/include
-          key: linux-${{ runner.os }}-${{ hashFiles('vendor/**') }}
+            vendor
+          key: linux64-${{ hashFiles('vendor/**') }}
 
-      - name: Set up environment for linux
+      - name: Install ALL dependencies for Linux64 (GL + GLEW)
         run: |
           sudo apt update
-          sudo apt install -y binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
+          sudo apt install -y \
+            binutils git cmake build-essential \
+            zlib1g-dev \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libtheora-dev \
+            libogg-dev \
+            libvorbis-dev \
+            libglu1-mesa-dev \
+            libgl1-mesa-dev \
+            mesa-common-dev \
+            libglew-dev \
+            glew-utils
 
       - name: Update submodules and Build
         run: |
@@ -76,12 +110,15 @@ jobs:
           ./build.sh linux
           ./build.sh packages
 
-      - name: Upload BennuGD2 artifacts
+      - name: Upload Linux package
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-linux
-          path: packages/bgd2-*.tgz     
+          path: packages/bgd2-*.tgz
 
+# ================================================================
+# WINDOWS 64-bit
+# ================================================================
   build-windows:
     runs-on: ubuntu-latest
     permissions:
@@ -96,69 +133,70 @@ jobs:
         with:
           path: |
             /usr/x86_64-w64-mingw32
-            vendor/glew-2.2.0
+            vendor
           key: win64-${{ hashFiles('vendor/**') }}
 
-      - name: Set up environment
+      - name: Install Windows build dependencies
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev
+          sudo apt install -y \
+            mingw-w64 build-essential cmake autoconf libtool pkg-config rar \
+            libz-mingw-w64-dev
 
-      - name: Build dependencies
+      - name: Build SDL, OGG, Vorbis, Theora, GLEW
         run: |
           cd vendor
-
           # SDL2
           cd SDL2-2.28.4
           sed -i 's,/usr/local,/usr,g' Makefile
           sudo make cross
           cd ..
 
-          # SDL2_mixer
+          # SDL_mixer
           cd SDL2_mixer-2.6.3
           sed -i 's,/usr/local,/usr,g' Makefile
           sudo make cross
           cd ..
 
-          # SDL2_image
+          # SDL_image
           cd SDL2_image-2.6.3
           sed -i 's,/usr/local,/usr,g' Makefile
           sudo make cross
           cd ..
 
           # OGG
-          wget https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz
-          tar -xvzf libogg-1.3.5.tar.gz
+          wget -nc https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz
+          tar -xf libogg-1.3.5.tar.gz
           cd libogg-1.3.5
           ./configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32
           make && sudo make install
           cd ..
 
           # Vorbis
-          wget https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz
-          tar -xvzf libvorbis-1.3.7.tar.gz
+          wget -nc https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz
+          tar -xf libvorbis-1.3.7.tar.gz
           cd libvorbis-1.3.7
           ./configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32
           make && sudo make install
           cd ..
 
           # Theora
-          wget http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.gz
-          tar -xvzf libtheora-1.1.1.tar.gz
+          wget -nc http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.gz
+          tar -xf libtheora-1.1.1.tar.gz
           cd libtheora-1.1.1
           ./configure --host=x86_64-w64-mingw32 --prefix=/usr/x86_64-w64-mingw32 --disable-shared --disable-examples
           make && sudo make install
           cd ..
 
           # GLEW
-          wget https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
-          tar -xvzf glew-2.2.0.tgz
+          wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
+          tar -xf glew-2.2.0.tgz
           cd glew-2.2.0
           make SYSTEM=mingw-w64 CC=x86_64-w64-mingw32-gcc
           sudo make SYSTEM=mingw-w64 CC=x86_64-w64-mingw32-gcc install GLEW_DEST=/usr/x86_64-w64-mingw32
           cd ../..
 
-      - name: Update submodules and Build
+      - name: Build BennuGD2 Windows
         run: |
           git submodule update --init --recursive
           cd vendor
@@ -166,32 +204,26 @@ jobs:
           cd ..
           ./build.sh windows
 
-          echo "#### Building package ####"
-          mkdir -p packages 2>/dev/null
+          mkdir -p packages
           rm -f packages/*
 
-          if [[ -d build/x86_64-w64-mingw32/bin ]]; then \
-            rar a -ep1 packages/bgd2-x86_64-w64-mingw32-$(date +"%Y-%m-%d").rar \
-              build/x86_64-w64-mingw32/bin/*.exe \
-              build/x86_64-w64-mingw32/bin/*.dll \
-              dependencies/x86_64-w64-mingw32/libSDL2_gpu.dll \
-              /usr/x86_64-w64-mingw32/bin/glew32.dll \
-              /usr/x86_64-w64-mingw32/bin/libogg*.dll \
-              /usr/x86_64-w64-mingw32/bin/libvorbis*.dll \
-              /usr/x86_64-w64-mingw32/bin/SDL2.dll \
-              /usr/x86_64-w64-mingw32/bin/SDL2_image.dll \
-              /usr/x86_64-w64-mingw32/bin/SDL2_mixer.dll \
-              $(find /usr/x86_64-w64-mingw32 -name 'zlib1.dll') \
-              /usr/x86_64-w64-mingw32/lib/libwinpthread-*.dll \
-              WhatsNew.txt; \
-          fi
+          rar a -ep1 packages/bgd2-x86_64-w64-mingw32-$(date +"%Y-%m-%d").rar \
+            build/x86_64-w64-mingw32/bin/*.exe \
+            build/x86_64-w64-mingw32/bin/*.dll \
+            dependencies/x86_64-w64-mingw32/libSDL2_gpu.dll \
+            /usr/x86_64-w64-mingw32/bin/*.dll \
+            /usr/x86_64-w64-mingw32/lib/libGLEW*.dll \
+            WhatsNew.txt
 
-      - name: Upload BennuGD2 artifacts
+      - name: Upload Windows64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-windows
-          path: packages/bgd2-x86_64-w64-mingw32-*.rar
+          path: packages/*.rar
 
+# ================================================================
+# WINDOWS 32-bit
+# ================================================================
   build-windows-32bit:
     runs-on: ubuntu-latest
     permissions:
@@ -206,20 +238,19 @@ jobs:
         with:
           path: |
             /usr/i686-w64-mingw32
-            vendor/glew-2.2.0
+            vendor
           key: win32-${{ hashFiles('vendor/**') }}
 
-      - name: Set up environment
+      - name: Install Windows 32-bit build dependencies
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev
+          sudo apt install -y \
+            mingw-w64 build-essential cmake autoconf libtool pkg-config rar \
+            libz-mingw-w64-dev
 
-      - name: Build dependencies for 32-bit
+      - name: Build SDL, OGG, Vorbis, Theora, GLEW (32-bit)
         run: |
           cd vendor
-
-          # mismo procedimiento que x86_64 pero usando i686-w64-mingw32
-
           cd SDL2-2.28.4
           sed -i 's,/usr/local,/usr,g' Makefile
           sudo make cross
@@ -235,36 +266,35 @@ jobs:
           sudo make cross
           cd ..
 
-          wget https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz
-          tar -xvzf libogg-1.3.5.tar.gz
+          wget -nc https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz
+          tar -xf libogg-1.3.5.tar.gz
           cd libogg-1.3.5
           ./configure --host=i686-w64-mingw32 --prefix=/usr/i686-w64-mingw32
           make && sudo make install
           cd ..
 
-          wget https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz
-          tar -xvzf libvorbis-1.3.7.tar.gz
+          wget -nc https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz
+          tar -xf libvorbis-1.3.7.tar.gz
           cd libvorbis-1.3.7
           ./configure --host=i686-w64-mingw32 --prefix=/usr/i686-w64-mingw32
           make && sudo make install
           cd ..
 
-          wget http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.gz
-          tar -xvzf libtheora-1.1.1.tar.gz
+          wget -nc http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.gz
+          tar -xf libtheora-1.1.1.tar.gz
           cd libtheora-1.1.1
           ./configure --host=i686-w64-mingw32 --prefix=/usr/i686-w64-mingw32 --disable-shared --disable-examples
           make && sudo make install
           cd ..
 
-          # GLEW
-          wget https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
-          tar -xvzf glew-2.2.0.tgz
+          wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
+          tar -xf glew-2.2.0.tgz
           cd glew-2.2.0
           make SYSTEM=mingw-w64 CC=i686-w64-mingw32-gcc
           sudo make SYSTEM=mingw-w64 CC=i686-w64-mingw32-gcc install GLEW_DEST=/usr/i686-w64-mingw32
           cd ../..
 
-      - name: Update submodules and Build for 32-bit
+      - name: Build BennuGD2 Windows 32-bit
         run: |
           git submodule update --init --recursive
           cd vendor
@@ -272,32 +302,26 @@ jobs:
           cd ..
           ./build.sh windows32
 
-          echo "#### Building package ####"
-          mkdir -p packages 2>/dev/null
+          mkdir -p packages
           rm -f packages/*
 
-          if [[ -d build/i686-w64-mingw32/bin ]]; then \
-            rar a -ep1 packages/bgd2-i686-w64-mingw32-$(date +"%Y-%m-%d").rar \
-              build/i686-w64-mingw32/bin/*.exe \
-              build/i686-w64-mingw32/bin/*.dll \
-              dependencies/i686-w64-mingw32/libSDL2_gpu.dll \
-              /usr/i686-w64-mingw32/bin/glew32.dll \
-              /usr/i686-w64-mingw32/bin/libogg*.dll \
-              /usr/i686-w64-mingw32/bin/libvorbis*.dll \
-              /usr/i686-w64-mingw32/bin/SDL2.dll \
-              /usr/i686-w64-mingw32/bin/SDL2_image.dll \
-              /usr/i686-w64-mingw32/bin/SDL2_mixer.dll \
-              $(find /usr/i686-w64-mingw32 -name 'zlib1.dll') \
-              /usr/i686-w64-mingw32/lib/libwinpthread-*.dll \
-              WhatsNew.txt; \
-          fi
+          rar a -ep1 packages/bgd2-i686-w64-mingw32-$(date +"%Y-%m-%d").rar \
+            build/i686-w64-mingw32/bin/*.exe \
+            build/i686-w64-mingw32/bin/*.dll \
+            dependencies/i686-w64-mingw32/libSDL2_gpu.dll \
+            /usr/i686-w64-mingw32/bin/*.dll \
+            /usr/i686-w64-mingw32/lib/libGLEW*.dll \
+            WhatsNew.txt
 
-      - name: Upload BennuGD2 artifacts for 32-bit
+      - name: Upload Windows32 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-windows32
-          path: packages/bgd2-i686-w64-mingw32-*.rar
+          path: packages/*.rar
 
+# ================================================================
+# MACOS (OSXCROSS)
+# ================================================================
   build-macosx:
     runs-on: ubuntu-latest
     permissions:
@@ -313,7 +337,7 @@ jobs:
           path: /opt/osxcross
           key: osxcross-${{ hashFiles('vendor/**') }}
 
-      - name: Set up osxcross
+      - name: Setup osxcross
         run: |
           if [ ! -d /opt/osxcross/target ]; then
             sudo apt update
@@ -328,63 +352,67 @@ jobs:
             UNATTENDED=yes ./build.sh
           fi
 
-      - name: Install dependencies
+      - name: Install macOS dependencies (SDL + Theora + GLEW)
         run: |
           sudo mkdir -p /opt/osxcross/target/macports/
-          sudo echo "http://www.mirrorservice.org/sites/packages.macports.org" > /opt/osxcross/target/macports/MIRROR
+          sudo bash -c 'echo "http://www.mirrorservice.org/sites/packages.macports.org" > /opt/osxcross/target/macports/MIRROR'
           sudo sed -i '/^verifyFileIntegrity()/,/^}/cverifyFileIntegrity() { return 0; }' /opt/osxcross/target/bin/osxcross-macports
-          sudo UNATTENDED=yes OSX_VERSION_MIN=10.7 PATH=/opt/osxcross/target/bin:$PATH SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk MACOSX_DEPLOYMENT_TARGET=10.10 /opt/osxcross/target/bin/osxcross-macports -v install libtheora libsdl2 libsdl2_image libsdl2_mixer
+          UNATTENDED=yes \
+            OSX_VERSION_MIN=10.7 \
+            PATH=/opt/osxcross/target/bin:$PATH \
+            SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk \
+            MACOSX_DEPLOYMENT_TARGET=10.10 \
+            /opt/osxcross/target/bin/osxcross-macports -v install \
+              libtheora libsdl2 libsdl2_image libsdl2_mixer glew
 
-      - name: Update submodules and Build
+      - name: Build BennuGD2 macOS
         run: |
           export OSX_VERSION_MIN=10.7
           export PATH=/opt/osxcross/target/bin:$PATH
           export SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk
           export MACOSX_DEPLOYMENT_TARGET=10.10
+
           git submodule update --init --recursive
           cd vendor
           ./build-sdl-gpu.sh macosx
           cd ..
+
           ./build.sh macosx
           ./build.sh packages
 
-      - name: Upload BennuGD2 artifacts
+      - name: Upload macOS package
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-macosx
           path: packages/x86_64-apple-darwin14-*.tgz
 
+# ================================================================
+# RELEASE JOB
+# ================================================================
   create-release:
-    needs: [build-linux32, build-linux, build-windows, build-windows-32bit, build-macosx]
-    runs-on: ubuntu-latest
-    if: success()
+    needs:
+      - build-linux32
+      - build-linux
+      - build-windows
+      - build-windows-32bit
+      - build-macosx
 
-    strategy:
-      matrix:
-        platform:
-          - linux
-          - linux32
-          - windows
-          - windows32
-          - macosx
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download BennuGD2 Artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: BennuGD2-${{ matrix.platform }}
-          path: ./dist/${{ matrix.platform }}
+          path: ./dist
 
-      - name: Upload BennuGD2 Artifacts
+      - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./dist/${{ matrix.platform }}/*
+          files: ./dist/**/*
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
