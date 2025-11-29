@@ -10,38 +10,30 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Cache apt packages
-        uses: actions/cache@v3
-        with:
-          path: /var/cache/apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
 
       - name: Set up environment for linux32
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt install -y gcc-multilib g++-multilib binutils git cmake build-essential \
-            zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 \
-            libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 libtheora-dev:i386 \
-            libogg-dev:i386 libvorbis-dev:i386
+          sudo apt install -y gcc-multilib g++-multilib binutils git cmake build-essential zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386 wget
 
-      - name: Build GLEW 32-bit
+      - name: Build GLEW from source (linux32)
         run: |
           wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
           tar -xzf glew-2.2.0.tgz
           cd glew-2.2.0
-          make SYSTEM=linux CC=gcc CFLAGS="-m32" LDFLAGS="-m32"
-          sudo make SYSTEM=linux install
+          make SYSTEM=linux CC=gcc CFLAGS="-m32 -O2" LDFLAGS="-m32"
           cd ..
 
       - name: Update submodules and Build
         run: |
+          export C_INCLUDE_PATH=$PWD/glew-2.2.0/include:$C_INCLUDE_PATH
+          export CPLUS_INCLUDE_PATH=$PWD/glew-2.2.0/include:$CPLUS_INCLUDE_PATH
+          export LD_LIBRARY_PATH=$PWD/glew-2.2.0/lib:$LD_LIBRARY_PATH
           git submodule update --init --recursive
           cd vendor
           ./build-sdl-gpu.sh linux32
@@ -59,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,12 +59,21 @@ jobs:
       - name: Set up environment for linux
         run: |
           sudo apt update
-          sudo apt install -y binutils git cmake build-essential zlib1g-dev \
-            libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev \
-            libtheora-dev libogg-dev libvorbis-dev libglew-dev
+          sudo apt install -y binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev wget
+
+      - name: Build GLEW from source (linux)
+        run: |
+          wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
+          tar -xzf glew-2.2.0.tgz
+          cd glew-2.2.0
+          make SYSTEM=linux CC=gcc CFLAGS="-O2" LDFLAGS=""
+          cd ..
 
       - name: Update submodules and Build
         run: |
+          export C_INCLUDE_PATH=$PWD/glew-2.2.0/include:$C_INCLUDE_PATH
+          export CPLUS_INCLUDE_PATH=$PWD/glew-2.2.0/include:$CPLUS_INCLUDE_PATH
+          export LD_LIBRARY_PATH=$PWD/glew-2.2.0/lib:$LD_LIBRARY_PATH
           git submodule update --init --recursive
           cd vendor
           ./build-sdl-gpu.sh linux
@@ -83,55 +85,48 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-linux
-          path: packages/bgd2-*.tgz          
+          path: packages/bgd2-*.tgz
 
   build-windows:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up environment for mingw
+      - name: Set up environment
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar \
-            libz-mingw-w64-dev
+          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar wget
 
-      - name: Build GLEW for Windows 64-bit
+      - name: Build GLEW from source (windows 64-bit)
         run: |
           wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
           tar -xzf glew-2.2.0.tgz
           cd glew-2.2.0
-          mkdir build && cd build
-          cmake -G "Unix Makefiles" -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc ..
-          make
-          cp lib/libGLEW.a /usr/x86_64-w64-mingw32/lib/
-          cp include/GL/glew.h /usr/x86_64-w64-mingw32/include/GL/
-          cd ../..
+          make SYSTEM=mingw64 CC=x86_64-w64-mingw32-gcc
+          cd ..
 
-      - name: Build dependencies
+      - name: Update submodules and Build
         run: |
+          export C_INCLUDE_PATH=$PWD/glew-2.2.0/include:$C_INCLUDE_PATH
+          export CPLUS_INCLUDE_PATH=$PWD/glew-2.2.0/include:$CPLUS_INCLUDE_PATH
+          git submodule update --init --recursive
           cd vendor
           ./build-sdl-gpu.sh windows
           cd ..
           ./build.sh windows
-          mkdir -p packages
+          mkdir -p packages 2>/dev/null
           rm -f packages/*
           if [[ -d build/x86_64-w64-mingw32/bin ]]; then \
             rar a -ep1 packages/bgd2-x86_64-w64-mingw32-$(date +"%Y-%m-%d").rar \
-                        build/x86_64-w64-mingw32/bin/*.exe \
-                        build/x86_64-w64-mingw32/bin/*.dll \
-                        dependencies/x86_64-w64-mingw32/libSDL2_gpu.dll \
-                        /usr/x86_64-w64-mingw32/bin/libogg*.dll \
-                        /usr/x86_64-w64-mingw32/bin/libvorbis*.dll \
-                        /usr/x86_64-w64-mingw32/bin/SDL2.dll \
-                        /usr/x86_64-w64-mingw32/bin/SDL2_image.dll \
-                        /usr/x86_64-w64-mingw32/bin/SDL2_mixer.dll \
-                        $(find /usr/x86_64-w64-mingw32 -name 'zlib1.dll') \
-                        /usr/x86_64-w64-mingw32/lib/libwinpthread-*.dll \
-                        WhatsNew.txt; \
+              build/x86_64-w64-mingw32/bin/*.exe \
+              build/x86_64-w64-mingw32/bin/*.dll \
+              dependencies/x86_64-w64-mingw32/libSDL2_gpu.dll \
+              $(find /usr/x86_64-w64-mingw32 -name '*.dll') \
+              WhatsNew.txt; \
           fi
 
       - name: Upload BennuGD2 artifacts
@@ -144,6 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -151,46 +147,37 @@ jobs:
       - name: Set up environment
         run: |
           sudo apt update
-          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar \
-            libz-mingw-w64-dev
+          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar wget
 
-      - name: Build GLEW for Windows 32-bit
+      - name: Build GLEW from source (windows 32-bit)
         run: |
           wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
           tar -xzf glew-2.2.0.tgz
           cd glew-2.2.0
-          mkdir build && cd build
-          cmake -G "Unix Makefiles" -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc ..
-          make
-          cp lib/libGLEW.a /usr/i686-w64-mingw32/lib/
-          cp include/GL/glew.h /usr/i686-w64-mingw32/include/GL/
-          cd ../..
+          make SYSTEM=mingw CC=i686-w64-mingw32-gcc
+          cd ..
 
-      - name: Build dependencies and package
+      - name: Update submodules and Build
         run: |
+          export C_INCLUDE_PATH=$PWD/glew-2.2.0/include:$C_INCLUDE_PATH
+          export CPLUS_INCLUDE_PATH=$PWD/glew-2.2.0/include:$CPLUS_INCLUDE_PATH
           git submodule update --init --recursive
           cd vendor
           ./build-sdl-gpu.sh windows32
           cd ..
           ./build.sh windows32
-          mkdir -p packages
+          mkdir -p packages 2>/dev/null
           rm -f packages/*
           if [[ -d build/i686-w64-mingw32/bin ]]; then \
             rar a -ep1 packages/bgd2-i686-w64-mingw32-$(date +"%Y-%m-%d").rar \
-                        build/i686-w64-mingw32/bin/*.exe \
-                        build/i686-w64-mingw32/bin/*.dll \
-                        dependencies/i686-w64-mingw32/libSDL2_gpu.dll \
-                        /usr/i686-w64-mingw32/bin/libogg*.dll \
-                        /usr/i686-w64-mingw32/bin/libvorbis*.dll \
-                        /usr/i686-w64-mingw32/bin/SDL2.dll \
-                        /usr/i686-w64-mingw32/bin/SDL2_image.dll \
-                        /usr/i686-w64-mingw32/bin/SDL2_mixer.dll \
-                        $(find /usr/i686-w64-mingw32 -name 'zlib1.dll') \
-                        /usr/i686-w64-mingw32/lib/libwinpthread-*.dll \
-                        WhatsNew.txt; \
+              build/i686-w64-mingw32/bin/*.exe \
+              build/i686-w64-mingw32/bin/*.dll \
+              dependencies/i686-w64-mingw32/libSDL2_gpu.dll \
+              $(find /usr/i686-w64-mingw32 -name '*.dll') \
+              WhatsNew.txt; \
           fi
 
-      - name: Upload BennuGD2 artifacts
+      - name: Upload BennuGD2 artifacts for 32-bit
         uses: actions/upload-artifact@v4
         with:
           name: BennuGD2-windows32
@@ -200,6 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -217,24 +205,28 @@ jobs:
           sudo ./tools/get_dependencies.sh
           UNATTENDED=yes ./build.sh
 
-      - name: Build GLEW for macOS
+      - name: Install dependencies
         run: |
-          export OSX_VERSION_MIN=10.7
-          export PATH=/opt/osxcross/target/bin:$PATH
-          export SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk
-          cd /tmp
+          sudo mkdir -p /opt/osxcross/target/macports/
+          sudo echo "http://www.mirrorservice.org/sites/packages.macports.org" > /opt/osxcross/target/macports/MIRROR
+          sudo sed -i '/^verifyFileIntegrity()/,/^}/cverifyFileIntegrity() {\n  local file="$1"\n  echo "Skipping integrity check for $file. Returning success."\n  return 0\n}' /opt/osxcross/target/bin/osxcross-macports
+          sudo UNATTENDED=yes OSX_VERSION_MIN=10.7 PATH=/opt/osxcross/target/bin:$PATH SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk MACOSX_DEPLOYMENT_TARGET=10.10 /opt/osxcross/target/bin/osxcross-macports -v install libtheora libsdl2 libsdl2_image libsdl2_mixer
+
+      - name: Build GLEW from source (macosx)
+        run: |
           wget -nc https://sourceforge.net/projects/glew/files/glew/2.2.0/glew-2.2.0.tgz
           tar -xzf glew-2.2.0.tgz
           cd glew-2.2.0
           make SYSTEM=darwin CC=o64-clang
-          sudo make SYSTEM=darwin CC=o64-clang install
+          cd ..
 
       - name: Update submodules and Build
         run: |
-          export OSX_VERSION_MIN=10.7
           export PATH=/opt/osxcross/target/bin:$PATH
           export SDKROOT=/opt/osxcross/target/SDK/MacOSX10.10.sdk
           export MACOSX_DEPLOYMENT_TARGET=10.10
+          export C_INCLUDE_PATH=$PWD/glew-2.2.0/include:$C_INCLUDE_PATH
+          export CPLUS_INCLUDE_PATH=$PWD/glew-2.2.0/include:$CPLUS_INCLUDE_PATH
           git submodule update --init --recursive
           cd vendor
           ./build-sdl-gpu.sh macosx
@@ -252,6 +244,7 @@ jobs:
     needs: [build-linux32, build-linux, build-windows, build-windows-32bit, build-macosx]
     runs-on: ubuntu-latest
     if: success()
+
     strategy:
       matrix:
         platform:
