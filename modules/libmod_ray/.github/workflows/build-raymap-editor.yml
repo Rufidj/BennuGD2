@@ -1,0 +1,288 @@
+name: Build Raymap Editor
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'tools/raymap_editor/**'
+      - '.github/workflows/build-raymap-editor.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'tools/raymap_editor/**'
+      - '.github/workflows/build-raymap-editor.yml'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build for Linux
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install Qt and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          qtbase5-dev \
+          qttools5-dev \
+          qttools5-dev-tools \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          zlib1g-dev \
+          cmake \
+          build-essential
+    
+    - name: Clean build directory
+      working-directory: tools/raymap_editor
+      run: rm -rf build
+    
+    - name: Configure CMake
+      working-directory: tools/raymap_editor
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr
+    
+    - name: Build
+      working-directory: tools/raymap_editor
+      run: cmake --build build --config Release -j$(nproc)
+    
+    - name: Package with dependencies
+      working-directory: tools/raymap_editor
+      run: |
+        mkdir -p raymap_editor-linux/bin
+        mkdir -p raymap_editor-linux/lib
+        mkdir -p raymap_editor-linux/plugins/platforms
+        
+        # Copy executable
+        cp build/raymap_editor raymap_editor-linux/bin/
+        
+        # Copy Qt5 libraries
+        cp -L /usr/lib/x86_64-linux-gnu/libQt5Widgets.so.5 raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libQt5Gui.so.5 raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libQt5Core.so.5 raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libQt5DBus.so.5 raymap_editor-linux/lib/ || true
+        
+        # Copy Qt5 plugins
+        cp -L /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms/libqxcb.so raymap_editor-linux/plugins/platforms/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms/libqwayland*.so raymap_editor-linux/plugins/platforms/ || true
+        
+        # Copy other dependencies
+        cp -L /usr/lib/x86_64-linux-gnu/libicui18n.so.* raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libicuuc.so.* raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libicudata.so.* raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libdouble-conversion.so.* raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libpcre2-16.so.* raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libz.so.* raymap_editor-linux/lib/ || true
+        
+        # Copy XCB libraries
+        cp -L /usr/lib/x86_64-linux-gnu/libxcb*.so.* raymap_editor-linux/lib/ || true
+        cp -L /usr/lib/x86_64-linux-gnu/libX*.so.* raymap_editor-linux/lib/ || true
+        
+        # Copy documentation
+        cp README.md raymap_editor-linux/ || true
+        cp USAGE.md raymap_editor-linux/ || true
+        
+        # Create launch script
+        cat > raymap_editor-linux/raymap_editor.sh << 'EOF'
+        #!/bin/bash
+        DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        export LD_LIBRARY_PATH="$DIR/lib:$LD_LIBRARY_PATH"
+        export QT_PLUGIN_PATH="$DIR/plugins"
+        export QT_QPA_PLATFORM_PLUGIN_PATH="$DIR/plugins/platforms"
+        "$DIR/bin/raymap_editor" "$@"
+        EOF
+        chmod +x raymap_editor-linux/raymap_editor.sh
+        
+        # Create tar.gz
+        tar -czf raymap_editor-linux-x64.tar.gz raymap_editor-linux/
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: raymap_editor-linux-x64
+        path: tools/raymap_editor/raymap_editor-linux-x64.tar.gz
+        retention-days: 30
+
+  build-windows:
+    name: Build for Windows
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        cache: true
+    
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Install vcpkg and zlib
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        C:\vcpkg\bootstrap-vcpkg.bat
+        C:\vcpkg\vcpkg install zlib:x64-windows
+        echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+    
+    - name: Clean build directory
+      working-directory: tools/raymap_editor
+      run: |
+        if (Test-Path build) { Remove-Item -Recurse -Force build }
+    
+    - name: Configure CMake
+      working-directory: tools/raymap_editor
+      run: |
+        cmake -B build `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_PREFIX_PATH="${env:Qt5_DIR}" `
+          -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+    
+    - name: Build
+      working-directory: tools/raymap_editor
+      run: cmake --build build --config Release
+    
+    - name: Deploy Qt dependencies
+      working-directory: tools/raymap_editor
+      run: |
+        mkdir raymap_editor-windows
+        Copy-Item build/Release/raymap_editor.exe raymap_editor-windows/
+        
+        # Deploy Qt dependencies with ALL plugins
+        & "${env:Qt5_DIR}/bin/windeployqt.exe" `
+          --release `
+          --force `
+          --no-compiler-runtime `
+          --no-system-d3d-compiler `
+          --no-opengl-sw `
+          --no-translations `
+          raymap_editor-windows/raymap_editor.exe
+        
+        # Ensure all necessary plugins are present
+        # Styles plugins (important for UI appearance)
+        New-Item -ItemType Directory -Force -Path raymap_editor-windows/styles
+        Copy-Item "${env:Qt5_DIR}/plugins/styles/*.dll" raymap_editor-windows/styles/ -ErrorAction SilentlyContinue
+        
+        # Image formats plugins
+        New-Item -ItemType Directory -Force -Path raymap_editor-windows/imageformats
+        Copy-Item "${env:Qt5_DIR}/plugins/imageformats/*.dll" raymap_editor-windows/imageformats/ -ErrorAction SilentlyContinue
+        
+        # Icon engines
+        New-Item -ItemType Directory -Force -Path raymap_editor-windows/iconengines
+        Copy-Item "${env:Qt5_DIR}/plugins/iconengines/*.dll" raymap_editor-windows/iconengines/ -ErrorAction SilentlyContinue
+        
+        # Platform themes
+        New-Item -ItemType Directory -Force -Path raymap_editor-windows/platformthemes
+        Copy-Item "${env:Qt5_DIR}/plugins/platformthemes/*.dll" raymap_editor-windows/platformthemes/ -ErrorAction SilentlyContinue
+        
+        # Copy zlib DLL from vcpkg
+        Copy-Item "C:\vcpkg\installed\x64-windows\bin\zlib1.dll" raymap_editor-windows/ -ErrorAction SilentlyContinue
+        
+        # Create qt.conf to ensure plugins are loaded correctly
+        "[Paths]`nPlugins = ." | Out-File -FilePath raymap_editor-windows/qt.conf -Encoding ASCII
+        
+        # Copy documentation
+        Copy-Item README.md raymap_editor-windows/ -ErrorAction SilentlyContinue
+        Copy-Item USAGE.md raymap_editor-windows/ -ErrorAction SilentlyContinue
+        
+        # List all files for debugging
+        Write-Host "=== Package contents ==="
+        Get-ChildItem -Recurse raymap_editor-windows | Select-Object FullName
+    
+    - name: Create ZIP
+      working-directory: tools/raymap_editor
+      run: Compress-Archive -Path raymap_editor-windows -DestinationPath raymap_editor-windows-x64.zip
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: raymap_editor-windows-x64
+        path: tools/raymap_editor/raymap_editor-windows-x64.zip
+        retention-days: 30
+
+  build-macos:
+    name: Build for macOS
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install Qt and dependencies
+      run: |
+        brew update
+        brew install qt@5 zlib cmake
+        echo "Qt5_DIR=$(brew --prefix qt@5)" >> $GITHUB_ENV
+    
+    - name: Clean build directory
+      working-directory: tools/raymap_editor
+      run: rm -rf build
+    
+    - name: Configure CMake
+      working-directory: tools/raymap_editor
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+    
+    - name: Build
+      working-directory: tools/raymap_editor
+      run: cmake --build build --config Release -j$(sysctl -n hw.ncpu)
+    
+    - name: Deploy Qt dependencies and create DMG
+      working-directory: tools/raymap_editor
+      run: |
+        # Deploy Qt frameworks into the app bundle
+        $(brew --prefix qt@5)/bin/macdeployqt build/raymap_editor.app -verbose=2
+        # Verify the app bundle
+        otool -L build/raymap_editor.app/Contents/MacOS/raymap_editor
+    
+    - name: Package
+      working-directory: tools/raymap_editor
+      run: |
+        mkdir -p raymap_editor-macos
+        cp -r build/raymap_editor.app raymap_editor-macos/
+        cp README.md raymap_editor-macos/ || true
+        cp USAGE.md raymap_editor-macos/ || true
+        # Create DMG
+        hdiutil create -volname "Raymap Editor" -srcfolder raymap_editor-macos -ov -format UDZO raymap_editor-macos-x64.dmg
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: raymap_editor-macos-x64
+        path: tools/raymap_editor/raymap_editor-macos-x64.dmg
+        retention-days: 30
+
+  create-release:
+    name: Create Release
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: raymap-editor-v${{ github.run_number }}
+        name: Raymap Editor Build ${{ github.run_number }}
+        draft: false
+        prerelease: false
+        files: |
+          artifacts/**/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

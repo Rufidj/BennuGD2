@@ -1,0 +1,222 @@
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include <QMainWindow>
+#include <QMap>
+#include <QLabel>
+#include <QComboBox>
+#include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QGroupBox>
+#include <QListWidget>
+#include <QDockWidget>
+#include "mapdata.h"
+#include "grideditor.h"
+#include "textureselector.h"
+#include "visualmodewidget.h"
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+    
+public:
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+    
+private slots:
+    // File menu
+    void onNewMap();
+    void onOpenMap();
+    void onSaveMap();
+    void onSaveMapAs();
+    void onImportWLD();  // Import WLD file
+    void onLoadFPG();
+    void onExit();
+    void openRecentMap();
+    void openRecentFPG();
+    
+    // View menu
+    void onZoomIn();
+    void onZoomOut();
+    void onZoomReset();
+    void onToggleVisualMode();
+    
+    // Edit mode
+    void onModeChanged(int index);
+    
+    // Sector editing
+    void onSectorSelected(int sectorId);
+    void onWallSelected(int sectorIndex, int wallIndex);
+    void onVertexSelected(int sectorId, int vertexIndex);
+    void onSectorFloorZChanged(double value);
+    void onSectorCeilingZChanged(double value);
+    void onSectorFloorTextureChanged(int value);
+    void onSectorCeilingTextureChanged(int value);
+    void onSelectSectorFloorTexture();
+    void onSelectSectorCeilingTexture();
+    
+
+    
+    // Wall editing
+    void onWallTextureLowerChanged(int value);
+    void onWallTextureMiddleChanged(int value);
+    void onWallTextureUpperChanged(int value);
+    void onSelectWallTextureLower();
+    void onSelectWallTextureMiddle();
+    void onSelectWallTextureUpper();
+    void onApplyTextureToAllWalls();  // Apply current wall texture to all walls in sector
+    void onWallSplitLowerChanged(double value);
+    void onWallSplitUpperChanged(double value);
+    
+    // Tools
+    void onDetectPortals(); // RESTORED
+    void onToggleManualPortals(bool checked); 
+    void onManualPortalWallSelected(int sectorIndex, int wallIndex);
+    void onDeletePortal(int sectorIndex, int wallIndex); // NEW
+    void onCameraPlaced(float x, float y);
+    void onTextureSelected(int textureId);
+    void onCreateRectangle();
+    void onCreateCircle();
+    
+    // Insert Tools
+    void onInsertBox();
+    void onInsertColumn();
+    void onInsertPlatform();
+    void onInsertDoor();        // Future
+    void onInsertElevator();    // Future
+    void onInsertStairs();      // Future
+    
+    void onSetParentSector();  // Assign parent sector to selected sector    // Future
+    
+    // Sector list (NEW)
+    void onSectorListItemClicked(QListWidgetItem *item);
+    void updateSectorList();  // Refresh the sector list
+    void onSectorListContextMenu(const QPoint &pos); // Context menu slot
+    
+    // Sector operations
+    void deleteSelectedSector();
+    void copySelectedSector();
+    void pasteSector();
+    void moveSelectedSector();
+    
+    // Visual Mode Update
+    void updateVisualMode();
+    
+    // Recent files helpers
+    void updateRecentMapsMenu();
+    void updateRecentFPGsMenu();
+    void addToRecentMaps(const QString &filename);
+    void addToRecentFPGs(const QString &filename);
+    
+private:
+    // UI Components
+    GridEditor *m_gridEditor;
+    VisualModeWidget *m_visualModeWidget;
+    // Texture cache for selector
+    QMap<int, QPixmap> m_textureCache;
+    
+    // Dock widgets
+    QDockWidget *m_sectorDock;
+    QDockWidget *m_wallDock;
+    QDockWidget *m_sectorListDock;  // NEW: List of all sectors
+    
+    // Sector list
+    QListWidget *m_sectorListWidget;  // NEW
+    
+    // Sector controls
+    QLabel *m_sectorIdLabel;
+    QDoubleSpinBox *m_sectorFloorZSpin;
+    QDoubleSpinBox *m_sectorCeilingZSpin;
+    QSpinBox *m_sectorFloorTextureSpin;
+    QSpinBox *m_sectorCeilingTextureSpin;
+    
+
+    
+    // Wall controls
+    QLabel *m_wallIdLabel;
+    QSpinBox *m_wallTextureLowerSpin;
+    QSpinBox *m_wallTextureMiddleSpin;
+    QSpinBox *m_wallTextureUpperSpin;
+    QDoubleSpinBox *m_wallSplitLowerSpin;
+    QDoubleSpinBox *m_wallSplitUpperSpin;
+    
+    // Toolbar
+    QComboBox *m_modeCombo;
+    QSpinBox *m_selectedTextureSpin;
+    QSpinBox *m_skyboxSpin;
+    QPushButton *m_manualPortalsButton; // REPLACED
+    
+    // Status bar
+    QLabel *m_statusLabel;
+    
+    // Data
+    MapData m_mapData;
+    QString m_currentMapFile;
+    int m_currentFPG;
+    int m_selectedSectorId;
+    int m_selectedWallId;
+    
+    // Slots for Skybox
+    void onSkyboxTextureChanged(int value);
+    
+    // Manual Portal State
+    int m_pendingPortalSector = -1;
+    int m_pendingPortalWall = -1;
+    
+    // Portal UI Elements (Special Request)
+    QGroupBox *m_portalTexGroup;
+    QSpinBox *m_portalUpperSpin;
+    QSpinBox *m_portalLowerSpin;
+    
+private slots:
+    void onPortalUpperChanged(int val);
+    void onPortalLowerChanged(int val);
+    void onSelectPortalUpper();
+    void onSelectPortalLower();
+    
+private:
+    // Clipboard
+    Sector m_clipboardSector;
+    bool m_hasClipboard = false;
+    
+    // UI Setup
+    void createActions();
+    void createMenus();
+    void createToolbars();
+    void createDockWindows();
+    void createStatusBar();
+    
+    // Actions
+    QAction *m_newAction;
+    QAction *m_openAction;
+    QAction *m_saveAction;
+    QAction *m_saveAsAction;
+    QAction *m_loadFPGAction;
+    QAction *m_exitAction;
+    
+    // Recent files menus
+    QMenu *m_recentMapsMenu;
+    QMenu *m_recentFPGsMenu;
+    
+    QAction *m_zoomInAction;
+    QAction *m_zoomOutAction;
+    QAction *m_zoomResetAction;
+    QAction *m_visualModeAction;
+    
+    // Insert Tools
+    QAction *m_insertBoxAction;
+    QAction *m_insertColumnAction;
+    QAction *m_insertPlatformAction;
+    QAction *m_insertDoorAction;        // Future
+    QAction *m_insertElevatorAction;    // Future
+    QAction *m_insertStairsAction;      // Future
+    
+    // Helpers
+    void updateWindowTitle();
+    void updateSectorPanel();
+    void updateWallPanel();
+};
+
+#endif // MAINWINDOW_H

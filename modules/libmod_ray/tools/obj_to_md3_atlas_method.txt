@@ -1,0 +1,40 @@
+    def generate_texture_atlas(self, output_path, atlas_size=256):
+        """Generate a texture atlas from material colors"""
+        if not PIL_AVAILABLE:
+            print("Cannot generate texture atlas: PIL/Pillow not installed")
+            return None
+        
+        if not self.materials:
+            print("No materials found, cannot generate atlas")
+            return None
+        
+        print(f"Generating texture atlas with {len(self.materials)} materials...")
+        
+        # Create image
+        img = Image.new('RGB', (atlas_size, atlas_size), color=(128, 128, 128))
+        draw = ImageDraw.Draw(img)
+        
+        # Simple grid layout
+        num_materials = len(self.materials)
+        cols = int(num_materials ** 0.5) + 1
+        rows = (num_materials + cols - 1) // cols
+        
+        cell_w = atlas_size // cols
+        cell_h = atlas_size // rows
+        
+        for idx, (mat_name, mat_data) in enumerate(self.materials.items()):
+            row = idx // cols
+            col = idx % cols
+            
+            x1 = col * cell_w
+            y1 = row * cell_h
+            x2 = x1 + cell_w
+            y2 = y1 + cell_h
+            
+            color = mat_data['color']
+            draw.rectangle([x1, y1, x2, y2], fill=color)
+        
+        # Save
+        img.save(output_path)
+        print(f"✓ Texture atlas generated: {output_path}")
+        return output_path

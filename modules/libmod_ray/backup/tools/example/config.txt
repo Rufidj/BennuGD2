@@ -1,0 +1,21 @@
+# Archivo de configuración para map_builder
+# Formato: clave=valor
+# Las líneas que empiezan con # son comentarios
+
+# Grid nivel 0 (suelo) - REQUERIDO
+grid0=nivel0.txt
+
+# Grid nivel 1 (segundo piso) - OPCIONAL
+grid1=nivel1.txt
+
+# Grid nivel 2 (tercer piso) - OPCIONAL
+grid2=nivel2.txt
+
+# Mapa de suelos - OPCIONAL
+floor=floor.txt
+
+# Mapa de techos - OPCIONAL
+ceiling=ceiling.txt
+
+# Sprites - OPCIONAL
+sprites=sprites.txt

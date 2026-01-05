@@ -1,0 +1,79 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-ee81b9f58bb5a077fe15.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "MapSector",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "MapSector::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-MapSector-Debug-26d4031a34bb919ff152.json",
+					"name" : "MapSector",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "MapSector_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-MapSector_autogen-Debug-691768aaa78b0c89a332.json",
+					"name" : "MapSector_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "MapSector_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-MapSector_autogen_timestamp_deps-Debug-567bc9ac7b32ad22a16a.json",
+					"name" : "MapSector_autogen_timestamp_deps",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/ruben/BennuGD2/tools/MapSector/build/Desktop-Debug",
+		"source" : "/home/ruben/BennuGD2/tools/MapSector"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

@@ -1,0 +1,41 @@
+// grouscan() implementation - Part 1: Setup and perspective calculation
+// This is a reference for the complete implementation
+// Based on EDuke32 engine.cpp:3950-4171
+
+/*
+Key components of grouscan():
+
+1. Setup (lines 3950-3996):
+   - Get sector info (ceiling/floor picnum, shade, pal, slope, z)
+   - Load tile data
+   - Back-face culling
+
+2. Perspective calculation (lines 3998-4047):
+   - Calculate wall vector (wx, wy)
+   - Calculate slope factor (dasqr)
+   - Setup global perspective vars (globalx, globaly, globalx1, globaly1, globalx2, globaly2, globalzd, globalzx, globalz)
+   - Handle relative alignment (orientation & 64)
+   - Handle flipping (orientation & 4, 16, 32)
+
+3. Texture coordinate setup (lines 4048-4078):
+   - Calculate texture scaling based on picsiz
+   - Apply panning (xpanning, ypanning)
+
+4. Visibility and shading setup (lines 4080-4095):
+   - Calculate asm1 (negative globalzd shift)
+   - Calculate globvis (visibility based on distance)
+   - Get palette lookup offset
+   - Calculate shinc (shading increment per X)
+   - Calculate shoffs (shading offset)
+
+5. Main rendering loop (lines 4096-4171):
+   - For each X coordinate (dax1 to dax2):
+     - Calculate Y range (y1 to y2)
+     - Update slopalookup with shading for this range
+     - Calculate perspective vars for this column
+     - Call slopevlin/mslopevlin/tslopevlin to draw column
+     - Increment perspective vars (globalx2, globaly2, globalzx, shoffs)
+
+The ASM functions (slopevlin, mslopevlin, tslopevlin) draw a vertical column
+with perspective-correct texture mapping. We need to implement these in C.
+*/

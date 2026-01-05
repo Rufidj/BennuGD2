@@ -1,0 +1,19 @@
+# Sprites
+# Formato: x,y,z,texture_id,w,h,level,rot
+# x,y,z = posición en unidades de juego (celda * 128 + offset para centrar)
+# texture_id = ID en el FPG
+# w,h = tamaño (típicamente 128)
+# level = nivel del grid (0, 1, 2)
+# rot = rotación en radianes
+
+# Columnas decorativas
+448,192,0,10,128,128,0,0
+960,192,0,10,128,128,0,0
+
+# Enemigos
+1600,192,0,11,128,128,0,0
+2112,192,0,12,128,128,0,0
+
+# Items
+640,1472,0,13,128,128,0,0
+1920,1472,0,14,128,128,0,0

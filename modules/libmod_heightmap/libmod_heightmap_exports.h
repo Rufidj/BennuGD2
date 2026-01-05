@@ -86,13 +86,15 @@ DLSYSFUNCS __bgdexport(libmod_heightmap, functions_exports)[] = {
     FUNC("HEIGHTMAP_UPDATE_BILLBOARD_GRAPH", "II", TYPE_INT, libmod_heightmap_update_billboard_graph),
     FUNC( "HEIGHTMAP_UNREGISTER_BILLBOARD", "I", TYPE_INT, libmod_heightmap_unregister_billboard),    
     FUNC("HEIGHTMAP_SET_BILLBOARD_FOV", "I", TYPE_INT, libmod_heightmap_set_billboard_fov),  
-
-    // Funciones de mallas 3D GPU  
-    FUNC("HEIGHTMAP_CREATE_TEST_CUBE", "", TYPE_INT, libmod_heightmap_create_test_cube),  
-    FUNC("HEIGHTMAP_SET_MESH_POSITION", "IFFFFFF", TYPE_INT, libmod_heightmap_set_mesh_position),
-    FUNC("HEIGHTMAP_SET_MESH_TEXTURE", "II", TYPE_INT, libmod_heightmap_set_mesh_texture),  
-    FUNC("HEIGHTMAP_UNLOAD_MESH_GPU", "I", TYPE_INT, libmod_heightmap_unload_mesh_gpu),
-    FUNC(0, 0, 0, 0)};  
+    
+// Mapas DMAP (tile-based)  
+FUNC("GET_TEX_IMAGE", "I", TYPE_INT, get_tex_image),
+FUNC("LOAD_WLD", "SI", TYPE_INT, libmod_heightmap_load_wld),
+FUNC("RENDER_WLD_2D", "II", TYPE_INT, libmod_heightmap_render_wld_2d),
+FUNC("HEIGHTMAP_RENDER_WLD_3D", "IIF", TYPE_INT, libmod_heightmap_render_wld_3d),
+FUNC("HEIGHTMAP_SET_WLD_FOV", "F", TYPE_INT, libmod_heightmap_set_wld_fov),
+FUNC("TEST_RENDER_BUFFER", "II", TYPE_INT, libmod_heightmap_test_render_buffer),
+FUNC(0, 0, 0, 0)};  
   
 #endif  
   

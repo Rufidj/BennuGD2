@@ -10,7 +10,29 @@
 #include "libbggfx.h"  
 #include <GL/glew.h>
 #include <inttypes.h>  
+#include "tex_format.h"
+#include <limits.h> 
 
+#define max(a,b) ((a) > (b) ? (a) : (b))  
+#define min(a,b) ((a) < (b) ? (a) : (b))  
+#define VERTEX_TOLERANCE 0.001f 
+// Agregar después de las variables globales WLD (línea ~125)  
+static WLD_Region_Optimized optimized_regions[MAX_REGIONS];  
+static WLD_Wall *wall_ptrs[MAX_WALLS];
+
+// fov configurable WLD
+static float wld_angle_step = 0.003f;
+
+// Caché espacial para point_in_region()  
+#define CACHE_SIZE 1024  
+#define CACHE_SCALE 0.1f  // 1 unidad = 10 unidades del mundo  
+  
+typedef struct {  
+    int region_idx;  
+    int valid;  
+} RegionCacheEntry;  
+  
+static RegionCacheEntry region_cache[CACHE_SIZE][CACHE_SIZE]; 
 // Si aún tienes problemas, puedes definir manualmente los offsets:  
 #ifndef CTYPE  
 enum {  
@@ -41,7 +63,68 @@ enum {
 #define MAX_BILLBOARDS 1000  
 #define MAX_STATIC_BILLBOARDS 500  
 #define MAX_DYNAMIC_BILLBOARDS 500  
+
+// Atributos para VDraws  
+#define VD_OBJECT 0x10000000  
+#define VD_COMPLEX 0x20000000  
+#define VD_WALLBACK 0x40000000
+
+// Variable global para almacenar gráficos FPG cargados  
+static GRAPH **wld_fpg_graphics = NULL;  
+static int wld_fpg_count = 0;  
   
+// Para clipping por columna  
+typedef struct {  
+    short Top, Bot;  
+} VLine;  
+  
+// Para líneas de piso  
+typedef struct {  
+    unsigned char *RawPtr, *PalPtr, *PixPtr;  
+    unsigned int Coord, Delta;  
+    short LeftCol, Count, Width2;  
+    void *pRegion;  
+} FLine;  
+  
+// Para líneas con texturas (paredes/máscaras)  
+typedef struct {  
+    unsigned char *RawPtr, *PalPtr, *PixPtr;  
+    int Coord, Delta;  
+    short BufWidth, Count, Mask;  
+    unsigned char IsTrans, IsTile;  
+} WLine;  
+  
+// Elemento a renderizar  
+typedef struct {  
+    unsigned int Type;  
+    void *ptr;  
+    struct VDraw *Prev, *Next;  
+    short LeftCol, RightCol;  
+    int LD, RD, dLD, dRD;  
+    int XStart, XLen;  
+    int px1, px2;  
+} VDraw;  
+  
+// Nivel de renderizado  
+typedef struct {  
+    void *Start;  
+    void *From;  
+    VLine *Clip;  
+    int ClipCount;  
+    int MinDist;  
+} Level;
+
+// Arrays para el sistema de renderizado  
+VDraw *VDraws;  
+WLine *MLines;  
+FLine *FLines;  
+VLine *VLines;  
+Level Levels[64];  
+Level *CurLevel;  
+VDraw LeftVDraw, RightVDraw;  
+  
+int NumVDraws, NumMLines, NumLevels;
+
 typedef struct {    
     int active;    
     float world_x, world_y, world_z;    
@@ -105,7 +188,10 @@ static Uint8 cached_fog_r = 0, cached_fog_g = 0, cached_fog_b = 0;
 // Variables para el sistema de shaders de BennuGD2  
 static BGD_SHADER *voxel_shader = NULL;  
 static BGD_SHADER_PARAMETERS *voxel_params = NULL;  
+static BGD_SHADER *sector_shader = NULL;  
+static BGD_SHADER_PARAMETERS *sector_params = NULL;
 static GRAPH *render_buffer = NULL;
+
 
 #define BILLBOARD_TYPE_STATIC     0  
 #define BILLBOARD_TYPE_PLAYER     1  
@@ -130,7 +216,7 @@ static float calculated_bridge_height = -1.0f;
 #define RGBA32_A(color) ((color >> 24) & 0xFF)
 
 // Variables globales para configuración de renderizado
-static float max_render_distance = 8000.0f;
+static float max_render_distance = 12000.0f;
 static int chunk_size = 512;
 static int chunk_radius = 15;
 
@@ -168,12 +254,14 @@ static float billboard_render_fov = 1.5f;  // FOV independiente para billboards
 
 // Declaración por si no está en el header
 void gr_alpha_put_pixel(GRAPH *dest, int x, int y, uint32_t color, uint8_t alpha);
+GRAPH *get_tex_image(int index);
 
 HEIGHTMAP heightmaps[MAX_HEIGHTMAPS];
 CAMERA_3D camera = {0, 0, 0, 0, 0, DEFAULT_FOV, DEFAULT_NEAR, DEFAULT_FAR};
 int64_t next_heightmap_id = 1;
 float water_level = -1.0f;
 int light_intensity = 255;
+static WLD_Map wld_map = {0};
 
 // Dimensiones configurables del render buffer  
 static int current_render_width = 320;  
@@ -183,6 +271,9 @@ static int current_render_height = 240;
 static float mouse_sensitivity = 50.0f;
 static float move_speed = 3.0f;
 static float height_speed = 3.0f;
+
+static int wld_fpg_id = 0;  
+static void **wld_fpg_grf = NULL;
 
 float get_height_at(HEIGHTMAP *hm, float x, float y);
 void build_height_cache(HEIGHTMAP *hm);
@@ -197,6 +288,44 @@ static float convert_screen_to_world_coordinate(int heightmap_id, float screen_c
 static void collect_visible_billboards_from_array(VOXEL_BILLBOARD *billboard_array, int array_size,   
                                                   BILLBOARD_RENDER_DATA *visible_billboards,   
                                                   int *visible_count, float terrain_fov);
+extern int64_t libmod_heightmap_load_wld(INSTANCE *my, int64_t *params);
+extern int64_t libmod_heightmap_render_wld_2d(INSTANCE *my, int64_t *params);
+extern int64_t libmod_heightmap_test_render_buffer(INSTANCE *my, int64_t *params);
+extern void wld_analyze_x_distribution(WLD_Map *map);  
+extern void wld_debug_walls_with_x_diff(WLD_Map *map);
+// Funciones 3D WLD (renderizado VPE sin dependencias externas)  
+extern void render_wld(WLD_Map *map, int screen_w, int screen_h);
+extern int point_in_region(float x, float y, int region_idx, WLD_Map *map);
+extern void scan_walls_from_region(WLD_Map *map, int region_idx, float cam_x, float cam_y,    
+                                  float ray_dir_x, float ray_dir_y, float *hit_distance,    
+                                  WLD_Wall **hit_wall, int *hit_region, int *adjacent_region);  
+extern void render_wall_column(WLD_Map *map, WLD_Wall *wall, int region_idx,   
+                              int col, int screen_w, int screen_h,  
+                              float cam_x, float cam_y, float cam_z, float distance,
+                              int clip_top, int clip_bottom);  
+extern float intersect_ray_segment(float ray_dir_x, float ray_dir_y, float cam_x, float cam_y,  
+                                   float seg_x1, float seg_y1, float seg_x2, float seg_y2);
+extern int wld_find_region(WLD_Map *map, float x, float y, int discard_region);
+// Función exportada para BennuGD2  
+extern int64_t libmod_heightmap_render_wld_3d(INSTANCE *my, int64_t *params);
+extern void render_floor_and_ceiling(WLD_Map *map, WLD_Region *region, int col,  
+                                     int screen_w, int screen_h, int wall_top, int wall_bottom,  
+                                     float cam_x, float cam_y, float cam_z, float distance,  
+                                     float fog_factor, int clip_top, int clip_bottom); 
+extern void render_complex_wall_section(WLD_Map *map, WLD_Wall *wall, WLD_Region *region,  
+                                        int region_idx, int col, int screen_w, int screen_h,  
+                                        int y_start, int y_end, float wall_u, float fog_factor,  
+                                        float camera_x, float camera_y, float camera_z,   
+                                        float hit_distance, int clip_top, int clip_bottom);
+extern void render_wall_section(WLD_Map *map, int texture_index, int col,   
+                        int y_start, int y_end, float wall_u, float fog_factor,   
+                        char *section_name);
+extern void wld_build_wall_ptrs(WLD_Map *map);
+static bool vertices_equal(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {  
+    return x1 == x2 && y1 == y2;  
+}
+
+
 
 static void cleanup_gpu_resources(void) {  
     // Limpiar shader de BennuGD2  
@@ -210,6 +339,16 @@ static void cleanup_gpu_resources(void) {
         shader_free_parameters(voxel_params);  
         voxel_params = NULL;  
     }  
+
+    if (sector_shader) {  
+    shader_free(sector_shader);  
+    sector_shader = NULL;  
+    }  
+  
+    if (sector_params) {  
+    shader_free_parameters(sector_params);  
+    sector_params = NULL;  
+    }   
       
 }
 void libmod_heightmap_destroy_render_buffer() {  
@@ -219,56 +358,70 @@ void libmod_heightmap_destroy_render_buffer() {
     }  
 }
 
-void __bgdexport(libmod_heightmap, module_initialize)()  
-{  
-    memset(heightmaps, 0, sizeof(heightmaps));  
-    memset(static_billboards, 0, sizeof(static_billboards));  
-    memset(dynamic_billboards, 0, sizeof(dynamic_billboards));  
-    static_billboard_count = 0;  
-    next_heightmap_id = 1;  
+void __bgdexport(libmod_heightmap, module_initialize)()          
+{          
+    memset(heightmaps, 0, sizeof(heightmaps));          
+    memset(static_billboards, 0, sizeof(static_billboards));          
+    memset(dynamic_billboards, 0, sizeof(dynamic_billboards));          
+    static_billboard_count = 0;          
+    next_heightmap_id = 1;          
+            
+    for (int i = 0; i < MAX_HEIGHTMAPS; i++) {          
+        heightmaps[i].id = 0;          
+        heightmaps[i].type = MAP_TYPE_HEIGHTMAP;        
+        heightmaps[i].heightmap = NULL;          
+        heightmaps[i].texturemap = NULL;          
+        heightmaps[i].height_cache = NULL;          
+        heightmaps[i].cache_valid = 0;          
+            
+    }          
 }
 
-void __bgdexport(libmod_heightmap, module_finalize)()  
-{  
-    // Liberar recursos asociados a cada heightmap  
-    for (int i = 0; i < MAX_HEIGHTMAPS; i++)  
-    {  
-        if (heightmaps[i].heightmap) // Verificar si el heightmap existe/está en uso  
-        {  
-            // Liberar el cache de altura si existe  
-            if (heightmaps[i].height_cache)  
-            {  
-                free(heightmaps[i].height_cache);  
-                heightmaps[i].height_cache = NULL;  
-            }  
-  
-            // Destruir el GRAPH del heightmap principal  
-            bitmap_destroy(heightmaps[i].heightmap);  
-            heightmaps[i].heightmap = NULL;  
-  
-            // Destruir el GRAPH del texturemap si existe  
-            if (heightmaps[i].texturemap)  
-            {  
-                bitmap_destroy(heightmaps[i].texturemap);  
-                heightmaps[i].texturemap = NULL;  
-            }  
-        }  
-        cleanup_gpu_resources();
-    }  
-  
-    // Liberar el render_buffer global una sola vez  
-    libmod_heightmap_destroy_render_buffer();  
-  
-    // Liberar el fog_table global si existe (como se discutió previamente)  
-    if (fog_table) {  
-        free(fog_table);  
-        fog_table = NULL;  
-    }  
-  
-    // Limpiar la estructura global heightmaps (opcional, pero buena práctica)  
-    memset(heightmaps, 0, sizeof(heightmaps));  
+void __bgdexport(libmod_heightmap, module_finalize)()              
+{              
+    // Liberar recursos asociados a cada heightmap              
+    for (int i = 0; i < MAX_HEIGHTMAPS; i++)              
+    {              
+        if (heightmaps[i].type == MAP_TYPE_HEIGHTMAP)              
+        {              
+            // Liberar el cache de altura si existe              
+            if (heightmaps[i].height_cache)              
+            {              
+                free(heightmaps[i].height_cache);              
+                heightmaps[i].height_cache = NULL;              
+            }            
+    
+            // Destruir el GRAPH del heightmap principal              
+            if (heightmaps[i].heightmap)      
+            {      
+                bitmap_destroy(heightmaps[i].heightmap);              
+                heightmaps[i].heightmap = NULL;              
+            }            
+    
+            // Destruir el GRAPH del texturemap si existe            
+            if (heightmaps[i].texturemap)            
+            {            
+                bitmap_destroy(heightmaps[i].texturemap);            
+                heightmaps[i].texturemap = NULL;            
+            }            
+        }        
+    }  // <-- CERRAR BUCLE AQUÍ    
+              
+    // Limpiar recursos GPU (UNA SOLA VEZ)      
+    cleanup_gpu_resources();          
+              
+    // Liberar el render_buffer global una sola vez              
+    libmod_heightmap_destroy_render_buffer();              
+              
+    // Liberar el fog_table global si existe              
+    if (fog_table) {              
+        free(fog_table);              
+        fog_table = NULL;              
+    }            
+                
+    // Limpiar la estructura global heightmaps              
+    memset(heightmaps, 0, sizeof(heightmaps));              
 }
-
 
 int64_t libmod_heightmap_set_light(INSTANCE *my, int64_t *params)
 {
@@ -288,50 +441,51 @@ int64_t libmod_heightmap_set_water_level(INSTANCE *my, int64_t *params)
 }
 
 /* Cargar mapa de altura desde archivo */
-int64_t libmod_heightmap_load(INSTANCE *my, int64_t *params)
-{
-    const char *filename = string_get(params[0]);
-    int64_t map_id = gr_load_img(filename);
-    string_discard(params[0]);
-
-    if (!map_id)
-        return 0;
-    GRAPH *graph = bitmap_get(0, map_id);
-    if (!graph)
-        return 0;
-
-    int slot = -1;
-    for (int i = 0; i < MAX_HEIGHTMAPS; i++)
-    {
-        if (!heightmaps[i].heightmap)
-        {
-            slot = i;
-            break;
-        }
-    }
-
-        if (slot == -1) {  
-        fprintf(stderr, "Error: MAX_HEIGHTMAPS (%d) alcanzado\n", MAX_HEIGHTMAPS);  
+/* Cargar mapa de altura desde archivo */  
+int64_t libmod_heightmap_load(INSTANCE *my, int64_t *params)  
+{  
+    const char *filename = string_get(params[0]);  
+    int64_t map_id = gr_load_img(filename);  
+    string_discard(params[0]);  
+  
+    if (!map_id)  
         return 0;  
+    GRAPH *graph = bitmap_get(0, map_id);  
+    if (!graph)  
+        return 0;  
+  
+    int slot = -1;  
+    for (int i = 0; i < MAX_HEIGHTMAPS; i++)  
+    {  
+        if (!heightmaps[i].heightmap)  
+        {  
+            slot = i;  
+            break;  
+        }  
     }  
+  
+    if (slot == -1) {    
+        fprintf(stderr, "Error: MAX_HEIGHTMAPS (%d) alcanzado\n", MAX_HEIGHTMAPS);    
+        return 0;    
+    }    
       
-    // Verificar que next_heightmap_id no desborde  
-    if (next_heightmap_id >= INT64_MAX - 1) {  
-        fprintf(stderr, "Error: next_heightmap_id overflow\n");  
-        return 0;  
-    }
-
-    heightmaps[slot].id = next_heightmap_id++;
-    heightmaps[slot].heightmap = graph;
-    heightmaps[slot].texturemap = NULL;
-    heightmaps[slot].width = graph->width;
-    heightmaps[slot].height = graph->height;
-    heightmaps[slot].height_cache = NULL;
-    heightmaps[slot].cache_valid = 0;
-
-    build_height_cache(&heightmaps[slot]);
-
-    return heightmaps[slot].id;
+    // Verificar que next_heightmap_id no desborde    
+    if (next_heightmap_id >= INT64_MAX - 1) {    
+        fprintf(stderr, "Error: next_heightmap_id overflow\n");    
+        return 0;    
+    }  
+  
+    heightmaps[slot].id = next_heightmap_id++;  
+    heightmaps[slot].type = MAP_TYPE_HEIGHTMAP;  // Inicializar como heightmap  
+    heightmaps[slot].heightmap = graph;  
+    heightmaps[slot].texturemap = NULL;  
+    heightmaps[slot].width = graph->width;  
+    heightmaps[slot].height = graph->height;  
+    heightmaps[slot].height_cache = NULL;  
+    heightmaps[slot].cache_valid = 0;  
+    build_height_cache(&heightmaps[slot]);  
+  
+    return heightmaps[slot].id;  
 }
 
 
@@ -465,23 +619,28 @@ float get_height_at(HEIGHTMAP *hm, float x, float y) {
 
 
 /* Configurar cámara 3D - Original */
-int64_t libmod_heightmap_set_camera(INSTANCE *my, int64_t *params)
-{
-    camera.x = (float)params[0];
-    camera.y = (float)params[1];
-    camera.z = (float)params[2];
-    camera.angle = (float)params[3] / 1000.0f;
-    camera.pitch = (float)params[4] / 1000.0f;
-    camera.fov = (params[5] > 0) ? (float)params[5] : DEFAULT_FOV;
-
-    // Limitación de pitch original
-    const float max_pitch = M_PI_2 * 0.99f;
-    if (camera.pitch > max_pitch)
-        camera.pitch = max_pitch;
-    if (camera.pitch < -max_pitch)
-        camera.pitch = -max_pitch;
-
-    return 1;
+int64_t libmod_heightmap_set_camera(INSTANCE *my, int64_t *params)  
+{  
+    fprintf(stderr, "DEBUG SET_CAMERA: params[0]=%lld params[1]=%lld params[2]=%lld\n",   
+            params[0], params[1], params[2]);  
+      
+    camera.x = (float)params[0];  
+    camera.y = (float)params[1];  
+    camera.z = (float)params[2];  
+    camera.angle = (float)params[3] / 1000.0f;  
+    camera.pitch = (float)params[4] / 1000.0f;  
+    camera.fov = (params[5] > 0) ? (float)params[5] : DEFAULT_FOV;  
+      
+    fprintf(stderr, "DEBUG SET_CAMERA: camera.x=%.2f camera.y=%.2f camera.z=%.2f\n",  
+            camera.x, camera.y, camera.z);  
+  
+    const float max_pitch = M_PI_2 * 0.99f;  
+    if (camera.pitch > max_pitch)  
+        camera.pitch = max_pitch;  
+    if (camera.pitch < -max_pitch)  
+        camera.pitch = -max_pitch;  
+  
+    return 1;  
 }
 
 /* Cargar textura */
@@ -1142,745 +1301,326 @@ static const char* voxel_vertex_shader_source =
 "    gl_Position = vec4(bgd_Vertex, 0.0, 1.0);\n"        
 "}\n";  
  
-static const char* voxel_fragment_shader_source =              
-"#version 330 core\n"          
-"\n"              
-"in vec2 v_uv;\n"              
-"\n"              
-"uniform sampler2D u_heightmap;\n"              
-"uniform sampler2D u_texturemap;\n"              
-"uniform sampler2D u_water_texture;\n"              
-"uniform vec3 u_camera_pos;\n"              
-"uniform float u_camera_angle;\n"              
-"uniform float u_camera_pitch;\n"              
-"uniform float u_fov;\n"              
-"uniform float u_max_distance;\n"              
-"uniform float u_water_level;\n"              
-"uniform float u_water_time;\n"              
-"uniform float u_wave_amplitude;\n"              
-"uniform float u_light_intensity;\n"              
-"uniform vec2 u_heightmap_size;\n"              
-"uniform vec3 u_sky_color;\n"              
-"uniform float u_current_distance;\n"        
-"uniform vec3 u_fog_color;\n"        
-"uniform float u_fog_intensity;\n"        
-"uniform vec2 u_chunk_min;\n"        
-"uniform vec2 u_chunk_max;\n"        
-"\n"          
-"out vec4 FragColor;\n"          
-"\n"      
-"// ============================================================================\n"  
-"// FUNCIONES DE RUIDO SIMPLEX 2D\n"  
-"// ============================================================================\n"  
+static const char* voxel_fragment_shader_source =                
+"#version 330 core\n"            
+"\n"                
+"in vec2 v_uv;\n"                
+"\n"                
+"uniform sampler2D u_heightmap;\n"                
+"uniform sampler2D u_texturemap;\n"                
+"uniform sampler2D u_water_texture;\n"                
+"uniform vec3 u_camera_pos;\n"                
+"uniform float u_camera_angle;\n"                
+"uniform float u_camera_pitch;\n"                
+"uniform float u_fov;\n"                
+"uniform float u_max_distance;\n"                
+"uniform float u_water_level;\n"                
+"uniform float u_water_time;\n"                
+"uniform float u_wave_amplitude;\n"                
+"uniform float u_light_intensity;\n"                
+"uniform vec2 u_heightmap_size;\n"                
+"uniform vec3 u_sky_color;\n"                
+"uniform float u_current_distance;\n"          
+"uniform vec3 u_fog_color;\n"          
+"uniform float u_fog_intensity;\n"          
+"uniform vec2 u_chunk_min;\n"          
+"uniform vec2 u_chunk_max;\n"  
 "\n"  
-"vec3 mod289(vec3 x) {\n"  
-"    return x - floor(x * (1.0 / 289.0)) * 289.0;\n"  
-"}\n"  
-"\n"  
-"vec2 mod289(vec2 x) {\n"  
-"    return x - floor(x * (1.0 / 289.0)) * 289.0;\n"  
-"}\n"  
-"\n"  
-"vec3 permute(vec3 x) {\n"  
-"    return mod289(((x*34.0)+1.0)*x);\n"  
-"}\n"  
-"\n"  
-"float snoise(vec2 v) {\n"  
-"    const vec4 C = vec4(0.211324865405187,\n"  
-"                        0.366025403784439,\n"  
-"                       -0.577350269189626,\n"  
-"                        0.024390243902439);\n"  
-"    \n"  
-"    vec2 i  = floor(v + dot(v, C.yy));\n"  
-"    vec2 x0 = v - i + dot(i, C.xx);\n"  
-"    \n"  
-"    vec2 i1;\n"  
-"    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);\n"  
-"    \n"  
-"    vec4 x12 = x0.xyxy + C.xxzz;\n"  
-"    x12.xy -= i1;\n"  
-"    \n"  
-"    i = mod289(i);\n"  
-"    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));\n"  
-"    \n"  
-"    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);\n"  
-"    m = m*m;\n"  
-"    m = m*m;\n"  
-"    \n"  
-"    vec3 x = 2.0 * fract(p * C.www) - 1.0;\n"  
-"    vec3 h = abs(x) - 0.5;\n"  
-"    vec3 ox = floor(x + 0.5);\n"  
-"    vec3 a0 = x - ox;\n"  
-"    \n"  
-"    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);\n"  
-"    \n"  
-"    vec3 g;\n"  
-"    g.x  = a0.x  * x0.x  + h.x  * x0.y;\n"  
-"    g.yz = a0.yz * x12.xz + h.yz * x12.yw;\n"  
-"    \n"  
-"    return 130.0 * dot(m, g);\n"  
-"}\n"  
-"\n"  
-"// ============================================================================\n"  
-"// FUNCIÓN DE FILTRADO BILINEAR\n"  
-"// ============================================================================\n"  
-"\n"  
-"vec4 texture_bilinear(sampler2D tex, vec2 uv, vec2 tex_size) {\n"      
-"    vec2 pixel_pos = uv * tex_size;\n"      
-"    vec2 pixel_floor = floor(pixel_pos - 0.5) + 0.5;\n"      
-"    vec2 frac = pixel_pos - pixel_floor;\n"      
-"    \n"      
-"    vec2 uv00 = pixel_floor / tex_size;\n"      
-"    vec2 uv10 = (pixel_floor + vec2(1.0, 0.0)) / tex_size;\n"      
-"    vec2 uv01 = (pixel_floor + vec2(0.0, 1.0)) / tex_size;\n"      
-"    vec2 uv11 = (pixel_floor + vec2(1.0, 1.0)) / tex_size;\n"      
-"    \n"      
-"    vec4 c00 = texture(tex, uv00);\n"      
-"    vec4 c10 = texture(tex, uv10);\n"      
-"    vec4 c01 = texture(tex, uv01);\n"      
-"    vec4 c11 = texture(tex, uv11);\n"      
-"    \n"      
-"    vec4 c0 = mix(c00, c10, frac.x);\n"      
-"    vec4 c1 = mix(c01, c11, frac.x);\n"      
-"    \n"      
-"    return mix(c0, c1, frac.y);\n"      
-"}\n"      
+"// NUEVO: Uniforms para mapas de sectores\n"  
+"uniform int u_map_type;\n"  
+"uniform int u_num_sectors;\n"  
+"uniform int u_num_walls;\n"  
+"\n"            
+"out vec4 FragColor;\n"            
+"\n"        
+"// Funciones de ruido Simplex 2D\n"    
+"vec3 mod289(vec3 x) {\n"    
+"    return x - floor(x * (1.0 / 289.0)) * 289.0;\n"    
+"}\n"    
+"\n"    
+"vec2 mod289(vec2 x) {\n"    
+"    return x - floor(x * (1.0 / 289.0)) * 289.0;\n"    
+"}\n"    
+"\n"    
+"vec3 permute(vec3 x) {\n"    
+"    return mod289(((x*34.0)+1.0)*x);\n"    
+"}\n"    
+"\n"    
+"float snoise(vec2 v) {\n"    
+"    const vec4 C = vec4(0.211324865405187, 0.366025403784439,\n"    
+"                       -0.577350269189626, 0.024390243902439);\n"    
+"    vec2 i  = floor(v + dot(v, C.yy));\n"    
+"    vec2 x0 = v - i + dot(i, C.xx);\n"    
+"    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);\n"    
+"    vec4 x12 = x0.xyxy + C.xxzz;\n"    
+"    x12.xy -= i1;\n"    
+"    i = mod289(i);\n"    
+"    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));\n"    
+"    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);\n"    
+"    m = m*m; m = m*m;\n"    
+"    vec3 x = 2.0 * fract(p * C.www) - 1.0;\n"    
+"    vec3 h = abs(x) - 0.5;\n"    
+"    vec3 ox = floor(x + 0.5);\n"    
+"    vec3 a0 = x - ox;\n"    
+"    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);\n"    
+"    vec3 g;\n"    
+"    g.x  = a0.x  * x0.x  + h.x  * x0.y;\n"    
+"    g.yz = a0.yz * x12.xz + h.yz * x12.yw;\n"    
+"    return 130.0 * dot(m, g);\n"    
+"}\n"    
+"\n"    
+"// Filtrado bilinear\n"    
+"vec4 texture_bilinear(sampler2D tex, vec2 uv, vec2 tex_size) {\n"        
+"    vec2 pixel_pos = uv * tex_size;\n"        
+"    vec2 pixel_floor = floor(pixel_pos - 0.5) + 0.5;\n"        
+"    vec2 frac = pixel_pos - pixel_floor;\n"        
+"    vec2 uv00 = pixel_floor / tex_size;\n"        
+"    vec2 uv10 = (pixel_floor + vec2(1.0, 0.0)) / tex_size;\n"        
+"    vec2 uv01 = (pixel_floor + vec2(0.0, 1.0)) / tex_size;\n"        
+"    vec2 uv11 = (pixel_floor + vec2(1.0, 1.0)) / tex_size;\n"        
+"    vec4 c00 = texture(tex, uv00);\n"        
+"    vec4 c10 = texture(tex, uv10);\n"        
+"    vec4 c01 = texture(tex, uv01);\n"        
+"    vec4 c11 = texture(tex, uv11);\n"        
+"    vec4 c0 = mix(c00, c10, frac.x);\n"        
+"    vec4 c1 = mix(c01, c11, frac.x);\n"        
+"    return mix(c0, c1, frac.y);\n"        
+"}\n"        
 "\n"
-// Continúa desde la Parte 1 (NO agregues punto y coma)  
-"void main() {\n"              
-"    float column_angle = u_camera_angle - u_fov * 0.5 + v_uv.x * u_fov;\n"              
-"    \n"              
-"    float cos_angle = cos(column_angle);\n"              
-"    float sin_angle = sin(column_angle);\n"              
-"    \n"              
-"    vec2 world_pos = u_camera_pos.xy + vec2(cos_angle, sin_angle) * u_current_distance;\n"              
-"    \n"      
-"    if (world_pos.x < u_chunk_min.x || world_pos.x > u_chunk_max.x ||\n"      
-"        world_pos.y < u_chunk_min.y || world_pos.y > u_chunk_max.y) {\n"      
-"        discard;\n"      
-"    }\n"      
-"    \n"      
-"    if (world_pos.x < 0.0 || world_pos.x >= u_heightmap_size.x ||\n"      
-"        world_pos.y < 0.0 || world_pos.y >= u_heightmap_size.y) {\n"      
-"        discard;\n"      
-"    }\n"      
-"    \n"      
-"    vec2 uv = world_pos / u_heightmap_size;\n"              
-"    \n"              
-"    float terrain_height = texture(u_heightmap, uv).r * 255.0;\n"              
-"    \n"              
-"    bool is_water = terrain_height < u_water_level;\n"              
-"    \n"      
-"    float render_height;\n"      
-"    if (is_water) {\n"      
-"        vec2 wave_coord = world_pos * 0.01 + vec2(u_water_time * 0.1, u_water_time * 0.05);\n"  
+"// Función principal del shader\n"  
+"void main() {\n"  
+"    // NUEVO: Detectar tipo de mapa y renderizar según corresponda\n"  
+"    if (u_map_type == 1) {\n"  
+"        // Renderizado estilo Doom para sectores\n"  
+"        float column_angle = u_camera_angle - u_fov * 0.5 + v_uv.x * u_fov;\n"  
+"        float cos_angle = cos(column_angle);\n"  
+"        float sin_angle = sin(column_angle);\n"  
 "        \n"  
-"        float noise1 = snoise(wave_coord) * 0.5;\n"  
-"        float noise2 = snoise(wave_coord * 2.0) * 0.25;\n"  
-"        float noise3 = snoise(wave_coord * 4.0) * 0.125;\n"  
+"        // Por ahora, renderizar un cubo simple basado en la posición de la cámara\n"  
+"        // Asumimos que el sector va de (0,0) a (200,200) con altura 0-150\n"  
+"        vec2 ray_dir = vec2(cos_angle, sin_angle);\n"  
+"        vec2 ray_pos = u_camera_pos.xy;\n"  
 "        \n"  
-"        float wave = (noise1 + noise2 + noise3) * u_wave_amplitude;\n"  
-"        float water_surface = u_water_level + wave;\n"    
-"        \n"    
-"        bool camera_underwater = u_camera_pos.z < u_water_level;\n"    
-"        \n"    
-"        if (camera_underwater) {\n"    
-"            render_height = terrain_height;\n"    
-"        } else {\n"    
-"            render_height = water_surface;\n"    
-"        }\n"    
-"    } else {\n"      
-"        render_height = terrain_height;\n"      
-"    }\n"      
-"    \n"              
-"    float height_diff = u_camera_pos.z - render_height;\n"              
-"    float projected_y = height_diff / u_current_distance * 300.0;\n"              
-"    projected_y += u_camera_pitch * 40.0;\n"              
-"    \n"              
-"    float screen_y = 0.5 + (projected_y / 240.0);\n"              
-"    \n"              
-"    if (v_uv.y >= screen_y) {\n"              
-"        float fog = 1.0 - (u_current_distance / u_max_distance);\n"              
-"        fog = clamp(fog, 0.3, 1.0);\n"              
-"        \n"        
-"        float fog_factor = 0.0;\n"        
-"        if (u_fog_intensity > 0.0) {\n"  
-"            float distance_fog = 0.0;\n"  
-"            if (u_current_distance > u_max_distance * 0.3) {\n"  
-"                float fog_start = u_max_distance * 0.3;\n"  
-"                float fog_range = u_max_distance - fog_start;\n"  
-"                float fog_progress = (u_current_distance - fog_start) / fog_range;\n"  
-"                fog_progress = fog_progress * fog_progress;\n"  
-"                distance_fog = fog_progress * u_fog_intensity;\n"  
+"        // Detectar intersección con las 4 paredes del cubo\n"  
+"        float t_min = 999999.0;\n"  
+"        bool hit = false;\n"  
+"        \n"  
+"        // Pared norte (y = 200)\n"  
+"        if (ray_dir.y > 0.001) {\n"  
+"            float t = (200.0 - ray_pos.y) / ray_dir.y;\n"  
+"            if (t > 0.0 && t < t_min) {\n"  
+"                float hit_x = ray_pos.x + ray_dir.x * t;\n"  
+"                if (hit_x >= 0.0 && hit_x <= 200.0) {\n"  
+"                    t_min = t;\n"  
+"                    hit = true;\n"  
+"                }\n"  
 "            }\n"  
-"            \n"  
-"            float height_fog = 0.0;\n"  
-"            if (render_height < 100.0) {\n"  
-"                height_fog = (1.0 - render_height / 100.0) * u_fog_intensity * 0.3;\n"  
-"            }\n"  
-"            \n"  
-"            fog_factor = max(distance_fog, height_fog);\n"  
-"            fog_factor = clamp(fog_factor, 0.0, 0.7);\n"  
 "        }\n"  
-"        \n"
-// Continúa desde la Parte 2 (NO agregues punto y coma)  
-"        if (is_water) {\n"      
-"            bool camera_underwater = u_camera_pos.z < u_water_level;\n"    
-"            \n"    
-"            if (camera_underwater) {\n"    
-"                vec2 terrain_tex_size = vec2(textureSize(u_texturemap, 0));\n"      
-"                vec3 terrain_color = texture_bilinear(u_texturemap, uv, terrain_tex_size).rgb;\n"      
-"                terrain_color *= u_light_intensity * 0.7;\n"  
-"                terrain_color.b *= 1.3;\n"    
-"                \n"    
-"                vec3 base_color = mix(u_sky_color, terrain_color, fog);\n"      
-"                if (fog_factor > 0.1) {\n"      
-"                    base_color = mix(base_color, u_fog_color, fog_factor);\n"      
-"                }\n"      
-"                FragColor = vec4(base_color, 1.0);\n"    
-"            } else {\n"    
-"                float water_depth = u_water_level - terrain_height;\n"      
-"                float water_surface_alpha = clamp(water_depth / 30.0, 0.4, 0.85);\n"      
-"                \n"      
-"                vec2 water_uv = mod(world_pos * 0.01 + vec2(u_water_time * 0.1, u_water_time * 0.05), 1.0);\n"      
-"                vec2 water_tex_size = vec2(textureSize(u_water_texture, 0));\n"      
-"                vec4 water_sample = texture_bilinear(u_water_texture, water_uv, water_tex_size);\n"      
-"                \n"      
-"                vec2 terrain_tex_size = vec2(textureSize(u_texturemap, 0));\n"      
-"                vec3 terrain_color = texture_bilinear(u_texturemap, uv, terrain_tex_size).rgb;\n"      
-"                terrain_color *= u_light_intensity;\n"  
-"                \n"      
-"                vec3 view_dir = normalize(vec3(world_pos.x - u_camera_pos.x, world_pos.y - u_camera_pos.y, -1.0));\n"  
-"                vec3 water_normal = vec3(0.0, 0.0, 1.0);\n"  
-"                vec3 reflect_dir = reflect(view_dir, water_normal);\n"  
-"                \n"  
-"                float fresnel = pow(1.0 - max(dot(-view_dir, water_normal), 0.0), 3.0);\n"  
-"                vec3 reflection_color = u_sky_color;\n"  
-"                \n"      
-"                vec3 water_color = mix(terrain_color, water_sample.rgb, water_surface_alpha);\n"      
-"                water_color = mix(water_color, reflection_color, fresnel * 0.3);\n"  
-"                \n"  
-"                vec3 base_color = mix(u_sky_color, water_color, fog);\n"      
-"                if (fog_factor > 0.1) {\n"      
-"                    base_color = mix(base_color, u_fog_color, fog_factor);\n"      
-"                }\n"      
-"                FragColor = vec4(base_color, 1.0);\n"    
+"        \n"  
+"        // Pared sur (y = 0)\n"  
+"        if (ray_dir.y < -0.001) {\n"  
+"            float t = -ray_pos.y / ray_dir.y;\n"  
+"            if (t > 0.0 && t < t_min) {\n"  
+"                float hit_x = ray_pos.x + ray_dir.x * t;\n"  
+"                if (hit_x >= 0.0 && hit_x <= 200.0) {\n"  
+"                    t_min = t;\n"  
+"                    hit = true;\n"  
+"                }\n"  
+"            }\n"  
+"        }\n"  
+"        \n"  
+"        // Pared este (x = 200)\n"  
+"        if (ray_dir.x > 0.001) {\n"  
+"            float t = (200.0 - ray_pos.x) / ray_dir.x;\n"  
+"            if (t > 0.0 && t < t_min) {\n"  
+"                float hit_y = ray_pos.y + ray_dir.y * t;\n"  
+"                if (hit_y >= 0.0 && hit_y <= 200.0) {\n"  
+"                    t_min = t;\n"  
+"                    hit = true;\n"  
+"                }\n"  
+"            }\n"  
+"        }\n"  
+"        \n"  
+"        // Pared oeste (x = 0)\n"  
+"        if (ray_dir.x < -0.001) {\n"  
+"            float t = -ray_pos.x / ray_dir.x;\n"  
+"            if (t > 0.0 && t < t_min) {\n"  
+"                float hit_y = ray_pos.y + ray_dir.y * t;\n"  
+"                if (hit_y >= 0.0 && hit_y <= 200.0) {\n"  
+"                    t_min = t;\n"  
+"                    hit = true;\n"  
+"                }\n"  
+"            }\n"  
+"        }\n"  
+"        \n"  
+"        if (hit) {\n"  
+"            // Calcular altura de la pared en pantalla\n"  
+"            float wall_height = 150.0;  // Altura del techo\n"  
+"            float floor_height = 0.0;\n"  
+"            \n"  
+"            // Proyección de la pared\n"  
+"            float wall_top = 0.5 + ((u_camera_pos.z - wall_height) / t_min * 300.0 + u_camera_pitch * 40.0) / 240.0;\n"  
+"            float wall_bottom = 0.5 + ((u_camera_pos.z - floor_height) / t_min * 300.0 + u_camera_pitch * 40.0) / 240.0;\n"  
+"            \n"  
+"            if (v_uv.y >= wall_top && v_uv.y <= wall_bottom) {\n"  
+"                // Renderizar pared\n"  
+"                float fog = 1.0 - (t_min / u_max_distance);\n"  
+"                fog = clamp(fog, 0.3, 1.0);\n"  
+"                vec3 wall_color = vec3(0.6, 0.5, 0.4) * u_light_intensity;\n"  
+"                vec3 final_color = mix(u_sky_color, wall_color, fog);\n"  
+"                FragColor = vec4(final_color, 1.0);\n"  
+"            } else if (v_uv.y > wall_bottom) {\n"  
+"                // Renderizar piso\n"  
+"                FragColor = vec4(0.3, 0.3, 0.3, 1.0);\n"  
+"            } else {\n"  
+"                // Renderizar techo\n"  
+"                FragColor = vec4(0.2, 0.2, 0.2, 1.0);\n"  
+"            }\n"  
+"        } else {\n"  
+"            // No hay intersección, renderizar cielo\n"  
+"            FragColor = vec4(u_sky_color, 1.0);\n"  
+"        }\n"  
+"        \n"  
+"        return;\n"  
+"    }\n"
+"\n"  
+"    // Código existente para heightmaps (modo voxelspace)\n"  
+"    float column_angle = u_camera_angle - u_fov * 0.5 + v_uv.x * u_fov;\n"                
+"    \n"                
+"    float cos_angle = cos(column_angle);\n"                
+"    float sin_angle = sin(column_angle);\n"                
+"    \n"                
+"    vec2 world_pos = u_camera_pos.xy + vec2(cos_angle, sin_angle) * u_current_distance;\n"                
+"    \n"        
+"    // Verificar límites de chunks\n"  
+"    if (world_pos.x < u_chunk_min.x || world_pos.x > u_chunk_max.x ||\n"        
+"        world_pos.y < u_chunk_min.y || world_pos.y > u_chunk_max.y) {\n"        
+"        discard;\n"        
+"    }\n"        
+"    \n"        
+"    // Verificar límites del heightmap\n"  
+"    if (world_pos.x < 0.0 || world_pos.x >= u_heightmap_size.x ||\n"        
+"        world_pos.y < 0.0 || world_pos.y >= u_heightmap_size.y) {\n"        
+"        discard;\n"        
+"    }\n"        
+"    \n"        
+"    vec2 uv = world_pos / u_heightmap_size;\n"                
+"    \n"                
+"    float terrain_height = texture(u_heightmap, uv).r * 255.0;\n"                
+"    \n"                
+"    bool is_water = terrain_height < u_water_level;\n"                
+"    \n"        
+"    float render_height;\n"        
+"    if (is_water) {\n"        
+"        // Calcular olas de agua usando simplex noise\n"  
+"        vec2 wave_coord = world_pos * 0.01 + vec2(u_water_time * 0.1, u_water_time * 0.05);\n"    
+"        \n"    
+"        float noise1 = snoise(wave_coord) * 0.5;\n"    
+"        float noise2 = snoise(wave_coord * 2.0) * 0.25;\n"    
+"        float noise3 = snoise(wave_coord * 4.0) * 0.125;\n"    
+"        \n"    
+"        float wave = (noise1 + noise2 + noise3) * u_wave_amplitude;\n"    
+"        float water_surface = u_water_level + wave;\n"      
+"        \n"      
+"        bool camera_underwater = u_camera_pos.z < u_water_level;\n"      
+"        \n"      
+"        if (camera_underwater) {\n"      
+"            render_height = terrain_height;\n"      
+"        } else {\n"      
+"            render_height = water_surface;\n"      
+"        }\n"      
+"    } else {\n"        
+"        render_height = terrain_height;\n"        
+"    }\n"        
+"    \n"
+"    float height_diff = u_camera_pos.z - render_height;\n"                
+"    float projected_y = height_diff / u_current_distance * 300.0;\n"                
+"    projected_y += u_camera_pitch * 40.0;\n"                
+"    \n"                
+"    float screen_y = 0.5 + (projected_y / 240.0);\n"                
+"    \n"                
+"    if (v_uv.y >= screen_y) {\n"                
+"        float fog = 1.0 - (u_current_distance / u_max_distance);\n"                
+"        fog = clamp(fog, 0.3, 1.0);\n"                
+"        \n"          
+"        float fog_factor = 0.0;\n"          
+"        if (u_fog_intensity > 0.0) {\n"    
+"            float distance_fog = 0.0;\n"    
+"            if (u_current_distance > u_max_distance * 0.3) {\n"    
+"                float fog_start = u_max_distance * 0.3;\n"    
+"                float fog_range = u_max_distance - fog_start;\n"    
+"                float fog_progress = (u_current_distance - fog_start) / fog_range;\n"    
+"                fog_progress = fog_progress * fog_progress;\n"    
+"                distance_fog = fog_progress * u_fog_intensity;\n"    
 "            }\n"    
-"        } else {\n"              
-"            vec2 terrain_tex_size = vec2(textureSize(u_texturemap, 0));\n"      
-"            vec3 terrain_color = texture_bilinear(u_texturemap, uv, terrain_tex_size).rgb;\n"      
-"            terrain_color *= u_light_intensity;\n"        
-"            vec3 base_color = mix(u_sky_color, terrain_color, fog);\n"        
-"            if (fog_factor > 0.1) {\n"        
-"                base_color = mix(base_color, u_fog_color, fog_factor);\n"        
-"            }\n"        
-"            FragColor = vec4(base_color, 1.0);\n"              
-"        }\n"              
-"    } else {\n"              
-"        discard;\n"              
-"    }\n"              
+"            \n"    
+"            float height_fog = 0.0;\n"    
+"            if (render_height < 100.0) {\n"    
+"                height_fog = (1.0 - render_height / 100.0) * u_fog_intensity * 0.3;\n"    
+"            }\n"    
+"            \n"    
+"            fog_factor = max(distance_fog, height_fog);\n"    
+"            fog_factor = clamp(fog_factor, 0.0, 0.7);\n"    
+"        }\n"    
+"        \n"
+"        if (is_water) {\n"        
+"            bool camera_underwater = u_camera_pos.z < u_water_level;\n"      
+"            \n"      
+"            if (camera_underwater) {\n"      
+"                vec2 terrain_tex_size = vec2(textureSize(u_texturemap, 0));\n"        
+"                vec3 terrain_color = texture_bilinear(u_texturemap, uv, terrain_tex_size).rgb;\n"        
+"                terrain_color *= u_light_intensity * 0.7;\n"    
+"                terrain_color.b *= 1.3;\n"      
+"                \n"      
+"                vec3 base_color = mix(u_sky_color, terrain_color, fog);\n"        
+"                if (fog_factor > 0.1) {\n"        
+"                    base_color = mix(base_color, u_fog_color, fog_factor);\n"        
+"                }\n"        
+"                FragColor = vec4(base_color, 1.0);\n"      
+"            } else {\n"      
+"                float water_depth = u_water_level - terrain_height;\n"        
+"                float water_surface_alpha = clamp(water_depth / 30.0, 0.4, 0.85);\n"        
+"                \n"        
+"                vec2 water_uv = mod(world_pos * 0.01 + vec2(u_water_time * 0.1, u_water_time * 0.05), 1.0);\n"        
+"                vec2 water_tex_size = vec2(textureSize(u_water_texture, 0));\n"        
+"                vec4 water_sample = texture_bilinear(u_water_texture, water_uv, water_tex_size);\n"        
+"                \n"        
+"                vec2 terrain_tex_size = vec2(textureSize(u_texturemap, 0));\n"        
+"                vec3 terrain_color = texture_bilinear(u_texturemap, uv, terrain_tex_size).rgb;\n"        
+"                terrain_color *= u_light_intensity;\n"    
+"                \n"        
+"                vec3 view_dir = normalize(vec3(world_pos.x - u_camera_pos.x, world_pos.y - u_camera_pos.y, -1.0));\n"    
+"                vec3 water_normal = vec3(0.0, 0.0, 1.0);\n"    
+"                vec3 reflect_dir = reflect(view_dir, water_normal);\n"    
+"                \n"    
+"                float fresnel = pow(1.0 - max(dot(-view_dir, water_normal), 0.0), 3.0);\n"    
+"                vec3 reflection_color = u_sky_color;\n"    
+"                \n"        
+"                vec3 water_color = mix(terrain_color, water_sample.rgb, water_surface_alpha);\n"        
+"                water_color = mix(water_color, reflection_color, fresnel * 0.3);\n"    
+"                \n"    
+"                vec3 base_color = mix(u_sky_color, water_color, fog);\n"        
+"                if (fog_factor > 0.1) {\n"        
+"                    base_color = mix(base_color, u_fog_color, fog_factor);\n"        
+"                }\n"        
+"                FragColor = vec4(base_color, 1.0);\n"      
+"            }\n"      
+"        } else {\n"                
+"            vec2 terrain_tex_size = vec2(textureSize(u_texturemap, 0));\n"        
+"            vec3 terrain_color = texture_bilinear(u_texturemap, uv, terrain_tex_size).rgb;\n"        
+"            terrain_color *= u_light_intensity;\n"          
+"            vec3 base_color = mix(u_sky_color, terrain_color, fog);\n"          
+"            if (fog_factor > 0.1) {\n"          
+"                base_color = mix(base_color, u_fog_color, fog_factor);\n"          
+"            }\n"          
+"            FragColor = vec4(base_color, 1.0);\n"                
+"        }\n"                
+"    } else {\n"                
+"        discard;\n"                
+"    }\n"                
 "}\n";
 
-///-----------------------------------------------------------------------------------------------///
-///                                MODELOS 3D ----- EXPERIMENTAL                                  ///
-///-----------------------------------------------------------------------------------------------///
-
-static int create_mesh_shader() {  
-    fprintf(stderr, "DEBUG: ========== create_mesh_shader() INICIADO ==========\n");  
-      
-    // Verificar si ya existe  
-    if (mesh_shader) {  
-        fprintf(stderr, "DEBUG: mesh_shader ya existe (%p), retornando 1\n", (void*)mesh_shader);  
-        return 1;  
-    }  
-      
-    fprintf(stderr, "DEBUG: mesh_shader es NULL, procediendo a crear...\n");  
-      
-    // Vertex shader completo  
-    static const char* mesh_vs =   
-        "#version 330 core\n"  
-        "layout(location = 0) in vec3 a_position;\n"  
-        "layout(location = 1) in vec2 a_texcoord;\n"  
-        "layout(location = 2) in vec3 a_normal;\n"  
-        "uniform mat4 u_model;\n"  
-        "uniform mat4 u_view;\n"  
-        "uniform mat4 u_projection;\n"  
-        "out vec2 v_texcoord;\n"  
-        "out vec3 v_normal;\n"  
-        "out vec3 v_world_pos;\n"  
-        "void main() {\n"  
-        "    vec4 world_pos = u_model * vec4(a_position, 1.0);\n"  
-        "    v_world_pos = world_pos.xyz;\n"  
-        "    gl_Position = u_projection * u_view * world_pos;\n"  
-        "    v_texcoord = a_texcoord;\n"  
-        "    v_normal = normalize(mat3(u_model) * a_normal);\n"  
-        "}\n";  
-      
-    // Fragment shader completo  
-    static const char* mesh_fs =  
-        "#version 330 core\n"  
-        "in vec2 v_texcoord;\n"  
-        "in vec3 v_normal;\n"  
-        "in vec3 v_world_pos;\n"  
-        "uniform sampler2D u_texture;\n"  
-        "uniform vec3 u_camera_pos;\n"  
-        "uniform float u_light_intensity;\n"  
-        "uniform vec3 u_fog_color;\n"  
-        "uniform float u_fog_intensity;\n"  
-        "uniform float u_max_distance;\n"  
-        "out vec4 FragColor;\n"  
-        "void main() {\n"  
-        "    vec4 tex_color = texture(u_texture, v_texcoord);\n"  
-        "    if (tex_color.a < 0.1) discard;\n"  
-        "    vec3 light_dir = normalize(vec3(0.5, -1.0, 0.3));\n"  
-        "    float diffuse = max(dot(v_normal, -light_dir), 0.0);\n"  
-        "    float ambient = 0.3;\n"  
-        "    float lighting = ambient + diffuse * (1.0 - ambient);\n"  
-        "    vec3 lit_color = tex_color.rgb * lighting * u_light_intensity;\n"  
-        "    float distance = length(v_world_pos - u_camera_pos);\n"  
-        "    float fog_factor = 0.0;\n"  
-        "    if (u_fog_intensity > 0.0) {\n"  
-        "        float fog_start = u_max_distance * 0.3;\n"  
-        "        float fog_end = u_max_distance;\n"  
-        "        fog_factor = clamp((distance - fog_start) / (fog_end - fog_start), 0.0, 1.0);\n"  
-        "        fog_factor *= u_fog_intensity;\n"  
-        "    }\n"  
-        "    vec3 final_color = mix(lit_color, u_fog_color, fog_factor);\n"  
-        "    FragColor = vec4(final_color, tex_color.a);\n"  
-        "}\n";  
-      
-    fprintf(stderr, "DEBUG: Shaders GLSL definidos, longitud vertex: %zu, fragment: %zu\n",   
-            strlen(mesh_vs), strlen(mesh_fs));  
-    fprintf(stderr, "DEBUG: Llamando a shader_create()...\n");  
-      
-    // Intentar crear el shader  
-    mesh_shader = shader_create((char*)mesh_vs, (char*)mesh_fs);  
-      
-    fprintf(stderr, "DEBUG: shader_create() retornó: %p\n", (void*)mesh_shader);  
-      
-    if (!mesh_shader) {  
-        fprintf(stderr, "ERROR CRÍTICO: shader_create() FALLÓ para mesh shader\n");  
-        fprintf(stderr, "ERROR: El shader retornó NULL\n");  
-        fprintf(stderr, "ERROR: Posibles causas:\n");  
-        fprintf(stderr, "  1. Error de sintaxis en los shaders GLSL\n");  
-        fprintf(stderr, "  2. Versión de OpenGL incompatible\n");  
-        fprintf(stderr, "  3. Contexto OpenGL no inicializado\n");  
-        fprintf(stderr, "\nVertex Shader:\n%s\n", mesh_vs);  
-        fprintf(stderr, "\nFragment Shader:\n%s\n", mesh_fs);  
-        return 0;  
-    }  
-      
-    fprintf(stderr, "DEBUG: ✓ Mesh shader compilado exitosamente: %p\n", (void*)mesh_shader);  
-    fprintf(stderr, "DEBUG: Creando parámetros del shader...\n");  
-      
-    // Crear parámetros  
-    mesh_params = shader_create_parameters(15);  
-      
-    fprintf(stderr, "DEBUG: shader_create_parameters(15) retornó: %p\n", (void*)mesh_params);  
-      
-    if (!mesh_params) {  
-        fprintf(stderr, "ERROR: No se pudieron crear parámetros del shader\n");  
-        fprintf(stderr, "ERROR: Liberando mesh_shader y retornando 0\n");  
-        shader_free(mesh_shader);  
-        mesh_shader = NULL;  
-        return 0;  
-    }  
-      
-    fprintf(stderr, "DEBUG: ✓ Mesh params creados exitosamente: %p\n", (void*)mesh_params);  
-    fprintf(stderr, "DEBUG: Verificando ubicaciones de uniforms...\n");  
-      
-    // Verificar ubicaciones de uniforms críticos  
-    int loc_model = shader_getuniformlocation(mesh_shader, "u_model");  
-    int loc_view = shader_getuniformlocation(mesh_shader, "u_view");  
-    int loc_projection = shader_getuniformlocation(mesh_shader, "u_projection");  
-    int loc_texture = shader_getuniformlocation(mesh_shader, "u_texture");  
-      
-    fprintf(stderr, "DEBUG: Uniform locations:\n");  
-    fprintf(stderr, "  u_model: %d\n", loc_model);  
-    fprintf(stderr, "  u_view: %d\n", loc_view);  
-    fprintf(stderr, "  u_projection: %d\n", loc_projection);  
-    fprintf(stderr, "  u_texture: %d\n", loc_texture);  
-      
-    if (loc_model < 0 || loc_view < 0 || loc_projection < 0) {  
-        fprintf(stderr, "WARNING: Algunos uniforms críticos no se encontraron\n");  
-        fprintf(stderr, "WARNING: El shader puede no funcionar correctamente\n");  
-    } else {  
-        fprintf(stderr, "DEBUG: ✓ Todos los uniforms críticos encontrados\n");  
-    }  
-      
-    fprintf(stderr, "DEBUG: ========== create_mesh_shader() COMPLETADO EXITOSAMENTE ==========\n");  
-    return 1;  
-}
-
-int64_t libmod_heightmap_create_test_cube(INSTANCE *my, int64_t *params) {  
-    float size = 1.0f;  
-      
-    if (mesh_count >= MAX_MESHES) {  
-        fprintf(stderr, "ERROR: Límite de mallas alcanzado\n");  
-        return -1;  
-    }  
-      
-    GPU_MESH *mesh = &meshes[mesh_count];  
-    mesh->id = mesh_count;  
-    mesh->world_x = 0.0f;  
-    mesh->world_y = 0.0f;  
-    mesh->world_z = 0.0f;  
-    mesh->angle = 0.0f;  
-    mesh->scale = 1.0f;  
-    mesh->texture = NULL;  
-      
-    // Vértices del cubo: posición (3) + UV (2) + normal (3) = 8 floats por vértice  
-    float vertices[] = {  
-        // Cara frontal (Z+) - vértices 0-3  
-        -size, -size,  size,  0.0f, 0.0f,  0.0f, 0.0f, 1.0f,  
-         size, -size,  size,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f,  
-         size,  size,  size,  1.0f, 1.0f,  0.0f, 0.0f, 1.0f,  
-        -size,  size,  size,  0.0f, 1.0f,  0.0f, 0.0f, 1.0f,  
-          
-        // Cara trasera (Z-) - vértices 4-7  
-        -size, -size, -size,  1.0f, 0.0f,  0.0f, 0.0f, -1.0f,  
-        -size,  size, -size,  1.0f, 1.0f,  0.0f, 0.0f, -1.0f,  
-         size,  size, -size,  0.0f, 1.0f,  0.0f, 0.0f, -1.0f,  
-         size, -size, -size,  0.0f, 0.0f,  0.0f, 0.0f, -1.0f,  
-          
-        // Cara superior (Y+) - vértices 8-11  
-        -size,  size, -size,  0.0f, 1.0f,  0.0f, 1.0f, 0.0f,  
-        -size,  size,  size,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,  
-         size,  size,  size,  1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  
-         size,  size, -size,  1.0f, 1.0f,  0.0f, 1.0f, 0.0f,  
-          
-        // Cara inferior (Y-) - vértices 12-15  
-        -size, -size, -size,  0.0f, 0.0f,  0.0f, -1.0f, 0.0f,  
-         size, -size, -size,  1.0f, 0.0f,  0.0f, -1.0f, 0.0f,  
-         size, -size,  size,  1.0f, 1.0f,  0.0f, -1.0f, 0.0f,  
-        -size, -size,  size,  0.0f, 1.0f,  0.0f, -1.0f, 0.0f,  
-          
-        // Cara derecha (X+) - vértices 16-19  
-         size, -size, -size,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,  
-         size,  size, -size,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,  
-         size,  size,  size,  1.0f, 1.0f,  1.0f, 0.0f, 0.0f,  
-         size, -size,  size,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,  
-          
-        // Cara izquierda (X-) - vértices 20-23  
-        -size, -size, -size,  1.0f, 0.0f,  -1.0f, 0.0f, 0.0f,  
-        -size, -size,  size,  0.0f, 0.0f,  -1.0f, 0.0f, 0.0f,  
-        -size,  size,  size,  0.0f, 1.0f,  -1.0f, 0.0f, 0.0f,  
-        -size,  size, -size,  1.0f, 1.0f,  -1.0f, 0.0f, 0.0f  
-    };  
-      
-    // Índices para los 12 triángulos (6 caras × 2 triángulos)  
-    unsigned int indices[] = {  
-        0, 1, 2,  2, 3, 0,      // Frontal  
-        4, 5, 6,  6, 7, 4,      // Trasera  
-        8, 9, 10, 10, 11, 8,    // Superior  
-        12, 13, 14, 14, 15, 12, // Inferior  
-        16, 17, 18, 18, 19, 16, // Derecha  
-        20, 21, 22, 22, 23, 20  // Izquierda  
-    };  
-      
-    // Crear VAO, VBO, EBO  
-    glGenVertexArrays(1, &mesh->vao);  
-    glGenBuffers(1, &mesh->vbo);  
-    glGenBuffers(1, &mesh->ebo);  
-      
-    glBindVertexArray(mesh->vao);  
-      
-    // Subir vértices a GPU  
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);  
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);  
-      
-    // Subir índices a GPU  
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ebo);  
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);  
-      
-    // Configurar atributos de vértices  
-    // Posición (location = 0): 3 floats  
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);  
-    glEnableVertexAttribArray(0);  
-      
-    // UV (location = 1): 2 floats  
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));  
-    glEnableVertexAttribArray(1);  
-      
-    // Normal (location = 2): 3 floats  
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));  
-    glEnableVertexAttribArray(2);  
-      
-    glBindVertexArray(0);  
-      
-    mesh->vertex_count = 24;  
-    mesh->triangle_count = 12;  
-      
-    mesh_count++;  
-    fprintf(stderr, "DEBUG: Cubo creado - ID: %d, VAO: %u, VBO: %u, EBO: %u\n", mesh->id, mesh->vao, mesh->vbo, mesh->ebo);  
-    fprintf(stderr, "DEBUG: Posición inicial: (%.2f, %.2f, %.2f), escala: %.2f\n", mesh->world_x, mesh->world_y, mesh->world_z, mesh->scale);
-    return mesh->id;  
-}
-
-int64_t libmod_heightmap_set_mesh_position(INSTANCE *my, int64_t *params) {    
-    int64_t mesh_id = params[0];    
-    float x = *(float*)&params[1];    
-    float y = *(float*)&params[2];    
-    float z = *(float*)&params[3];    
-    float angle = *(float*)&params[4];    
-    float pitch = *(float*)&params[5];  // NUEVO: leer pitch  
-    float scale = *(float*)&params[6];  // CORREGIDO: scale es params[6], no params[5]  
-      
-    fprintf(stderr, "DEBUG: Mesh %" PRId64 " posicionado en (%.2f, %.2f, %.2f), ángulo: %.2f, pitch: %.2f, escala: %.2f\n",    
-            mesh_id, x, y, z, angle, pitch, scale);  
-      
-    // Buscar la malla    
-    for (int i = 0; i < mesh_count; i++) {    
-        if (meshes[i].id == mesh_id) {    
-            meshes[i].world_x = x;    
-            meshes[i].world_y = y;    
-            meshes[i].world_z = z;    
-            meshes[i].angle = angle;    
-            meshes[i].scale = scale;    
-            return 1;    
-        }    
-    }    
-        
-    fprintf(stderr, "ERROR: Malla con ID %" PRId64 " no encontrada\n", mesh_id);    
-    return 0;    
-}
-
-int64_t libmod_heightmap_set_mesh_texture(INSTANCE *my, int64_t *params) {  
-    int64_t mesh_id = params[0];  
-    int64_t graph_id = params[1];  
-      
-    // Buscar la malla  
-    for (int i = 0; i < mesh_count; i++) {  
-        if (meshes[i].id == mesh_id) {  
-            meshes[i].texture = bitmap_get(0, graph_id);  
-            if (!meshes[i].texture) {  
-                fprintf(stderr, "ERROR: Textura con ID %lld no encontrada\n", graph_id);  
-                return 0;  
-            }  
-            return 1;  
-        }  
-    }  
-      
-    fprintf(stderr, "ERROR: Malla con ID %lld no encontrada\n", mesh_id);  
-    return 0;  
-}
-
-static void render_meshes_gpu(int render_width, int render_height) {  
-    
-    fprintf(stderr, "DEBUG: render_meshes_gpu() LLAMADO - mesh_count: %d, mesh_shader: %p\n",  
-            mesh_count, (void*)mesh_shader);  
-      
-    if (mesh_count == 0) {  
-        fprintf(stderr, "DEBUG: No hay mallas para renderizar\n");  
-        return;  
-    }  
-      
-    // Crear shader si no existe  
-    if (!mesh_shader) {  
-        fprintf(stderr, "DEBUG: mesh_shader es NULL, intentando crear...\n");  
-        if (!create_mesh_shader()) {  
-            fprintf(stderr, "ERROR: create_mesh_shader() FALLÓ\n");  
-            return;  
-        }  
-    }  
-      
-    fprintf(stderr, "DEBUG: Activando mesh shader...\n");  
-    shader_activate(mesh_shader);  
-      
-    // Obtener ubicaciones de uniforms (solo una vez)  
-    static int loc_model = -1;  
-    static int loc_view = -1;  
-    static int loc_projection = -1;  
-    static int loc_texture = -1;  
-    static int loc_camera_pos = -1;  
-    static int loc_light_intensity = -1;  
-    static int loc_fog_color = -1;  
-    static int loc_fog_intensity = -1;  
-    static int loc_max_distance = -1;  
-      
-    static int locs_initialized = 0;  
-    if (!locs_initialized) {  
-        loc_model = shader_getuniformlocation(mesh_shader, "u_model");  
-        loc_view = shader_getuniformlocation(mesh_shader, "u_view");  
-        loc_projection = shader_getuniformlocation(mesh_shader, "u_projection");  
-        loc_texture = shader_getuniformlocation(mesh_shader, "u_texture");  
-        loc_camera_pos = shader_getuniformlocation(mesh_shader, "u_camera_pos");  
-        loc_light_intensity = shader_getuniformlocation(mesh_shader, "u_light_intensity");  
-        loc_fog_color = shader_getuniformlocation(mesh_shader, "u_fog_color");  
-        loc_fog_intensity = shader_getuniformlocation(mesh_shader, "u_fog_intensity");  
-        loc_max_distance = shader_getuniformlocation(mesh_shader, "u_max_distance");  
-        locs_initialized = 1;  
-        fprintf(stderr, "DEBUG: Uniforms obtenidos - model:%d view:%d proj:%d\n",   
-                loc_model, loc_view, loc_projection);  
-    }  
-      
-    // Crear matrices de vista y proyección  
-    mat4 view_matrix, projection_matrix;  
-    mat4_lookat_simple(&view_matrix, camera.x, camera.y, camera.z,   
-                       camera.angle, camera.pitch);  
-      
-    float aspect = (float)render_width / (float)render_height;  
-    mat4_perspective(&projection_matrix, 0.7f, aspect, 1.0f, max_render_distance);  
-      
-    fprintf(stderr, "DEBUG: Matrices creadas - cámara:(%.2f,%.2f,%.2f) aspect:%.2f\n",  
-            camera.x, camera.y, camera.z, aspect);  
-      
-    // Configurar uniforms globales (una sola vez)  
-    if (loc_view >= 0) {  
-        shader_set_param(mesh_params, UNIFORM_FLOAT_ARRAY, loc_view, 16,  
-                        (void*)view_matrix.m, 0, 0, 0, 0, 0);  
-    }  
-      
-    if (loc_projection >= 0) {  
-        shader_set_param(mesh_params, UNIFORM_FLOAT_ARRAY, loc_projection, 16,  
-                        (void*)projection_matrix.m, 0, 0, 0, 0, 0);  
-    }  
-      
-    if (loc_camera_pos >= 0) {  
-        float cam_pos[3] = { camera.x, camera.y, camera.z };  
-        shader_set_param(mesh_params, UNIFORM_FLOAT3_ARRAY, loc_camera_pos, 1,  
-                        (void*)cam_pos, 0, 0, 0, 0, 0);  
-    }  
-      
-    if (loc_light_intensity >= 0) {  
-        float light_val = light_intensity / 255.0f;  
-        shader_set_param(mesh_params, UNIFORM_FLOAT, loc_light_intensity, 0,  
-                        *(int32_t*)&light_val, 0, 0, 0, 0, 0);  
-    }  
-      
-    if (loc_fog_color >= 0) {  
-        float fog_col[3] = { fog_color_r / 255.0f, fog_color_g / 255.0f, fog_color_b / 255.0f };  
-        shader_set_param(mesh_params, UNIFORM_FLOAT3_ARRAY, loc_fog_color, 1,  
-                        (void*)fog_col, 0, 0, 0, 0, 0);  
-    }  
-      
-    if (loc_fog_intensity >= 0) {  
-        shader_set_param(mesh_params, UNIFORM_FLOAT, loc_fog_intensity, 0,  
-                        *(int32_t*)&fog_intensity, 0, 0, 0, 0, 0);  
-    }  
-      
-    if (loc_max_distance >= 0) {  
-        shader_set_param(mesh_params, UNIFORM_FLOAT, loc_max_distance, 0,  
-                        *(int32_t*)&max_render_distance, 0, 0, 0, 0, 0);  
-    }  
-      
-    // Habilitar depth test para oclusión correcta  
-    glEnable(GL_DEPTH_TEST);  
-    glDepthFunc(GL_LESS);  
-      
-    fprintf(stderr, "DEBUG: Renderizando %d mallas...\n", mesh_count);  
-      
-    // Renderizar cada malla  
-    for (int i = 0; i < mesh_count; i++) {  
-        GPU_MESH *mesh = &meshes[i];  
-          
-        fprintf(stderr, "DEBUG: Renderizando malla %d - pos:(%.2f,%.2f,%.2f) escala:%.2f\n",  
-                i, mesh->world_x, mesh->world_y, mesh->world_z, mesh->scale);  
-          
-        // Crear matriz de modelo  
-        mat4 model_matrix;  
-        mat4_model(&model_matrix, mesh->world_x, mesh->world_y, mesh->world_z,  
-                   mesh->angle, mesh->scale);  
-          
-        // Configurar matriz de modelo (específica para cada malla)  
-        if (loc_model >= 0) {  
-            shader_set_param(mesh_params, UNIFORM_FLOAT_ARRAY, loc_model, 16,  
-                            (void*)model_matrix.m, 0, 0, 0, 0, 0);  
-        }  
-          
-        // Configurar textura si existe  
-        if (loc_texture >= 0 && mesh->texture) {  
-            shader_set_param(mesh_params, SHADER_IMAGE, loc_texture, 0,  
-                            (void*)mesh->texture, 0, 0, 0, 0, 0);  
-        }  
-          
-        // Aplicar parámetros del shader  
-        shader_apply_parameters(mesh_params);  
-          
-        // Renderizar la malla  
-        glBindVertexArray(mesh->vao);  
-        glDrawElements(GL_TRIANGLES, mesh->triangle_count * 3, GL_UNSIGNED_INT, 0);  
-        glBindVertexArray(0);  
-          
-        fprintf(stderr, "DEBUG: Malla %d renderizada\n", i); 
-         
-    }  
-      
-    // Deshabilitar depth test  
-    glDisable(GL_DEPTH_TEST);  
-      
-    // Desactivar shader  
-    shader_deactivate();  
-      
-    fprintf(stderr, "DEBUG: render_meshes_gpu() COMPLETADO\n");  
-}
-
-static void cleanup_mesh_resources(void) {  
-    // Liberar shader de mallas  
-    if (mesh_shader) {  
-        shader_free(mesh_shader);  
-        mesh_shader = NULL;  
-    }  
-      
-    // Liberar parámetros del shader  
-    if (mesh_params) {  
-        shader_free_parameters(mesh_params);  
-        mesh_params = NULL;  
-    }  
-      
-    // Liberar VBOs/EBOs/VAOs de todas las mallas  
-    for (int i = 0; i < mesh_count; i++) {  
-        GPU_MESH *mesh = &meshes[i];  
-        if (mesh->vao) {  
-            glDeleteVertexArrays(1, &mesh->vao);  
-            mesh->vao = 0;  
-        }  
-        if (mesh->vbo) {  
-            glDeleteBuffers(1, &mesh->vbo);  
-            mesh->vbo = 0;  
-        }  
-        if (mesh->ebo) {  
-            glDeleteBuffers(1, &mesh->ebo);  
-            mesh->ebo = 0;  
-        }  
-    }  
-      
-    mesh_count = 0;  
-}
-
-int64_t libmod_heightmap_unload_mesh_gpu(INSTANCE *my, int64_t *params) {  
-    int64_t mesh_id = params[0];  
-      
-    // Buscar la malla  
-    for (int i = 0; i < mesh_count; i++) {  
-        if (meshes[i].id == mesh_id) {  
-            GPU_MESH *mesh = &meshes[i];  
-              
-            // Liberar recursos OpenGL  
-            if (mesh->vao) glDeleteVertexArrays(1, &mesh->vao);  
-            if (mesh->vbo) glDeleteBuffers(1, &mesh->vbo);  
-            if (mesh->ebo) glDeleteBuffers(1, &mesh->ebo);  
-              
-            // Mover todas las mallas posteriores una posición atrás  
-            for (int j = i; j < mesh_count - 1; j++) {  
-                meshes[j] = meshes[j + 1];  
-            }  
-              
-            mesh_count--;  
-            return 1;  
-        }  
-    }  
-      
-    fprintf(stderr, "ERROR: Malla con ID %lld no encontrada\n", mesh_id);  
-    return 0;  
-}
-
-
-
-
-///-------------------------------------------------------------------------------------///
-///                                    FIN MODELOS 3D                                   ///
-///-------------------------------------------------------------------------------------///
+//-------------------------------------------------------------------------------------------------//
 
 
 static int create_voxelspace_shader() {  
@@ -1973,13 +1713,13 @@ static int setup_shader_parameters(HEIGHTMAP *hm) {
       
     // Configurar floats individuales  
     if (loc_camera_angle >= 0) {  
-        float angle_val = camera.angle / 1000.0f;  
+        float angle_val = camera.angle;  
         shader_set_param(voxel_params, UNIFORM_FLOAT, loc_camera_angle, 0,  
                         (void*)(intptr_t)*(int32_t*)&angle_val, 0, 0, 0, 0, 0);  
     }  
       
     if (loc_camera_pitch >= 0) {  
-        float pitch_val = camera.pitch / 1000.0f;  
+        float pitch_val = camera.pitch;  
         shader_set_param(voxel_params, UNIFORM_FLOAT, loc_camera_pitch, 0,  
                         (void*)(intptr_t)*(int32_t*)&pitch_val, 0, 0, 0, 0, 0);  
     }  
@@ -2028,349 +1768,356 @@ static int setup_shader_parameters(HEIGHTMAP *hm) {
 
 
 // GPU...
-int64_t libmod_heightmap_render_voxelspace_gpu(INSTANCE *my, int64_t *params) {              
-    int64_t hm_id = params[0];              
-    int64_t render_width = params[1];              
-    int64_t render_height = params[2];              
-                  
-    // Buscar heightmap              
-    HEIGHTMAP *hm = NULL;              
-    for (int i = 0; i < MAX_HEIGHTMAPS; i++) {              
-        if (heightmaps[i].id == hm_id) {              
-            hm = &heightmaps[i];              
-            break;              
-        }              
-    }              
-                  
-    if (!hm || !hm->cache_valid) {              
-        fprintf(stderr, "ERROR: Heightmap no encontrado o cache inválido\n");              
-        return 0;              
-    }              
-                  
-    if (!create_voxelspace_shader()) {              
-        return 0;              
-    }              
-                  
-    if (!render_buffer || render_buffer->width != render_width ||               
-        render_buffer->height != render_height) {              
-        if (render_buffer) {              
-            bitmap_destroy(render_buffer);              
-        }              
-        render_buffer = bitmap_new_syslib(render_width, render_height);              
-        if (!render_buffer) {              
-            fprintf(stderr, "ERROR: No se pudo crear render_buffer\n");              
-            return 0;              
-        }     
-           // PASO 9: Actualizar variables globales con las nuevas dimensiones  
-    current_render_width = render_width;  
-    current_render_height = render_height;           
-    }              
-                  
-    uint32_t sky_color = SDL_MapRGBA(gPixelFormat, sky_color_r, sky_color_g, sky_color_b, 255);              
-    gr_clear_as(render_buffer, sky_color);              
-          
-    if (sky_texture) {      
-        render_skybox(camera.angle, camera.pitch, water_time, 1);      
-    }      
-                  
-    static GRAPH *quad_source = NULL;            
-                
-    if (!quad_source) {            
-        quad_source = bitmap_new_syslib(2, 2);            
-        if (!quad_source) {            
-            fprintf(stderr, "ERROR: No se pudo crear quad_source\n");            
-            return 0;            
-        }            
-        gr_clear_as(quad_source, SDL_MapRGBA(gPixelFormat, 255, 255, 255, 255));            
+int64_t libmod_heightmap_render_voxelspace_gpu(INSTANCE *my, int64_t *params) {                
+    int64_t hm_id = params[0];                
+    int64_t render_width = params[1];                
+    int64_t render_height = params[2];                
+                    
+    // Buscar heightmap                
+    HEIGHTMAP *hm = NULL;                
+    for (int i = 0; i < MAX_HEIGHTMAPS; i++) {                
+        if (heightmaps[i].id == hm_id) {                
+            hm = &heightmaps[i];                
+            break;                
+        }                
+    }                
+                    
+    if (!hm) {                
+        fprintf(stderr, "ERROR: Heightmap no encontrado\n");                
+        return 0;                
     }  
       
-    if (!voxel_params) {              
-        voxel_params = shader_create_parameters(19);      
-        if (!voxel_params) {              
-            fprintf(stderr, "ERROR: No se pudo crear parámetros del shader\n");              
-            return 0;              
-        }              
-    }              
-                  
-    static int loc_heightmap = -1;            
-    static int loc_texturemap = -1;            
-    static int loc_camera_pos = -1;            
-    static int loc_camera_angle = -1;            
-    static int loc_camera_pitch = -1;            
-    static int loc_fov = -1;            
-    static int loc_max_distance = -1;            
-    static int loc_water_level = -1;            
-    static int loc_light_intensity = -1;            
-    static int loc_heightmap_size = -1;            
-    static int loc_sky_color = -1;            
-    static int loc_current_distance = -1;        
-    static int loc_fog_color = -1;      
-    static int loc_fog_intensity = -1;      
-    static int loc_water_texture = -1;      
-    static int loc_water_time = -1;      
-    static int loc_wave_amplitude = -1;      
-    static int loc_chunk_min = -1;    
-    static int loc_chunk_max = -1;    
-                
-    static int locations_initialized = 0;            
-    if (!locations_initialized) {            
-        loc_heightmap = shader_getuniformlocation(voxel_shader, "u_heightmap");              
-        loc_texturemap = shader_getuniformlocation(voxel_shader, "u_texturemap");              
-        loc_camera_pos = shader_getuniformlocation(voxel_shader, "u_camera_pos");              
-        loc_camera_angle = shader_getuniformlocation(voxel_shader, "u_camera_angle");              
-        loc_camera_pitch = shader_getuniformlocation(voxel_shader, "u_camera_pitch");              
-        loc_fov = shader_getuniformlocation(voxel_shader, "u_fov");              
-        loc_max_distance = shader_getuniformlocation(voxel_shader, "u_max_distance");              
-        loc_water_level = shader_getuniformlocation(voxel_shader, "u_water_level");              
-        loc_light_intensity = shader_getuniformlocation(voxel_shader, "u_light_intensity");              
-        loc_heightmap_size = shader_getuniformlocation(voxel_shader, "u_heightmap_size");              
-        loc_sky_color = shader_getuniformlocation(voxel_shader, "u_sky_color");              
-        loc_current_distance = shader_getuniformlocation(voxel_shader, "u_current_distance");        
-        loc_fog_color = shader_getuniformlocation(voxel_shader, "u_fog_color");      
-        loc_fog_intensity = shader_getuniformlocation(voxel_shader, "u_fog_intensity");      
-        loc_water_texture = shader_getuniformlocation(voxel_shader, "u_water_texture");      
-        loc_water_time = shader_getuniformlocation(voxel_shader, "u_water_time");      
-        loc_wave_amplitude = shader_getuniformlocation(voxel_shader, "u_wave_amplitude");      
-        loc_chunk_min = shader_getuniformlocation(voxel_shader, "u_chunk_min");    
-        loc_chunk_max = shader_getuniformlocation(voxel_shader, "u_chunk_max");    
-        locations_initialized = 1;            
-    }            
-                
-    static float camera_pos[3];            
-    static float heightmap_size[2];            
-    static float sky_color_arr[3];        
-    static float fog_color_arr[3];      
-    static float chunk_min[2];    
-    static float chunk_max[2];  
-      
-    if (loc_heightmap >= 0) {              
-        shader_set_param(voxel_params, SHADER_IMAGE, loc_heightmap, 0,              
-                        (void*)hm->heightmap, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_texturemap >= 0 && hm->texturemap) {              
-        shader_set_param(voxel_params, SHADER_IMAGE, loc_texturemap, 0,              
-                        (void*)hm->texturemap, 1, 0, 0, 0, 0);            
-    }      
-          
-    if (loc_water_texture >= 0 && water_texture) {      
-        shader_set_param(voxel_params, SHADER_IMAGE, loc_water_texture, 0,      
-                        (void*)water_texture, 2, 0, 0, 0, 0);      
-    }      
-                  
-    shader_activate(voxel_shader);        
+                    
+    if (!create_voxelspace_shader()) {                
+        return 0;                
+    }                
+                    
+    if (!render_buffer || render_buffer->width != render_width ||                 
+        render_buffer->height != render_height) {                
+        if (render_buffer) {                
+            bitmap_destroy(render_buffer);                
+        }                
+        render_buffer = bitmap_new_syslib(render_width, render_height);                
+        if (!render_buffer) {                
+            fprintf(stderr, "ERROR: No se pudo crear render_buffer\n");                
+            return 0;                
+        }       
+        // Actualizar variables globales con las nuevas dimensiones    
+        current_render_width = render_width;    
+        current_render_height = render_height;             
+    }                
+                    
+    uint32_t sky_color = SDL_MapRGBA(gPixelFormat, sky_color_r, sky_color_g, sky_color_b, 255);                
+    gr_clear_as(render_buffer, sky_color);                
             
-    if (loc_camera_pos >= 0) {              
-        camera_pos[0] = camera.x;            
-        camera_pos[1] = camera.y;            
-        camera_pos[2] = camera.z;            
-        shader_set_param(voxel_params, UNIFORM_FLOAT3_ARRAY, loc_camera_pos, 1,              
-                        (void*)camera_pos, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_camera_angle >= 0) {              
-        float angle_val = camera.angle;      
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_camera_angle, 0,              
-                        *(int32_t*)&angle_val, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_camera_pitch >= 0) {              
-        float pitch_val = camera.pitch;      
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_camera_pitch, 0,              
-                        *(int32_t*)&pitch_val, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_fov >= 0) {              
-        float fov_val = 0.7f;              
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_fov, 0,              
-                        *(int32_t*)&fov_val, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_max_distance >= 0) {              
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_max_distance, 0,              
-                        *(int32_t*)&max_render_distance, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_water_level >= 0) {              
-        float water_val = water_level;              
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_water_level, 0,              
-                        *(int32_t*)&water_val, 0, 0, 0, 0, 0);              
-    }              
-                  
-    if (loc_light_intensity >= 0) {              
-        float light_val = light_intensity / 255.0f;              
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_light_intensity, 0,              
-                        *(int32_t*)&light_val, 0, 0, 0, 0, 0);              
-    }  
-      
-    if (loc_heightmap_size >= 0) {            
-        heightmap_size[0] = (float)hm->width;          
-        heightmap_size[1] = (float)hm->height;          
-        shader_set_param(voxel_params, UNIFORM_FLOAT2_ARRAY, loc_heightmap_size, 1,            
-                        (void*)heightmap_size, 0, 0, 0, 0, 0);            
-    }            
-                
-    if (loc_sky_color >= 0) {            
-        sky_color_arr[0] = sky_color_r / 255.0f;          
-        sky_color_arr[1] = sky_color_g / 255.0f;          
-        sky_color_arr[2] = sky_color_b / 255.0f;          
-        shader_set_param(voxel_params, UNIFORM_FLOAT3_ARRAY, loc_sky_color, 1,            
-                        (void*)sky_color_arr, 0, 0, 0, 0, 0);            
-    }      
-          
-    if (loc_fog_color >= 0) {      
-        fog_color_arr[0] = fog_color_r / 255.0f;      
-        fog_color_arr[1] = fog_color_g / 255.0f;      
-        fog_color_arr[2] = fog_color_b / 255.0f;      
-        shader_set_param(voxel_params, UNIFORM_FLOAT3_ARRAY, loc_fog_color, 1,      
-                        (void*)fog_color_arr, 0, 0, 0, 0, 0);      
-    }      
-          
-    if (loc_fog_intensity >= 0) {      
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_fog_intensity, 0,      
-                        *(int32_t*)&fog_intensity, 0, 0, 0, 0, 0);      
-    }    
-        
-    if (loc_water_time >= 0) {    
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_water_time, 0,    
-                        *(int32_t*)&water_time, 0, 0, 0, 0, 0);    
-    }    
-        
-    if (loc_wave_amplitude >= 0) {    
-        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_wave_amplitude, 0,    
-                        *(int32_t*)&wave_amplitude, 0, 0, 0, 0, 0);    
-    }    
-        
-    int chunk_x = (int)(camera.x / chunk_size);    
-    int chunk_y = (int)(camera.y / chunk_size);    
-    int min_chunk_x = chunk_x - chunk_radius;    
-    int max_chunk_x = chunk_x + chunk_radius;    
-    int min_chunk_y = chunk_y - chunk_radius;    
-    int max_chunk_y = chunk_y + chunk_radius;    
-        
-    if (loc_chunk_min >= 0) {    
-        chunk_min[0] = (float)(min_chunk_x * chunk_size);    
-        chunk_min[1] = (float)(min_chunk_y * chunk_size);    
-        shader_set_param(voxel_params, UNIFORM_FLOAT2_ARRAY, loc_chunk_min, 1,    
-                        (void*)chunk_min, 0, 0, 0, 0, 0);    
-    }    
-        
-    if (loc_chunk_max >= 0) {    
-        chunk_max[0] = (float)(max_chunk_x * chunk_size);    
-        chunk_max[1] = (float)(max_chunk_y * chunk_size);    
-        shader_set_param(voxel_params, UNIFORM_FLOAT2_ARRAY, loc_chunk_max, 1,    
-                        (void*)chunk_max, 0, 0, 0, 0, 0);    
-    }
-        // BUCLE DE RENDERIZADO DEL SHADER (ESTO FALTABA EN TU CÓDIGO)  
-    for (float distance = max_render_distance; distance >= 1.0; ) {      
-        float step;      
-        if (distance < 100.0f) {      
-            step = 1.5f;    
-        } else if (distance < 400.0f) {      
-            step = 2.5f;    
-        } else {      
-            step = 3.5f;    
-        }      
-              
-        if (loc_current_distance >= 0) {            
-            shader_set_param(voxel_params, UNIFORM_FLOAT, loc_current_distance, 0,            
-                            *(int32_t*)&distance, 0, 0, 0, 0, 0);            
-        }            
-                    
-        shader_apply_parameters(voxel_params);            
-                    
-        gr_blit(            
-            render_buffer,          
-            NULL,          
-            0, 0,    
-            0, 0,          
-            (render_width / 2.0) * 100.0,    
-            (render_height / 2.0) * 100.0,    
-            POINT_UNDEFINED,          
-            POINT_UNDEFINED,          
-            quad_source,          
-            NULL,          
-            255, 255, 255, 255,          
-            BLEND_NORMAL,  
-            NULL          
-        );  
-          
-        distance -= step;    
+    if (sky_texture) {        
+        render_skybox(camera.angle, camera.pitch, water_time, 1);        
     }        
-                
-    shader_deactivate();  
-     render_meshes_gpu(render_width, render_height);    
-    // ============================================================================  
-    // RENDERIZADO DE BILLBOARDS CON EFECTOS AVANZADOS  
-    // ============================================================================  
+                    
+    static GRAPH *quad_source = NULL;              
+                  
+    if (!quad_source) {              
+        quad_source = bitmap_new_syslib(2, 2);              
+        if (!quad_source) {              
+            fprintf(stderr, "ERROR: No se pudo crear quad_source\n");              
+            return 0;              
+        }              
+        gr_clear_as(quad_source, SDL_MapRGBA(gPixelFormat, 255, 255, 255, 255));              
+    }
+
+       if (!voxel_params) {                
+        voxel_params = shader_create_parameters(25);  // AUMENTADO: de 19 a 25 para nuevos uniforms  
+        if (!voxel_params) {                
+            fprintf(stderr, "ERROR: No se pudo crear parámetros del shader\n");                
+            return 0;                
+        }                
+    }                
+                    
+    static int loc_heightmap = -1;              
+    static int loc_texturemap = -1;              
+    static int loc_camera_pos = -1;              
+    static int loc_camera_angle = -1;              
+    static int loc_camera_pitch = -1;              
+    static int loc_fov = -1;              
+    static int loc_max_distance = -1;              
+    static int loc_water_level = -1;              
+    static int loc_light_intensity = -1;              
+    static int loc_heightmap_size = -1;              
+    static int loc_sky_color = -1;              
+    static int loc_current_distance = -1;          
+    static int loc_fog_color = -1;        
+    static int loc_fog_intensity = -1;        
+    static int loc_water_texture = -1;        
+    static int loc_water_time = -1;        
+    static int loc_wave_amplitude = -1;        
+    static int loc_chunk_min = -1;      
+    static int loc_chunk_max = -1;  
       
-    // Array temporal para billboards visibles  
-    BILLBOARD_RENDER_DATA visible_billboards[MAX_STATIC_BILLBOARDS + MAX_DYNAMIC_BILLBOARDS];  
-    int visible_count = 0;  
-      
-    // Recopilar billboards visibles  
-    float terrain_fov = 0.7f;  
-    collect_visible_billboards_from_array(static_billboards, static_billboard_count,  
-                                         visible_billboards, &visible_count, terrain_fov);  
-    collect_visible_billboards_from_array(dynamic_billboards, MAX_DYNAMIC_BILLBOARDS,  
-                                         visible_billboards, &visible_count, terrain_fov);  
-      
-    // Ordenar por distancia (más lejanos primero)  
-    qsort(visible_billboards, visible_count, sizeof(BILLBOARD_RENDER_DATA),   
-          compare_billboards_by_distance);  
-      
-    // Renderizar cada billboard con efectos avanzados  
-    for (int i = 0; i < visible_count; i++) {  
-        BILLBOARD_RENDER_DATA *render_data = &visible_billboards[i];  
-        BILLBOARD_PROJECTION proj = render_data->projection;  
-          
-        // Verificación de oclusión mejorada  
-        int billboard_visible = 1;  
-        int center_x = proj.screen_x;  
-        int center_y = proj.screen_y;  
-        int half_width = proj.scaled_width / 2;  
-        int half_height = proj.scaled_height / 2;  
-          
-        // Verificar si está fuera de pantalla  
-        if (center_x + half_width < 0 || center_x - half_width >= render_width ||  
-            center_y + half_height < 0 || center_y - half_height >= render_height) {  
-            continue;  
-        }  
-          
-        if (!billboard_visible) continue;  
-          
-        // EFECTO AVANZADO 1: Calcular iluminación dinámica  
-        float light_factor = light_intensity / 255.0f;  
-        int r_mod = (int)(255 * light_factor);  
-        int g_mod = (int)(255 * light_factor);  
-        int b_mod = (int)(255 * light_factor);  
-          
-        // EFECTO AVANZADO 2: Aplicar tintado de niebla  
-        if (proj.fog_tint_factor > 0.0f) {  
-            r_mod = (int)(r_mod * (1.0f - proj.fog_tint_factor) + fog_color_r * proj.fog_tint_factor);  
-            g_mod = (int)(g_mod * (1.0f - proj.fog_tint_factor) + fog_color_g * proj.fog_tint_factor);  
-            b_mod = (int)(b_mod * (1.0f - proj.fog_tint_factor) + fog_color_b * proj.fog_tint_factor);  
-        }  
-          
-        // EFECTO AVANZADO 3: Soft edges basado en distancia  
-        int alpha = proj.alpha;  
-        if (proj.distance > max_render_distance * 0.8f) {  
-            float fade = 1.0f - ((proj.distance - max_render_distance * 0.8f) / (max_render_distance * 0.2f));  
-            alpha = (int)(alpha * fade);  
-        }  
-          
-        // Renderizar billboard con todos los efectos aplicados  
-        gr_blit(render_buffer, NULL,  
-               proj.screen_x - proj.scaled_width/2,  
-               proj.screen_y - proj.scaled_height/2,  
-               0, 0, proj.scaled_width, proj.scaled_height,  
-               render_data->graph->width/2, render_data->graph->height/2,  
-               render_data->graph, NULL,   
-               r_mod, g_mod, b_mod, alpha, 0, NULL);  
+                  
+    static int locations_initialized = 0;              
+    if (!locations_initialized) {              
+        loc_heightmap = shader_getuniformlocation(voxel_shader, "u_heightmap");                
+        loc_texturemap = shader_getuniformlocation(voxel_shader, "u_texturemap");                
+        loc_camera_pos = shader_getuniformlocation(voxel_shader, "u_camera_pos");                
+        loc_camera_angle = shader_getuniformlocation(voxel_shader, "u_camera_angle");                
+        loc_camera_pitch = shader_getuniformlocation(voxel_shader, "u_camera_pitch");                
+        loc_fov = shader_getuniformlocation(voxel_shader, "u_fov");                
+        loc_max_distance = shader_getuniformlocation(voxel_shader, "u_max_distance");                
+        loc_water_level = shader_getuniformlocation(voxel_shader, "u_water_level");                
+        loc_light_intensity = shader_getuniformlocation(voxel_shader, "u_light_intensity");                
+        loc_heightmap_size = shader_getuniformlocation(voxel_shader, "u_heightmap_size");                
+        loc_sky_color = shader_getuniformlocation(voxel_shader, "u_sky_color");                
+        loc_current_distance = shader_getuniformlocation(voxel_shader, "u_current_distance");          
+        loc_fog_color = shader_getuniformlocation(voxel_shader, "u_fog_color");        
+        loc_fog_intensity = shader_getuniformlocation(voxel_shader, "u_fog_intensity");        
+        loc_water_texture = shader_getuniformlocation(voxel_shader, "u_water_texture");        
+        loc_water_time = shader_getuniformlocation(voxel_shader, "u_water_time");        
+        loc_wave_amplitude = shader_getuniformlocation(voxel_shader, "u_wave_amplitude");        
+        loc_chunk_min = shader_getuniformlocation(voxel_shader, "u_chunk_min");      
+        loc_chunk_max = shader_getuniformlocation(voxel_shader, "u_chunk_max");  
+                 
+        locations_initialized = 1;              
+    }              
+                  
+    static float camera_pos[3];              
+    static float heightmap_size[2];              
+    static float sky_color_arr[3];          
+    static float fog_color_arr[3];        
+    static float chunk_min[2];      
+    static float chunk_max[2];
+
+    // Configurar texturas del heightmap (sin condicionales)  
+    if (loc_heightmap >= 0 && hm->heightmap) {  
+        shader_set_param(voxel_params, SHADER_IMAGE, loc_heightmap, 0,  
+                        (void*)hm->heightmap, 0, 0, 0, 0, 0);  
     }  
+    
+    if (loc_texturemap >= 0 && hm->texturemap) {  
+        shader_set_param(voxel_params, SHADER_IMAGE, loc_texturemap, 0,  
+                        (void*)hm->texturemap, 1, 0, 0, 0, 0);  
+    }
+            
+    if (loc_water_texture >= 0 && water_texture) {        
+        shader_set_param(voxel_params, SHADER_IMAGE, loc_water_texture, 0,        
+                        (void*)water_texture, 2, 0, 0, 0, 0);        
+    }        
+                    
+    shader_activate(voxel_shader);          
+              
+    if (loc_camera_pos >= 0) {                
+        camera_pos[0] = camera.x;              
+        camera_pos[1] = camera.y;              
+        camera_pos[2] = camera.z;              
+        shader_set_param(voxel_params, UNIFORM_FLOAT3_ARRAY, loc_camera_pos, 1,                
+                        (void*)camera_pos, 0, 0, 0, 0, 0);                
+    }                
+                    
+    if (loc_camera_angle >= 0) {                
+        float angle_val = camera.angle;        
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_camera_angle, 0,                
+                        *(int32_t*)&angle_val, 0, 0, 0, 0, 0);                
+    }                
+                    
+    if (loc_camera_pitch >= 0) {                
+        float pitch_val = camera.pitch;        
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_camera_pitch, 0,                
+                        *(int32_t*)&pitch_val, 0, 0, 0, 0, 0);                
+    }                
+                    
+    if (loc_fov >= 0) {                
+        float fov_val = 0.7f;                
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_fov, 0,                
+                        *(int32_t*)&fov_val, 0, 0, 0, 0, 0);                
+    }                
+                    
+    if (loc_max_distance >= 0) {                
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_max_distance, 0,                
+                        *(int32_t*)&max_render_distance, 0, 0, 0, 0, 0);                
+    }                
+                    
+    if (loc_water_level >= 0) {                
+        float water_val = water_level;                
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_water_level, 0,                
+                        *(int32_t*)&water_val, 0, 0, 0, 0, 0);                
+    }                
+                    
+    if (loc_light_intensity >= 0) {                
+        float light_val = light_intensity / 255.0f;                
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_light_intensity, 0,                
+                        *(int32_t*)&light_val, 0, 0, 0, 0, 0);                
+    }    
+        
+    if (loc_heightmap_size >= 0) {              
+        heightmap_size[0] = (float)hm->width;            
+        heightmap_size[1] = (float)hm->height;            
+        shader_set_param(voxel_params, UNIFORM_FLOAT2_ARRAY, loc_heightmap_size, 1,              
+                        (void*)heightmap_size, 0, 0, 0, 0, 0);              
+    }              
+                  
+    if (loc_sky_color >= 0) {              
+        sky_color_arr[0] = sky_color_r / 255.0f;            
+        sky_color_arr[1] = sky_color_g / 255.0f;            
+        sky_color_arr[2] = sky_color_b / 255.0f;            
+        shader_set_param(voxel_params, UNIFORM_FLOAT3_ARRAY, loc_sky_color, 1,              
+                        (void*)sky_color_arr, 0, 0, 0, 0, 0);              
+    }        
+            
+    if (loc_fog_color >= 0) {        
+        fog_color_arr[0] = fog_color_r / 255.0f;        
+        fog_color_arr[1] = fog_color_g / 255.0f;        
+        fog_color_arr[2] = fog_color_b / 255.0f;        
+        shader_set_param(voxel_params, UNIFORM_FLOAT3_ARRAY, loc_fog_color, 1,        
+                        (void*)fog_color_arr, 0, 0, 0, 0, 0);        
+    }        
+            
+    if (loc_fog_intensity >= 0) {        
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_fog_intensity, 0,        
+                        *(int32_t*)&fog_intensity, 0, 0, 0, 0, 0);        
+    }      
+          
+    if (loc_water_time >= 0) {      
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_water_time, 0,      
+                        *(int32_t*)&water_time, 0, 0, 0, 0, 0);      
+    }      
+          
+    if (loc_wave_amplitude >= 0) {      
+        shader_set_param(voxel_params, UNIFORM_FLOAT, loc_wave_amplitude, 0,      
+                        *(int32_t*)&wave_amplitude, 0, 0, 0, 0, 0);      
+    }      
+          
+    int chunk_x = (int)(camera.x / chunk_size);      
+    int chunk_y = (int)(camera.y / chunk_size);      
+    int min_chunk_x = chunk_x - chunk_radius;      
+    int max_chunk_x = chunk_x + chunk_radius;      
+    int min_chunk_y = chunk_y - chunk_radius;      
+    int max_chunk_y = chunk_y + chunk_radius;      
+          
+    if (loc_chunk_min >= 0) {      
+        chunk_min[0] = (float)(min_chunk_x * chunk_size);      
+        chunk_min[1] = (float)(min_chunk_y * chunk_size);      
+        shader_set_param(voxel_params, UNIFORM_FLOAT2_ARRAY, loc_chunk_min, 1,      
+                        (void*)chunk_min, 0, 0, 0, 0, 0);      
+    }      
+          
+    if (loc_chunk_max >= 0) {      
+        chunk_max[0] = (float)(max_chunk_x * chunk_size);      
+        chunk_max[1] = (float)(max_chunk_y * chunk_size);      
+        shader_set_param(voxel_params, UNIFORM_FLOAT2_ARRAY, loc_chunk_max, 1,      
+                        (void*)chunk_max, 0, 0, 0, 0, 0);      
+    }    
+
+       // BUCLE DE RENDERIZADO DEL SHADER  
+    for (float distance = max_render_distance; distance >= 1.0; ) {        
+        float step;        
+        if (distance < 100.0f) {        
+            step = 1.5f;      
+        } else if (distance < 400.0f) {        
+            step = 2.5f;      
+        } else {        
+            step = 3.5f;      
+        }        
                 
-    return render_buffer->code;              
+        if (loc_current_distance >= 0) {              
+            shader_set_param(voxel_params, UNIFORM_FLOAT, loc_current_distance, 0,              
+                            *(int32_t*)&distance, 0, 0, 0, 0, 0);              
+        }              
+                      
+        shader_apply_parameters(voxel_params);              
+                      
+        gr_blit(              
+            render_buffer,            
+            NULL,            
+            0, 0,      
+            0, 0,            
+            (render_width / 2.0) * 100.0,      
+            (render_height / 2.0) * 100.0,      
+            POINT_UNDEFINED,            
+            POINT_UNDEFINED,            
+            quad_source,            
+            NULL,            
+            255, 255, 255, 255,            
+            BLEND_NORMAL,    
+            NULL            
+        );    
+            
+        distance -= step;      
+    }              
+                  
+    shader_deactivate();    
+        
+    // ============================================================================    
+    // RENDERIZADO DE BILLBOARDS CON EFECTOS AVANZADOS    
+    // ============================================================================    
+        
+    // Array temporal para billboards visibles    
+    BILLBOARD_RENDER_DATA visible_billboards[MAX_STATIC_BILLBOARDS + MAX_DYNAMIC_BILLBOARDS];    
+    int visible_count = 0;    
+        
+    // Recopilar billboards visibles    
+    float terrain_fov = 0.7f;    
+    collect_visible_billboards_from_array(static_billboards, static_billboard_count,    
+                                         visible_billboards, &visible_count, terrain_fov);    
+    collect_visible_billboards_from_array(dynamic_billboards, MAX_DYNAMIC_BILLBOARDS,    
+                                         visible_billboards, &visible_count, terrain_fov);    
+        
+    // Ordenar por distancia (más lejanos primero)    
+    qsort(visible_billboards, visible_count, sizeof(BILLBOARD_RENDER_DATA),     
+          compare_billboards_by_distance);    
+        
+    // Renderizar cada billboard con efectos avanzados    
+    for (int i = 0; i < visible_count; i++) {    
+        BILLBOARD_RENDER_DATA *render_data = &visible_billboards[i];    
+        BILLBOARD_PROJECTION proj = render_data->projection;    
+            
+        // Verificación de oclusión mejorada    
+        int billboard_visible = 1;    
+        int center_x = proj.screen_x;    
+        int center_y = proj.screen_y;    
+        int half_width = proj.scaled_width / 2;    
+        int half_height = proj.scaled_height / 2;    
+            
+        // Verificar si está fuera de pantalla    
+        if (center_x + half_width < 0 || center_x - half_width >= render_width ||    
+            center_y + half_height < 0 || center_y - half_height >= render_height) {    
+            continue;    
+        }    
+            
+        if (!billboard_visible) continue;    
+            
+        // EFECTO AVANZADO 1: Calcular iluminación dinámica    
+        float light_factor = light_intensity / 255.0f;    
+        int r_mod = (int)(255 * light_factor);    
+        int g_mod = (int)(255 * light_factor);    
+        int b_mod = (int)(255 * light_factor);    
+            
+        // EFECTO AVANZADO 2: Aplicar tintado de niebla    
+        if (proj.fog_tint_factor > 0.0f) {    
+            r_mod = (int)(r_mod * (1.0f - proj.fog_tint_factor) + fog_color_r * proj.fog_tint_factor);    
+            g_mod = (int)(g_mod * (1.0f - proj.fog_tint_factor) + fog_color_g * proj.fog_tint_factor);    
+            b_mod = (int)(b_mod * (1.0f - proj.fog_tint_factor) + fog_color_b * proj.fog_tint_factor);    
+        }    
+            
+        // EFECTO AVANZADO 3: Soft edges basado en distancia    
+        int alpha = proj.alpha;    
+        if (proj.distance > max_render_distance * 0.8f) {    
+            float fade = 1.0f - ((proj.distance - max_render_distance * 0.8f) / (max_render_distance * 0.2f));    
+            alpha = (int)(alpha * fade);    
+        }    
+            
+        // Renderizar billboard con todos los efectos aplicados    
+        gr_blit(render_buffer, NULL,    
+               proj.screen_x - proj.scaled_width/2,    
+               proj.screen_y - proj.scaled_height/2,    
+               0, 0, proj.scaled_width, proj.scaled_height,    
+               render_data->graph->width/2, render_data->graph->height/2,    
+               render_data->graph, NULL,     
+               r_mod, g_mod, b_mod, alpha, 0, NULL);    
+    }    
+                  
+    return render_buffer->code;                
 }
+
+
 /* Funciones auxiliares */
 void build_height_cache(HEIGHTMAP *hm)
 
@@ -3681,5 +3428,1802 @@ int64_t libmod_heightmap_set_render_resolution(INSTANCE *my, int64_t *params) {
     return 1;  
 }
 
+/* Obtener el tipo de mapa (heightmap o sector) */  
+int64_t libmod_heightmap_get_map_type(INSTANCE *my, int64_t *params) {  
+    int64_t hm_id = params[0];  
+      
+    // Buscar el mapa  
+    HEIGHTMAP *hm = NULL;  
+    for (int i = 0; i < MAX_HEIGHTMAPS; i++) {  
+        if (heightmaps[i].id == hm_id) {  
+            hm = &heightmaps[i];  
+            break;  
+        }  
+    }  
+      
+    if (!hm) {  
+        fprintf(stderr, "Error: Mapa con ID %" PRId64 " no encontrado\n", hm_id);  
+        return -1;  
+    }  
+      
+    return (int64_t)hm->type;  
+}
+
+///    MAPAS POR SECTORES    ///
+
+
+
+//---------------------------------------------------------------------------------------//
+//                          FIN MAPAS POR SECTORES                                       //
+//---------------------------------------------------------------------------------------//
+
+    void render_billboards_to_buffer(GRAPH *target_buffer) {  
+    // Reutilizar la lógica de billboards del renderizado CPU  
+    BILLBOARD_RENDER_DATA visible_billboards[MAX_STATIC_BILLBOARDS + MAX_DYNAMIC_BILLBOARDS];  
+    int visible_count = 0;  
+      
+    float terrain_fov = 0.7f;  
+      
+    collect_visible_billboards_from_array(static_billboards, static_billboard_count,  
+                                         visible_billboards, &visible_count, terrain_fov);  
+      
+    collect_visible_billboards_from_array(dynamic_billboards, MAX_DYNAMIC_BILLBOARDS,  
+                                         visible_billboards, &visible_count, terrain_fov);  
+      
+    qsort(visible_billboards, visible_count, sizeof(BILLBOARD_RENDER_DATA), compare_billboards_by_distance);  
+      
+    for (int i = 0; i < visible_count; i++) {  
+        BILLBOARD_RENDER_DATA *render_data = &visible_billboards[i];  
+        BILLBOARD_PROJECTION proj = render_data->projection;  
+          
+        gr_blit(target_buffer, NULL,  
+               proj.screen_x - proj.scaled_width/2,  
+               proj.screen_y - proj.scaled_height/2,  
+               0, 0, proj.scaled_width, proj.scaled_height,  
+               render_data->graph->width/2, render_data->graph->height/2,  
+               render_data->graph, NULL, 255, 255, 255, proj.alpha, 0, NULL);  
+    }  
+}
+
+
+GRAPH *get_tex_image(int index)     
+{    
+    // CAMBIAR: Permitir ID 0 como válido en BennuGD2  
+    if (index < 1) {    
+        return NULL;    
+    }    
+        
+    // Obtener textura del FPG usando bitmap_get    
+    GRAPH *graph = bitmap_get(wld_fpg_id, index);    
+    return graph;    
+}
+  
+
+void wld_tex_alloc(WLD_TexCon *ptc, int texcode)  
+{  
+    WLD_PicInfo *pic;  
+    int i;  
+  
+    ptc->pPic = NULL;  
+    if (!texcode) return;  
+  
+    // Buscar si ya está cargada  
+    for(i = 0; i < wld_num_pics; i++) {  
+        pic = wld_pics[i];  
+        if (pic && texcode == pic->code) {  
+            ptc->pPic = pic;  
+            return;  
+        }  
+    }  
+  
+    // Cargar desde sistema TEX  
+    GRAPH *tex_graph = get_tex_image(texcode);  
+    if (!tex_graph) return;  
+  
+    // Crear nueva entrada  
+    pic = malloc(sizeof(WLD_PicInfo));  
+    if (!pic) return;  
+  
+    pic->code = texcode;  
+    pic->Width = tex_graph->width;  
+    pic->Height = tex_graph->height;  
+    pic->Width2 = 0;  
+    pic->Height2 = 0;  
+    pic->Raw = NULL;  
+    pic->Used = 0;  
+  
+    // Calcular Width2 (log2 del ancho)  
+    switch(pic->Width) {  
+        case   2: pic->Width2 = 1; break;  
+        case   4: pic->Width2 = 2; break;  
+        case   8: pic->Width2 = 3; break;  
+        case  16: pic->Width2 = 4; break;  
+        case  32: pic->Width2 = 5; break;  
+        case  64: pic->Width2 = 6; break;  
+        case 128: pic->Width2 = 7; break;  
+        case 256: pic->Width2 = 8; break;  
+        case 512: pic->Width2 = 9; break;  
+        case 1024: pic->Width2 = 10; break;  
+        case 2048: pic->Width2 = 11; break;  
+        default: free(pic); return;  
+    }  
+  
+    // Calcular Height2  
+    switch(pic->Height) {  
+        case   2: pic->Height2 = 1; break;  
+        case   4: pic->Height2 = 2; break;  
+        case   8: pic->Height2 = 3; break;  
+        case  16: pic->Height2 = 4; break;  
+        case  32: pic->Height2 = 5; break;  
+        case  64: pic->Height2 = 6; break;  
+        case 128: pic->Height2 = 7; break;  
+        case 256: pic->Height2 = 8; break;  
+        case 512: pic->Height2 = 9; break;  
+        case 1024: pic->Height2 = 10; break;  
+        case 2048: pic->Height2 = 11; break;  
+        default: free(pic); return;  
+    }  
+  
+    wld_pics[wld_num_pics++] = pic;  
+    ptc->pPic = pic;  
+}
+
+
+
+void wld_load_pic(WLD_PicInfo *pic)  
+{  
+    if (!pic || pic->Raw) return;  
+  
+    GRAPH *tex_graph = get_tex_image(pic->code);  
+    if (!tex_graph) return;  
+  
+    int size = pic->Width * pic->Height * 4; // 4 bytes por pixel (RGBA)  
+    pic->Raw = malloc(size);  
+    if (!pic->Raw) return;  
+  
+    // Copiar datos RGBA directamente sin conversión de paleta  
+    for (int y = 0; y < pic->Height; y++) {  
+        for (int x = 0; x < pic->Width; x++) {  
+            uint32_t pixel = gr_get_pixel(tex_graph, x, y);  
+            int idx = (y * pic->Width + x) * 4;  
+            pic->Raw[idx] = (pixel >> 16) & 0xFF;     // R  
+            pic->Raw[idx + 1] = (pixel >> 8) & 0xFF;  // G  
+            pic->Raw[idx + 2] = pixel & 0xFF;         // B  
+            pic->Raw[idx + 3] = (pixel >> 24) & 0xFF; // A  
+        }  
+    }  
+  
+    pic->Used++;  
+}
+
+int load_wld_standalone(const char *filename)  
+{  
+    FILE *f = fopen(filename, "rb");  
+    if (!f) return 0;  
+  
+    fseek(f, 0, SEEK_END);  
+    int size = ftell(f);  
+    fseek(f, 0, SEEK_SET);  
+  
+    char *buffer = malloc(size);  
+    if (!buffer) {  
+        fclose(f);  
+        return 0;  
+    }  
+  
+    fread(buffer, 1, size, f);  
+    fclose(f);  
+  
+    // Validar header WLD  
+    if (memcmp(buffer, "wld\x1a\x0d\x0a\x01", 8) != 0) {  
+        free(buffer);  
+        return 0;  
+    }  
+  
+    // Procesar geometría (adaptado de LoadZone)  
+    int pos = 8 + 4 + *(int*)&buffer[8];  
+      
+    // Leer header principal  
+    int num_points = *(int*)&buffer[pos + 8];  
+    int num_regions = *(int*)&buffer[pos + 12];  
+    int num_walls = *(int*)&buffer[pos + 16];  
+  
+    printf("WLD cargado: %d puntos, %d regiones, %d paredes\n",   
+           num_points, num_regions, num_walls);  
+  
+    // Aquí procesarías la geometría según tus necesidades  
+    // Por ahora solo cargamos las texturas referenciadas  
+  
+    free(buffer);  
+    return 1;  
+}
+
+int64_t libmod_heightmap_load_wld(INSTANCE *my, int64_t *params)        
+{        
+    const char *filename = string_get(params[0]);        
+    int fpg_id = params[1];          
+          
+    // Verificar solo error real (-1)      
+    if (fpg_id == -1) {        
+        printf("ERROR: No se pudo cargar el FPG\n");        
+        string_discard(params[0]);        
+        return 0;        
+    }          
+          
+    // Verificar si el FPG existe usando grlib_get (API C interna)      
+    if (!grlib_get(fpg_id)) {      
+        printf("ERROR: El fpg_id %d no existe\n", fpg_id);        
+        string_discard(params[0]);        
+        return 0;        
+    }          
+          
+    // Guardar fpg_id para uso en get_tex_image        
+    wld_fpg_id = fpg_id;          
+          
+    FILE *fichero = fopen(filename, "rb");        
+    if (!fichero) {        
+        printf("ERROR: No se puede abrir '%s'\n", filename);        
+        string_discard(params[0]);        
+        return 0;        
+    }          
+          
+    // INICIALIZAR MAPA ANTES DE USAR        
+    memset(&wld_map, 0, sizeof(WLD_Map));          
+          
+    // Asignar arrays de punteros        
+    wld_map.points = calloc(MAX_POINTS, sizeof(WLD_Point*));        
+    wld_map.walls = calloc(MAX_WALLS, sizeof(WLD_Wall*));        
+    wld_map.regions = calloc(MAX_REGIONS, sizeof(WLD_Region*));        
+    wld_map.flags = calloc(MAX_FLAGS, sizeof(WLD_Flag*));          
+          
+    // Procesar geometría        
+    if (!wld_process_geometry(fichero, &wld_map)) {        
+        printf("ERROR: Fallo al procesar geometría\n");        
+        fclose(fichero);        
+        string_discard(params[0]);        
+        return 0;        
+    }          
+          
+    fclose(fichero);        
+    wld_map.loaded = 1;         
+      
+    printf("WLD cargado exitosamente:\n");        
+    printf("  - Puntos: %d\n", wld_map.num_points);        
+    printf("  - Paredes: %d\n", wld_map.num_walls);        
+      
+    // SOLO construir punteros optimizados - SIN asignación de regiones estática  
+    wld_build_wall_ptrs(&wld_map); 
+    wld_assign_regions_simple(&wld_map, -1); 
+    wld_build_sectors(&wld_map);
+    validate_and_fix_portals(&wld_map);
+    debug_current_portals(&wld_map);
+    analyze_wall_coordinates(&wld_map);  
+    export_map_to_text(&wld_map, "map_debug.txt"); 
+    printf("DEBUG: Mapa cargado - asignación de regiones será dinámica\n");      
+    // debug_missing_textures(&wld_map); 
+    // debug_wall_types(&wld_map);    
+    // debug_find_portal_regions(&wld_map);    
+    string_discard(params[0]);        
+    return 1;        
+}
+
+int wld_process_geometry(FILE *fichero, WLD_Map *map)  
+{  
+    int i;  
+    char cwork[9];  
+    int total;  
+        
+    // Leer y verificar magic header  
+    fread(cwork, 8, 1, fichero);  
+    if (strcmp(cwork, "wld\x1a\x0d\x0a\x01\x00"))  
+    {  
+        printf("ERROR: No es un archivo WLD válido\n");  
+        return 0;  
+    }  
+        
+    // Leer total size  
+    fread(&total, 4, 1, fichero);  
+        
+    // Saltar metadata del editor (548 bytes)  
+    fseek(fichero, 548, SEEK_CUR);  
+        
+    // Leer puntos - CÓDIGO ORIGINAL QUE FUNCIONA  
+    fread(&map->num_points, 4, 1, fichero);  
+    printf("DEBUG: Leyendo %d puntos\n", map->num_points);  
+    for (i = 0; i < map->num_points; i++) {  
+        map->points[i] = malloc(sizeof(WLD_Point));  
+        fread(map->points[i], sizeof(WLD_Point), 1, fichero);  
+    }  
+        
+    // Leer paredes - CÓDIGO ORIGINAL QUE FUNCIONA  
+    fread(&map->num_walls, 4, 1, fichero);  
+    printf("DEBUG: Leyendo %d paredes\n", map->num_walls);  
+    for (i = 0; i < map->num_walls; i++) {  
+        map->walls[i] = malloc(sizeof(WLD_Wall));  
+        fread(map->walls[i], sizeof(WLD_Wall), 1, fichero);  // ESTO CARGA TEXTURAS BIEN  
+    }  
+        
+    // Leer regiones - CÓDIGO ORIGINAL CON FILTRADO AÑADIDO  
+    fread(&map->num_regions, 4, 1, fichero);  
+    // printf("DEBUG: Leyendo %d regiones\n", map->num_regions);  
+    for (i = 0; i < map->num_regions; i++) {  
+        map->regions[i] = malloc(sizeof(WLD_Region));  
+        fread(map->regions[i], sizeof(WLD_Region), 1, fichero);  
+          
+        // AÑADIR: Filtrar regiones inválidas (-1, -1)  
+        if (map->regions[i]->floor_height == -1 && map->regions[i]->ceil_height == -1) {  
+            map->regions[i]->active = 0;  // Marcar como inactiva  
+        } else {  
+            map->regions[i]->active = 1;  // Región válida  
+        }  
+          
+        // printf("DEBUG: Region[%d] - floor: %d, ceil: %d %s\n",   
+        //        i, map->regions[i]->floor_height, map->regions[i]->ceil_height,  
+        //        map->regions[i]->active ? "" : "(INACTIVA)");  
+    }  
+        
+    // Leer flags  
+    fread(&map->num_flags, 4, 1, fichero);  
+    printf("DEBUG: Leyendo %d flags\n", map->num_flags);  
+    for (i = 0; i < map->num_flags; i++) {  
+        map->flags[i] = malloc(sizeof(WLD_Flag));  
+        fread(map->flags[i], sizeof(WLD_Flag), 1, fichero);  
+    }  
+        
+    // Leer skybox  
+    fread(&map->skybox_angle, 4, 1, fichero);  
+    sprintf(map->skybox_texture, "%d", map->skybox_angle);  
+    map->skybox_angle = 120;  
+        
+    printf("DEBUG: Geometría WLD procesada correctamente\n");  
+    return 1;  
+}
+
+
+void wld_debug_walls_with_x_diff(WLD_Map *map)  
+{  
+    int paredes_con_x_diferente = 0;  
+    int paredes_x_cero = 0;  
+      
+    printf("DEBUG: Analizando paredes que usan puntos X≠0\n");  
+      
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (map->walls[i]->active != 0) {  
+            WLD_Point *p1 = map->points[map->walls[i]->p1];  
+            WLD_Point *p2 = map->points[map->walls[i]->p2];  
+              
+            if (p1->x != 0 || p2->x != 0) {  
+                paredes_con_x_diferente++;  
+                if (paredes_con_x_diferente <= 10) {  
+                    // printf("DEBUG: pared X≠0[%d] - p1:%d(%d,%d), p2:%d(%d,%d)\n",   
+                    //        i, map->walls[i]->p1, p1->x, p1->y,  
+                    //        map->walls[i]->p2, p2->x, p2->y);  
+                    //        fflush(stdout); 
+                }  
+            } else {  
+                paredes_x_cero++;  
+            }  
+        }  
+    }  
+      
+    // printf("DEBUG: Total paredes X≠0: %d, paredes X=0: %d\n",   
+    //        paredes_con_x_diferente, paredes_x_cero);  
+    //        fflush(stdout); 
+}  
+  
+void wld_analyze_x_distribution(WLD_Map *map)  
+{  
+    int min_x = INT_MAX, max_x = INT_MIN;  
+    int puntos_con_x_cero = 0;  
+    int puntos_con_x_diferente = 0;  
+      
+    printf("DEBUG: Analizando distribución de coordenadas X\n");  
+      
+    for (int i = 0; i < map->num_points; i++) {  
+        if (map->points[i]->active != 0) {  // Usar -> en lugar de .  
+            if (map->points[i]->x < min_x) min_x = map->points[i]->x;  // Usar ->  
+            if (map->points[i]->x > max_x) max_x = map->points[i]->x;  // Usar ->  
+              
+            if (map->points[i]->x == 0) {  // Usar ->  
+                puntos_con_x_cero++;  
+            } else {  
+                puntos_con_x_diferente++;  
+                if (puntos_con_x_diferente <= 10) {  
+                    printf("DEBUG: punto con X≠0 [%d]: x=%d, y=%d\n",   
+                           i, map->points[i]->x, map->points[i]->y);  // Usar ->  
+                           fflush(stdout); 
+                }  
+            }  
+        }  
+    }  
+      
+    printf("DEBUG: Estadísticas X - min:%d, max:%d\n", min_x, max_x);  
+    printf("DEBUG: Puntos con X=0: %d, con X≠0: %d\n", puntos_con_x_cero, puntos_con_x_diferente);  
+}
+
+
+void wld_render_2d(WLD_Map *map, int screen_w, int screen_h)  
+{  
+    if (!map || !map->loaded) {  
+        printf("DEBUG: wld_render_2d - mapa no cargado o nulo\n");  
+        return;  
+    }  
+      
+    printf("DEBUG: Iniciando renderizado 2D - pantalla: %dx%d\n", screen_w, screen_h);  
+      
+    // Usar el render_buffer global  
+    if (!render_buffer || render_buffer->width != screen_w || render_buffer->height != screen_h) {  
+        if (render_buffer) bitmap_destroy(render_buffer);  
+        render_buffer = bitmap_new_syslib(screen_w, screen_h);  
+        if (!render_buffer) {  
+            printf("ERROR: No se pudo crear render_buffer\n");  
+            return;  
+        }  
+    }  
+      
+    // Limpiar pantalla  
+    gr_clear_as(render_buffer, 0x404040);  
+      
+    // Analizar rango de coordenadas para ajustar escala automáticamente  
+    int min_x = INT_MAX, max_x = INT_MIN;  
+    int min_y = INT_MAX, max_y = INT_MIN;  
+      
+    for (int i = 0; i < map->num_points; i++) {  
+        if (!map->points[i]) continue;  
+        if (map->points[i]->x < min_x) min_x = map->points[i]->x;  
+        if (map->points[i]->x > max_x) max_x = map->points[i]->x;  
+        if (map->points[i]->y < min_y) min_y = map->points[i]->y;  
+        if (map->points[i]->y > max_y) max_y = map->points[i]->y;  
+    }  
+    printf("DEBUG: Rango de coordenadas - X:[%d,%d], Y:[%d,%d]\n", min_x, max_x, min_y, max_y);  
+    fflush(stdout); 
+      
+    // Calcular escala basada en el tamaño del mapa  
+    float map_width = (float)(max_x - min_x);  
+    float map_height = (float)(max_y - min_y);  
+      
+    if (map_width <= 0 || map_height <= 0) {  
+        printf("ERROR: Dimensiones del mapa inválidas\n");  
+        fflush(stdout); 
+        return;  
+    }  
+      
+    float scale_x = (float)screen_w / map_width * 0.8f;  
+    float scale_y = (float)screen_h / map_height * 0.8f;  
+    float scale = (scale_x < scale_y) ? scale_x : scale_y;  
+      
+    if (scale < 0.001f) scale = 0.001f;  
+      
+    // Calcular offset para centrar el mapa  
+    int offset_x = screen_w / 2 - (int)((min_x + max_x) * scale / 2);  
+    int offset_y = screen_h / 2 - (int)((min_y + max_y) * scale / 2);  
+      
+    printf("DEBUG: Usando escala: %.3f, offset X:%d, Y:%d\n", scale, offset_x, offset_y);  
+    fflush(stdout); 
+      
+    int paredes_dibujadas = 0;  
+    int fuera_de_pantalla = 0;  
+    int indices_invalidos = 0;  
+    int punteros_nulos = 0;  
+      
+    // Dibujar paredes usando algoritmo de línea simple  
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (!map->walls[i]) {  
+            punteros_nulos++;  
+            continue;  
+        }  
+          
+        int p1 = map->walls[i]->p1;  
+        int p2 = map->walls[i]->p2;  
+          
+        // Validar índices  
+        if (p1 < 0 || p1 >= map->num_points || p2 < 0 || p2 >= map->num_points) {  
+            indices_invalidos++;  
+            continue;  
+        }  
+          
+        // Verificar punteros de puntos  
+        if (!map->points[p1] || !map->points[p2]) {  
+            punteros_nulos++;  
+            continue;  
+        }  
+          
+        // Transformar coordenadas  
+        int x1 = (int)(map->points[p1]->x * scale) + offset_x;  
+        int y1 = (int)(map->points[p1]->y * scale) + offset_y;  
+        int x2 = (int)(map->points[p2]->x * scale) + offset_x;  
+        int y2 = (int)(map->points[p2]->y * scale) + offset_y;  
+          
+        // Solo dibujar si ambos puntos están en pantalla  
+        if (x1 >= 0 && x1 < screen_w && y1 >= 0 && y1 < screen_h &&  
+            x2 >= 0 && x2 < screen_w && y2 >= 0 && y2 < screen_h) {  
+              
+            // Algoritmo de línea de Bresenham simplificado  
+            int dx = abs(x2 - x1);  
+            int dy = abs(y2 - y1);  
+            int sx = (x1 < x2) ? 1 : -1;  
+            int sy = (y1 < y2) ? 1 : -1;  
+            int err = dx - dy;  
+              
+            while (1) {  
+                if (x1 >= 0 && x1 < screen_w && y1 >= 0 && y1 < screen_h) {  
+                    gr_put_pixel(render_buffer, x1, y1, 0xFFFFFF);  
+                }  
+                  
+                if (x1 == x2 && y1 == y2) break;  
+                  
+                int e2 = 2 * err;  
+                if (e2 > -dy) {  
+                    err -= dy;  
+                    x1 += sx;  
+                }  
+                if (e2 < dx) {  
+                    err += dx;  
+                    y1 += sy;  
+                }  
+            }  
+              
+            paredes_dibujadas++;  
+              
+            if (paredes_dibujadas <= 5) {  
+                // printf("DEBUG: pared[%d] [%d,%d]->[%d,%d] -> pantalla [%d,%d]->[%d,%d]\n",  
+                //        i, map->points[p1]->x, map->points[p1]->y,     
+                //        map->points[p2]->x, map->points[p2]->y,  
+                //        x1, y1, x2, y2);  
+                //        fflush(stdout); 
+            }  
+        } else {  
+            fuera_de_pantalla++;  
+        }  
+    }  
+      
+    printf("DEBUG: Paredes dibujadas: %d, fuera de pantalla: %d, índices inválidos: %d, punteros nulos: %d\n",     
+           paredes_dibujadas, fuera_de_pantalla, indices_invalidos, punteros_nulos);  
+           fflush(stdout); 
+}
+  
+// Función de renderizado 2D  
+int64_t libmod_heightmap_render_wld_2d(INSTANCE *my, int64_t *params)  
+{  
+    int width = params[0];  
+    int height = params[1];  
+      
+    if (!wld_map.loaded) {  
+        printf("ERROR: No hay mapa WLD cargado\n");  
+        return 0;  
+    }  
+      
+    wld_render_2d(&wld_map, width, height);  
+      
+    // Devolver el código del render_buffer global  
+    return render_buffer ? render_buffer->code : 0;  
+}
+
+int64_t libmod_heightmap_test_render_buffer(INSTANCE *my, int64_t *params)  
+{  
+    int width = params[0];  
+    int height = params[1];  
+      
+    if (!render_buffer || render_buffer->width != width || render_buffer->height != height) {  
+        if (render_buffer) bitmap_destroy(render_buffer);  
+        render_buffer = bitmap_new_syslib(width, height);  
+        if (!render_buffer) return 0;  
+    }  
+      
+    // Dibujar patrón de prueba  
+    for (int y = 0; y < height; y++) {  
+        for (int x = 0; x < width; x++) {  
+            uint32_t color = ((x * 255) / width) | (((y * 255) / height) << 8);  
+            gr_put_pixel(render_buffer, x, y, color);  
+        }  
+    }  
+      
+    printf("DEBUG: Patrón de prueba dibujado en %dx%d\n", width, height);  
+    return render_buffer->code;  
+}
+
+// Función auxiliar para verificar si punto está en región  
+static int last_region_x = -999999, last_region_y = -999999;  
+static int last_region_result = -1;  
+  
+int point_in_region(float x, float y, int region_idx, WLD_Map *map)  
+{  
+    if (!map || region_idx < 0 || region_idx >= map->num_regions) {  
+        return 0;  
+    }  
+      
+    // Usar estructura de optimización en lugar de la original  
+    WLD_Region_Optimized *opt_region = &optimized_regions[region_idx];  
+    int inside = 0;  
+      
+    // OPTIMIZACIÓN: Usar WallPtrs desde la estructura optimizada  
+    for (int i = 0; i < opt_region->num_wall_ptrs; i++) {  
+        WLD_Wall *wall = opt_region->wall_ptrs[i];  
+          
+        int p1 = wall->p1;  
+        int p2 = wall->p2;  
+        if (!map->points[p1] || !map->points[p2]) continue;  
+          
+        float x1 = map->points[p1]->x;  
+        float y1 = map->points[p1]->y;  
+        float x2 = map->points[p2]->x;  
+        float y2 = map->points[p2]->y;  
+          
+        // Ray casting algorithm  
+        if (((y1 > y) != (y2 > y)) &&  
+            (x < (x2 - x1) * (y - y1) / (y2 - y1) + x1)) {  
+            inside = !inside;  
+        }  
+    }  
+    return inside;  
+}
+  
+// Función para escanear paredes visibles (similar a ScanRegion de VPE)  
+void scan_walls_from_region(WLD_Map *map, int region_idx, float cam_x, float cam_y,  
+                           float ray_dir_x, float ray_dir_y, float *hit_distance,  
+                           WLD_Wall **hit_wall, int *hit_region, int *adjacent_region)  
+{  
+    int visited_regions[256];  
+    int num_visited = 0;  
+    int regions_to_visit[256];  
+    regions_to_visit[0] = region_idx;  
+    int num_to_visit = 1;  
+      
+    *hit_distance = 999999.0f;  
+    *hit_wall = NULL;  
+    *hit_region = region_idx;  
+    *adjacent_region = -1;  
+      
+    while (num_to_visit > 0) {  
+        int current = regions_to_visit[--num_to_visit];  
+          
+        // Verificar si ya visitamos  
+        int already_visited = 0;  
+        for (int i = 0; i < num_visited; i++) {  
+            if (visited_regions[i] == current) {  
+                already_visited = 1;  
+                break;  
+            }  
+        }  
+        if (already_visited) continue;  
+        visited_regions[num_visited++] = current;  
+          
+        // Usar estructura optimizada  
+        WLD_Region_Optimized *opt_region = &optimized_regions[current];  
+          
+        for (int i = 0; i < opt_region->num_wall_ptrs; i++) {  
+            WLD_Wall *wall = opt_region->wall_ptrs[i];  
+            if (!wall) continue;  
+              
+            int front = wall->front_region;  
+            int back = wall->back_region;  
+              
+            if (front != current && back != current) continue;  
+              
+            int p1 = wall->p1;  
+            int p2 = wall->p2;  
+            if (p1 < 0 || p1 >= map->num_points || p2 < 0 || p2 >= map->num_points) continue;  
+            if (!map->points[p1] || !map->points[p2]) continue;  
+              
+            float x1 = map->points[p1]->x;  
+            float y1 = map->points[p1]->y;  
+            float x2 = map->points[p2]->x;  
+            float y2 = map->points[p2]->y;  
+              
+            float t = intersect_ray_segment(ray_dir_x, ray_dir_y, cam_x, cam_y,  
+                                           x1, y1, x2, y2);  
+              
+            if (t > 0.001f && t < *hit_distance) {  
+                *hit_distance = t;  
+                *hit_wall = wall;  
+                int adjacent = (front == current) ? back : front;  
+                *adjacent_region = adjacent;  
+                *hit_region = current;  
+            }  
+        }  
+    }  
+}
+
+void render_floor_and_ceiling(WLD_Map *map, WLD_Region *region, int col,  
+                                     int screen_w, int screen_h, int wall_top, int wall_bottom,  
+                                     float cam_x, float cam_y, float cam_z, float distance,  
+                                     float fog_factor, int clip_top, int clip_bottom)  
+{  
+    if (!region) return;  
+      
+    // Renderizar techo (desde clip_top hasta wall_top)  
+    int ceil_end = (wall_top < clip_bottom) ? wall_top : clip_bottom;
+    int ceil_start = clip_top;
+    
+    if (ceil_start < ceil_end) {  
+        GRAPH *ceil_tex = get_tex_image(region->ceil_tex);  
+        if (ceil_tex) {  
+            for (int y = ceil_start; y < ceil_end; y++) {  
+                float y_diff = (float)y - (screen_h / 2.0f);  
+                if (fabs(y_diff) < 0.1f) continue;  
+                  
+                float height_diff = cam_z - region->ceil_height;  
+                float ceil_distance = (height_diff * 300.0f) / y_diff;  
+                  
+                if (ceil_distance < 0.1f) continue;  
+                  
+                float hit_x = cam_x + cos(camera.angle + ((col - screen_w/2.0f) * wld_angle_step)) * ceil_distance;  
+                float hit_y = cam_y + sin(camera.angle + ((col - screen_w/2.0f) * wld_angle_step)) * ceil_distance;  
+                  
+                int tex_x = ((int)(hit_x * 0.5f)) % ceil_tex->width;  
+                int tex_y = ((int)(hit_y * 0.5f)) % ceil_tex->height;  
+                  
+                if (tex_x < 0) tex_x += ceil_tex->width;  
+                if (tex_y < 0) tex_y += ceil_tex->height;  
+                  
+                uint32_t pixel = gr_get_pixel(ceil_tex, tex_x, tex_y);  
+                uint8_t r = (pixel >> gPixelFormat->Rshift) & 0xFF;  
+                uint8_t g = (pixel >> gPixelFormat->Gshift) & 0xFF;  
+                uint8_t b = (pixel >> gPixelFormat->Bshift) & 0xFF;  
+                  
+                // Fog para techo
+                float dist_factor = 1.0f - (ceil_distance / max_render_distance);
+                if (dist_factor < 0.0f) dist_factor = 0.0f;
+                r = (uint8_t)(r * dist_factor);
+                g = (uint8_t)(g * dist_factor);
+                b = (uint8_t)(b * dist_factor);
+                  
+                uint32_t color = SDL_MapRGB(gPixelFormat, r, g, b);  
+                gr_put_pixel(render_buffer, col, y, color);  
+            }  
+        }  
+    }  
+      
+    // Renderizar suelo (desde wall_bottom hasta clip_bottom)  
+    int floor_start = (wall_bottom > clip_top) ? wall_bottom : clip_top;
+    int floor_end = clip_bottom;
+    
+    if (floor_start < floor_end) {  
+        GRAPH *floor_tex = get_tex_image(region->floor_tex);  
+        if (floor_tex) {  
+            for (int y = floor_start; y <= floor_end; y++) {  
+                float y_diff = (float)y - (screen_h / 2.0f);  
+                if (fabs(y_diff) < 0.1f) continue;  
+                  
+                float height_diff = cam_z - region->floor_height;  
+                float floor_distance = (height_diff * 300.0f) / y_diff;  
+                  
+                if (floor_distance < 0.1f) continue;  
+                  
+                float hit_x = cam_x + cos(camera.angle + ((col - screen_w/2.0f) * wld_angle_step)) * floor_distance;  
+                float hit_y = cam_y + sin(camera.angle + ((col - screen_w/2.0f) * wld_angle_step)) * floor_distance;  
+                  
+                int tex_x = ((int)(hit_x * 0.5f)) % floor_tex->width;  
+                int tex_y = ((int)(hit_y * 0.5f)) % floor_tex->height;  
+                  
+                if (tex_x < 0) tex_x += floor_tex->width;  
+                if (tex_y < 0) tex_y += floor_tex->height;  
+                  
+                uint32_t pixel = gr_get_pixel(floor_tex, tex_x, tex_y);  
+                uint8_t r = (pixel >> gPixelFormat->Rshift) & 0xFF;  
+                uint8_t g = (pixel >> gPixelFormat->Gshift) & 0xFF;  
+                uint8_t b = (pixel >> gPixelFormat->Bshift) & 0xFF;  
+                  
+                // Fog para suelo
+                float dist_factor = 1.0f - (floor_distance / max_render_distance);
+                if (dist_factor < 0.0f) dist_factor = 0.0f;
+                r = (uint8_t)(r * dist_factor);
+                g = (uint8_t)(g * dist_factor);
+                b = (uint8_t)(b * dist_factor);
+                  
+                uint32_t color = SDL_MapRGB(gPixelFormat, r, g, b);  
+                gr_put_pixel(render_buffer, col, y, color);  
+            }  
+        }  
+    }  
+}
+
+void render_wall_column(WLD_Map *map, WLD_Wall *wall, int region_idx,   
+                              int col, int screen_w, int screen_h,  
+                              float cam_x, float cam_y, float cam_z, float distance,
+                              int clip_top, int clip_bottom)
+{
+    if (!wall || region_idx < 0 || region_idx >= map->num_regions) return;
+    
+    WLD_Region *region = map->regions[region_idx];
+    if (!region) return;
+    
+    // Calcular altura proyectada
+    float t1 = 300.0f / distance;
+    float t_floor = (cam_z - region->floor_height);
+    float t_ceil = (cam_z - region->ceil_height);
+    
+    int FBot = (screen_h/2.0f) + t_floor * t1;
+    int FTop = (screen_h/2.0f) + t_ceil * t1;
+    
+    // Asegurar orden
+    if (FTop > FBot) {
+        int temp = FTop; FTop = FBot; FBot = temp;
+    }
+    
+    // Guardar valores originales para suelo/techo
+    int original_FTop = FTop;
+    int original_FBot = FBot;
+    
+    // Clampear a la pantalla y al clipping window
+    int draw_top = (FTop < clip_top) ? clip_top : FTop;
+    int draw_bot = (FBot > clip_bottom) ? clip_bottom : FBot;
+    
+    // Renderizar pared si es visible
+    if (draw_top < draw_bot) {
+        // Calcular wall_u
+        int p1 = wall->p1;
+        int p2 = wall->p2;
+        float wall_u = 0.0f;
+        if (p1 >= 0 && p1 < map->num_points && p2 >= 0 && p2 < map->num_points) {
+            float x1 = map->points[p1]->x;
+            float y1 = map->points[p1]->y;
+            float x2 = map->points[p2]->x;
+            float y2 = map->points[p2]->y;
+            
+            float angle_offset = ((float)col - screen_w/2.0f) * wld_angle_step;
+            float ray_dir_x = cos(camera.angle + angle_offset);
+            float ray_dir_y = sin(camera.angle + angle_offset);
+            
+            float hit_x = cam_x + ray_dir_x * distance;
+            float hit_y = cam_y + ray_dir_y * distance;
+            
+            float wall_dx = x2 - x1;
+            float wall_dy = y2 - y1;
+            float wall_len = sqrtf(wall_dx * wall_dx + wall_dy * wall_dy);
+            
+            if (wall_len > 0.001f) {
+                float t = ((hit_x - x1) * wall_dx + (hit_y - y1) * wall_dy) / (wall_len * wall_len);
+                wall_u = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t;
+            }
+        }
+        
+        float fog_factor = 1.0f - (distance / max_render_distance);
+        if (fog_factor < 0.0f) fog_factor = 0.0f;
+        
+        render_wall_section(map, wall->texture, col, draw_top, draw_bot, wall_u, fog_factor, "WALL");
+    }
+    
+    // Renderizar suelo y techo
+    // Usamos los clips originales pero limitados por la pared dibujada para que coincidan
+    // O mejor, pasamos los clips actuales y dejamos que render_floor_and_ceiling se encargue
+    // Pero render_floor_and_ceiling necesita saber dónde termina la pared para empezar a dibujar
+    
+    // Si la pared fue clippeada totalmente, aún necesitamos dibujar suelo/techo en el espacio visible
+    int eff_top = (original_FTop < clip_top) ? clip_top : (original_FTop > clip_bottom) ? clip_bottom : original_FTop;
+    int eff_bot = (original_FBot < clip_top) ? clip_top : (original_FBot > clip_bottom) ? clip_bottom : original_FBot;
+    
+    render_floor_and_ceiling(map, region, col, screen_w, screen_h, eff_top, eff_bot, 
+                            cam_x, cam_y, cam_z, distance, 1.0f, clip_top, clip_bottom);
+}
+
+// Función para calcular distancia entre dos puntos  
+static float distance_between_points(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {  
+    float dx = (float)(x2 - x1);  
+    float dy = (float)(y2 - y1);  
+    return sqrtf(dx * dx + dy * dy);  
+}  
+  
+// Función para encontrar la distancia mínima entre dos segmentos  
+static float min_distance_between_segments(  
+    int32_t ax1, int32_t ay1, int32_t ax2, int32_t ay2,  
+    int32_t bx1, int32_t by1, int32_t bx2, int32_t by2) {  
+      
+    // Probar múltiples puntos en ambos segmentos  
+    float min_dist = 999999.0f;  
+      
+    for (float t = 0.0f; t <= 1.0f; t += 0.25f) {  
+        float ax = ax1 + (ax2 - ax1) * t;  
+        float ay = ay1 + (ay2 - ay1) * t;  
+          
+        for (float s = 0.0f; s <= 1.0f; s += 0.25f) {  
+            float bx = bx1 + (bx2 - bx1) * s;  
+            float by = by1 + (by2 - by1) * s;  
+              
+            float dist = distance_between_points((int32_t)ax, (int32_t)ay, (int32_t)bx, (int32_t)by);  
+            if (dist < min_dist) min_dist = dist;  
+        }  
+    }  
+      
+    return min_dist;  
+}
+
+void render_wld(WLD_Map *map, int screen_w, int screen_h)    
+{    
+    if (!map || !map->loaded) return;    
+        
+    // Crear buffer si es necesario    
+    if (!render_buffer || render_buffer->width != screen_w || render_buffer->height != screen_h) {    
+        if (render_buffer) bitmap_destroy(render_buffer);    
+        render_buffer = bitmap_new_syslib(screen_w, screen_h);    
+        if (!render_buffer) return;    
+    }    
+        
+    // Skybox    
+    uint32_t sky_color = SDL_MapRGBA(gPixelFormat, sky_color_r, sky_color_g, sky_color_b, sky_color_a);    
+    gr_clear_as(render_buffer, sky_color);    
+        
+    // Encontrar región actual    
+    int current_region = -1;    
+    for (int i = 0; i < map->num_regions; i++) {    
+        if (map->regions[i] && map->regions[i]->active &&          
+            point_in_region(camera.x, camera.y, i, map)) {    
+            current_region = i;    
+            break;    
+        }    
+    }    
+        
+    if (current_region < 0) {    
+        printf("DEBUG: Cámara fuera de todas las regiones válidas\n");    
+        return;    
+    }    
+        
+    // Renderizar cada columna con raycasting continuo    
+    for (int col = 0; col < screen_w; col++) {    
+        float angle_offset = ((float)col - screen_w/2.0f) * wld_angle_step;  // Usar wld_angle_step    
+        float ray_dir_x = cos(camera.angle + angle_offset);    
+        float ray_dir_y = sin(camera.angle + angle_offset);    
+            
+        // Inicializar clipping vertical para esta columna  
+        int clip_top = 0;  
+        int clip_bottom = screen_h - 1;  
+          
+        // Raycasting continuo a través de portales    
+        float total_distance = 0.0f;    
+        int current_sector = current_region;    
+        int max_depth = 16; // Aumentado para permitir más profundidad  
+        int depth = 0;    
+            
+        while (depth < max_depth && total_distance < max_render_distance) {    
+            WLD_Wall *hit_wall;    
+            int hit_region, adjacent_region;    
+            float hit_distance;    
+                
+            scan_walls_from_region(map, current_sector,       
+                                  camera.x + ray_dir_x * total_distance,    
+                                  camera.y + ray_dir_y * total_distance,    
+                                  ray_dir_x, ray_dir_y, &hit_distance,    
+                                  &hit_wall, &hit_region, &adjacent_region);    
+                
+            if (hit_wall && hit_distance < 999999.0f) {    
+                total_distance += hit_distance;    
+                    
+                // NUEVO: Renderizar suelo y techo del sector actual  
+                WLD_Region *current_sector_region = map->regions[current_sector];  
+                if (current_sector_region && current_sector_region->active) {  
+                    render_floor_and_ceiling(map, current_sector_region, col, screen_w, screen_h,  
+                                            clip_top, clip_bottom, camera.x, camera.y, camera.z,  
+                                            total_distance, 1.0f, clip_top, clip_bottom);  
+                }  
+                    
+                // Si es pared sólida, renderizar y terminar    
+                if (adjacent_region == -1) {    
+                    render_wall_column(map, hit_wall, hit_region, col, screen_w, screen_h,    
+                                      camera.x, camera.y, camera.z, total_distance, clip_top, clip_bottom);    
+                    break;    
+                }    
+                    
+                // Si es portal, verificar si tiene geometría compleja    
+                bool is_complex = false;    
+                if (adjacent_region >= 0 && adjacent_region < map->num_regions) {    
+                    WLD_Region *current = map->regions[hit_region];    
+                    WLD_Region *adjacent = map->regions[adjacent_region];    
+                        
+                    if (current && adjacent && current->active && adjacent->active) {    
+                        // Siempre tratamos como complejo para manejar el clipping correctamente  
+                        is_complex = true;    
+                    }    
+                }    
+                    
+                // Renderizar portal complejo Y CONTINUAR    
+                if (is_complex) {    
+                    // Calcular wall_u y fog    
+                    int p1 = hit_wall->p1;    
+                    int p2 = hit_wall->p2;    
+                    float wall_u = 0.0f;    
+                    if (p1 >= 0 && p1 < map->num_points && p2 >= 0 && p2 < map->num_points) {    
+                        float x1 = map->points[p1]->x;    
+                        float y1 = map->points[p1]->y;    
+                        float x2 = map->points[p2]->x;    
+                        float y2 = map->points[p2]->y;    
+                            
+                        float hit_x = camera.x + ray_dir_x * total_distance;    
+                        float hit_y = camera.y + ray_dir_y * total_distance;    
+                            
+                        float wall_dx = x2 - x1;    
+                        float wall_dy = y2 - y1;    
+                        float wall_len = sqrtf(wall_dx * wall_dx + wall_dy * wall_dy);    
+                            
+                        if (wall_len > 0.001f) {    
+                            float t = ((hit_x - x1) * wall_dx + (hit_y - y1) * wall_dy) / (wall_len * wall_len);    
+                            wall_u = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t;    
+                        }    
+                    }    
+                        
+                    float fog_factor = 1.0f - (total_distance / (max_render_distance * 2.0f));    
+                    if (fog_factor < 0.3f) fog_factor = 0.3f;    
+                    if (fog_factor > 1.0f) fog_factor = 1.0f;    
+                        
+                    // Renderizar con los clips actuales  
+                    render_complex_wall_section(map, hit_wall, map->regions[hit_region],         
+                                               hit_region, col, screen_w, screen_h,    
+                                               0, screen_h, wall_u, fog_factor,    
+                                               camera.x, camera.y, camera.z, total_distance, clip_top, clip_bottom);    
+                        
+                    // CALCULAR NUEVOS CLIPS PARA EL SIGUIENTE SECTOR  
+                    WLD_Region *current = map->regions[hit_region];  
+                    WLD_Region *adjacent = map->regions[adjacent_region];  
+                      
+                    // Determinar la apertura del portal (intersección de rangos verticales)  
+                    // El suelo más alto y el techo más bajo definen la apertura  
+                    int open_floor = (current->floor_height > adjacent->floor_height) ? current->floor_height : adjacent->floor_height;  
+                    int open_ceil = (current->ceil_height < adjacent->ceil_height) ? current->ceil_height : adjacent->ceil_height;  
+                      
+                    // Proyectar a pantalla  
+                    float t1 = 300.0f / total_distance;  
+                      
+                    float t_floor = (camera.z - open_floor);  
+                    float t_ceil = (camera.z - open_ceil);  
+                      
+                    int screen_floor = (screen_h/2.0f) + t_floor * t1;  
+                    int screen_ceil = (screen_h/2.0f) + t_ceil * t1;  
+                      
+                    // Asegurar orden (techo arriba, suelo abajo)  
+                    if (screen_ceil > screen_floor) {  
+                        int temp = screen_ceil; screen_ceil = screen_floor; screen_floor = temp;  
+                    }  
+                      
+                    // Clampear a pantalla  
+                    if (screen_ceil < 0) screen_ceil = 0;  
+                    if (screen_floor >= screen_h) screen_floor = screen_h - 1;  
+                      
+                    // Actualizar clips (intersección con ventana actual)  
+                    if (screen_ceil > clip_top) clip_top = screen_ceil;  
+                    if (screen_floor < clip_bottom) clip_bottom = screen_floor;  
+                      
+                    // Si la ventana se cierra, dejar de renderizar  
+                    if (clip_top > clip_bottom) {  
+                        break;  
+                    }  
+                        
+                    // Continuar al siguiente sector  
+                    current_sector = adjacent_region;    
+                    depth++;    
+                } else {    
+                    // Portal simple (no debería ocurrir con la lógica actual, pero por seguridad)  
+                    current_sector = adjacent_region;    
+                    depth++;    
+                }    
+            } else {    
+                break; // No hay más paredes    
+            }    
+        }    
+    }    
+}
+
+int wld_find_region(WLD_Map *map, float x, float y, int discard_region)  
+{  
+  
+      
+    // Búsqueda simple: iterar regiones y usar ray casting  
+    for (int i = 0; i < map->num_regions; i++) {  
+        if (i == discard_region) continue;  
+        if (!map->regions[i]) continue;  
+          
+        if (point_in_region(x, y, i, map)) {  
+            return i;  
+        }  
+    }  
+    return -1;  
+}
+
+void wld_sort_regions(WLD_Map *map)  
+{  
+    int i;  
+      
+    // Inicializar todas las regiones como tipo 1  
+    for (i = 0; i < map->num_regions; i++) {  
+        map->regions[i]->type = 1;  
+    }  
+}
+
+// Función de intersección rayo-segmento  
+float intersect_ray_segment(float ray_dir_x, float ray_dir_y, float cam_x, float cam_y,  
+                           float seg_x1, float seg_y1, float seg_x2, float seg_y2)  
+{  
+    // Transformar segmento a coordenadas relativas a la cámara  
+    float x1 = seg_x1 - cam_x;  
+    float y1 = seg_y1 - cam_y;  
+    float x2 = seg_x2 - cam_x;  
+    float y2 = seg_y2 - cam_y;  
+      
+    float seg_dx = x2 - x1;  
+    float seg_dy = y2 - y1;  
+      
+    float denominator = ray_dir_x * seg_dy - ray_dir_y * seg_dx;  
+    if (fabs(denominator) < 0.0001f) return -1;  
+      
+    float t = (x1 * seg_dy - y1 * seg_dx) / denominator;  
+    float s = (x1 * ray_dir_y - y1 * ray_dir_x) / denominator;  
+      
+    if (t > 0 && s >= 0 && s <= 1) {  
+        return t;  
+    }  
+    return -1;  
+}
+
+// Función exportada para BennuGD2 - similar a libmod_heightmap_render_wld_2d()  
+int64_t libmod_heightmap_render_wld_3d(INSTANCE *my, int64_t *params) {  
+    int width = params[0];  
+    int height = params[1];  
+      
+    // Si hay un tercer parámetro, es el FOV  
+    if (params[2] != 0) {  
+        float new_fov = *(float*)&params[2];  
+        if (new_fov >= 0.001f && new_fov <= 0.01f) {  
+            wld_angle_step = new_fov;  
+        }  
+    }  
+      
+    if (!wld_map.loaded) {  
+        printf("ERROR: No hay mapa WLD cargado\n");  
+        return 0;  
+    }  
+      
+    render_wld(&wld_map, width, height);  
+    return render_buffer ? render_buffer->code : 0;  
+}
+
+
+  
+void wld_build_wall_ptrs(WLD_Map *map)  
+{  
+    int total_ptrs = 0;  
+      
+    // Contar referencias totales  
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (map->walls[i]->front_region >= 0) total_ptrs++;  
+        if (map->walls[i]->back_region >= 0) total_ptrs++;  
+    }  
+      
+    // Asignar array contiguo  
+    WLD_Wall **wall_ptrs = malloc(total_ptrs * sizeof(WLD_Wall*));  
+    int ptr_index = 0;  
+      
+    // Construir punteros en estructura separada  
+    for (int i = 0; i < map->num_regions; i++) {  
+        optimized_regions[i].original_region = map->regions[i];  
+        optimized_regions[i].wall_ptrs = &wall_ptrs[ptr_index];  
+        optimized_regions[i].num_wall_ptrs = 0;  
+          
+        for (int j = 0; j < map->num_walls; j++) {  
+            if (map->walls[j]->front_region == i || map->walls[j]->back_region == i) {  
+                wall_ptrs[ptr_index++] = map->walls[j];  
+                optimized_regions[i].num_wall_ptrs++;  
+            }  
+        }  
+    }  
+}
+
+
+
+// Añadir esta función para contar paredes portal vs sólidas  
+void debug_wall_types(WLD_Map *map)  
+{  
+    int portal_walls = 0;  
+    int solid_walls = 0;  
+      
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (map->walls[i]->front_region >= 0 && map->walls[i]->back_region >= 0) {  
+            portal_walls++;  
+        } else {  
+            solid_walls++;  
+        }  
+    }  
+      
+    printf("DEBUG: Paredes portal: %d, Paredes sólidas: %d\n",   
+           portal_walls, solid_walls);  
+}  
+
+void wld_assign_regions_simple(WLD_Map *map, int target_region)  
+{  
+    if (!map || !map->loaded) return;  
+      
+    printf("DEBUG: Asignando portales para todo el mapa...\n");  
+      
+    // Basado en map_asignregions() de DIV  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        // Inicializar  
+        wall->back_region = -1;  
+        wall->type = 2; // Sólida por defecto  
+          
+        // Buscar pared compartida con vértices opuestos  
+        for (int j = i + 1; j < map->num_walls; j++) {  
+            WLD_Wall *wall2 = map->walls[j];  
+            if (!wall2) continue;  
+              
+            // Misma pared, orientación opuesta = portal  
+            if ((wall->p1 == wall2->p2 && wall->p2 == wall2->p1) &&  
+                wall->front_region != wall2->front_region) {  
+                  
+                wall->back_region = wall2->front_region;  
+                wall2->back_region = wall->front_region;  
+                wall->type = 1; // Portal  
+                wall2->type = 1;  
+                  
+                // Asignar texturas para geometría compleja  
+                wall->texture_top = wall->texture;  
+                wall->texture_bot = wall->texture;  
+                wall2->texture_top = wall2->texture;  
+                wall2->texture_bot = wall2->texture;  
+            }  
+        }  
+    }  
+      
+    // Para paredes sin vértices compartidos, usar point-in-polygon  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall || wall->back_region >= 0) continue;  
+          
+        int p1 = wall->p1;  
+        int p2 = wall->p2;  
+        if (p1 < 0 || p2 < 0) continue;  
+          
+        float mid_x = (map->points[p1]->x + map->points[p2]->x) / 2.0f;  
+        float mid_y = (map->points[p1]->y + map->points[p2]->y) / 2.0f;  
+          
+        int back_region = wld_find_region(map, mid_x, mid_y, wall->front_region);  
+        if (back_region >= 0) {  
+            wall->back_region = back_region;  
+            wall->type = 1;  
+            wall->texture_top = wall->texture;  
+            wall->texture_bot = wall->texture;  
+        }  
+    }  
+      
+    // Verificar portales asignados  
+    int total = 0;  
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (map->walls[i] && map->walls[i]->back_region >= 0) {  
+            total++;  
+        }  
+    }  
+    printf("DEBUG: Total portales asignados: %d\n", total);  
+}
+
+void wld_clear_portal_assignments(WLD_Map *map)  
+{  
+    if (!map || !map->loaded) return;  
+      
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (map->walls[i]) {  
+            map->walls[i]->back_region = -1;  
+            map->walls[i]->type = 2; // Sólida  
+            map->walls[i]->texture_top = 0;  
+            map->walls[i]->texture_bot = 0;  
+        }  
+    }  
+}
+
+void debug_find_portal_regions(WLD_Map *map)  
+{  
+    printf("DEBUG: Regiones con paredes portal (mostrando primeras 20):\n");  
+    int count = 0;  
+      
+    for (int region = 0; region < map->num_regions && count < 20; region++) {  
+        int has_portal = 0;  
+          
+        for (int i = 0; i < map->num_walls; i++) {  
+            if ((map->walls[i]->front_region == region || map->walls[i]->back_region == region) &&  
+                map->walls[i]->front_region >= 0 && map->walls[i]->back_region >= 0) {  
+                has_portal = 1;  
+                break;  
+            }  
+        }  
+          
+        if (has_portal) {  
+            printf("  Región %d (floor: %d, ceil: %d)\n",  
+                   region, map->regions[region]->floor_height, map->regions[region]->ceil_height);  
+            count++;  
+        }  
+    }  
+      
+    if (count >= 20) {  
+        printf("  ... y más regiones con portales\n");  
+    }  
+}
+
+void debug_missing_textures(WLD_Map *map)  
+{  
+    printf("DEBUG: Verificando texturas faltantes:\n");  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        if (wall->type == 1) { // Portal  
+            printf("  Pared[%d] (portal): texture=%d, top=%d, bot=%d\n",  
+                   i, wall->texture, wall->texture_top, wall->texture_bot);  
+        }  
+    }  
+      
+    // Verificar texturas de regiones  
+    for (int i = 0; i < map->num_regions; i++) {  
+        WLD_Region *region = map->regions[i];  
+        if (region && region->active) {  
+            printf("  Región[%d]: floor_tex=%d, ceil_tex=%d\n",  
+                   i, region->floor_tex, region->ceil_tex);  
+        }  
+    }  
+}
+
+
+void debug_current_portals(WLD_Map *map)  
+{  
+    printf("DEBUG: Portales en mapa cargado (mostrando primeros 20):\n");  
+    int count = 0;  
+      
+    for (int i = 0; i < map->num_walls && count < 20; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        // Mostrar paredes que tienen back_region asignado (portales)  
+        // if (wall->front_region >= 0 && wall->back_region >= 0) {  
+        //     printf("  Pared[%d]: región %d -> %d (type=%d)\n",   
+        //            i, wall->front_region, wall->back_region, wall->type);  
+        //     count++;  
+        // }  
+    }  
+      
+    if (count >= 20) {  
+        printf("  ... y más portales\n");  
+    }  
+      
+    // Contar totales  
+    int portals = 0, solids = 0;  
+    for (int i = 0; i < map->num_walls; i++) {  
+        if (map->walls[i]) {  
+            if (map->walls[i]->front_region >= 0 && map->walls[i]->back_region >= 0) {  
+                portals++;  
+            } else {  
+                solids++;  
+            }  
+        }  
+    }  
+      
+    printf("DEBUG: Total - %d portales, %d paredes sólidas\n", portals, solids);  
+}
+
+void wld_build_sectors(WLD_Map *map)  
+{  
+    printf("DEBUG: Calculando back_region para todas las paredes...\n");  
+      
+    // 1. Normalizar orientación de paredes  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        if (wall->p1 > wall->p2) {  
+            int aux = wall->p1;  
+            wall->p1 = wall->p2;  
+            wall->p2 = aux;  
+        }  
+        wall->back_region = -1;  
+        wall->texture_top = 0;  
+        wall->texture_bot = 0;  
+    }  
+      
+    // 2. Buscar portales por vértices compartidos  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall1 = map->walls[i];  
+        if (!wall1) continue;  
+          
+        for (int j = i+1; j < map->num_walls; j++) {  
+            WLD_Wall *wall2 = map->walls[j];  
+            if (!wall2) continue;  
+              
+            // MISMA PARED, ORIENTACIÓN OPUESTA = PORTAL  
+            if (wall1->p1 == wall2->p2 && wall1->p2 == wall2->p1) {  
+                if (wall1->front_region != wall2->front_region) {  
+                    wall1->back_region = wall2->front_region;  
+                    wall2->back_region = wall1->front_region;  
+                    wall1->type = 1; // Portal  
+                    wall2->type = 1; // Portal  
+                      
+                    // Portal transparente en medio  
+                    // Primero guardar la textura para las partes superior e inferior
+                    wall1->texture_top = wall1->texture;
+                    wall1->texture_bot = wall1->texture;
+                    wall2->texture_top = wall2->texture;
+                    wall2->texture_bot = wall2->texture;
+                    
+                    // Luego hacer transparente el centro
+                    wall1->texture = 0;  
+                    wall2->texture = 0;  
+
+                }  
+            }  
+        }  
+    }  
+      
+    // 3. Para paredes sin back_region, buscar región adyacente  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (wall->back_region == -1 && wall->front_region >= 0) {  
+            int xm = (map->points[wall->p1]->x + map->points[wall->p2]->x) / 2;  
+            int ym = (map->points[wall->p1]->y + map->points[wall->p2]->y) / 2;  
+              
+            int region_back = wld_find_region(map, xm, ym, wall->front_region);  
+            if (region_back != -1) {  
+                wall->back_region = region_back;  
+                wall->type = 1; // Portal  
+                
+                // Asignar texturas para geometría compleja (usar textura de la pared)
+                wall->texture_top = wall->texture;
+                wall->texture_bot = wall->texture;
+                
+                wall->texture = 0; // Transparente  
+
+            }  
+        }  
+    }  
+      
+    printf("DEBUG: Portales detectados y configurados como transparentes\n");  
+}
+
+void debug_complex_wall_detection(WLD_Map *map, int region_idx, int adjacent_idx)  
+{  
+    //printf("\n=== DEBUG DETECCIÓN GEOMETRÍA COMPLEJA ===\n");  
+      
+    // Validar índices de región  
+    if (region_idx < 0 || region_idx >= map->num_regions ||  
+        adjacent_idx < 0 || adjacent_idx >= map->num_regions) {  
+       // printf("ERROR: Índices inválidos - region_idx=%d (max=%d), adjacent_idx=%d (max=%d)\n",  
+              // region_idx, map->num_regions-1, adjacent_idx, map->num_regions-1);  
+        return;  
+    }  
+      
+    // Obtener regiones  
+    WLD_Region *current = map->regions[region_idx];  
+    WLD_Region *adjacent = map->regions[adjacent_idx];  
+      
+    // Validar punteros  
+    if (!current) {  
+       // printf("ERROR: Región actual[%d] es NULL\n", region_idx);  
+        return;  
+    }  
+    if (!adjacent) {  
+     //   printf("ERROR: Región adyacente[%d] es NULL\n", adjacent_idx);  
+        return;  
+    }  
+      
+    // Información básica de regiones  
+    // printf("Región actual[%d]:\n", region_idx);  
+    // printf("  floor_height: %d\n", current->floor_height);  
+    // printf("  ceil_height: %d\n", current->ceil_height);  
+    // printf("  active: %s\n", current->active ? "SÍ" : "NO");  
+    // printf("  floor_tex: %d\n", current->floor_tex);  
+    // printf("  ceil_tex: %d\n", current->ceil_tex);  
+      
+    // printf("Región adyacente[%d]:\n", adjacent_idx);  
+    // printf("  floor_height: %d\n", adjacent->floor_height);  
+    // printf("  ceil_height: %d\n", adjacent->ceil_height);  
+    // printf("  active: %s\n", adjacent->active ? "SÍ" : "NO");  
+    // printf("  floor_tex: %d\n", adjacent->floor_tex);  
+    // printf("  ceil_tex: %d\n", adjacent->ceil_tex);  
+      
+    // Calcular diferencias  
+    int floor_diff = current->floor_height - adjacent->floor_height;  
+    int ceil_diff = current->ceil_height - adjacent->ceil_height;  
+      
+   // printf("\nAnálisis de diferencias:\n");  
+  //  printf("  Diferencia floor: %d (%s)\n", floor_diff,   
+   
+//     printf("  Diferencia ceil: %d (%s)\n", ceil_diff,   
+        //   ceil_diff != 0 ? "COMPLEJO" : "igual");  
+      
+    // Determinar si debería ser complejo  
+    bool should_be_complex = (floor_diff != 0) || (ceil_diff != 0);  
+   // printf("\nResultado: %s\n", should_be_complex ?   
+           //"DEBERÍA SER GEOMETRÍA COMPLEJA" : "geometría simple");  
+      
+    // Buscar paredes que conectan estas regiones  
+  // printf("\nParedes que conectan región[%d] con región[%d]:\n", region_idx, adjacent_idx);  
+    int connecting_walls = 0;  
+      
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        bool connects = false;  
+        if ((wall->front_region == region_idx && wall->back_region == adjacent_idx) ||  
+            (wall->front_region == adjacent_idx && wall->back_region == region_idx)) {  
+            connects = true;  
+        }  
+          
+        if (connects) {  
+            connecting_walls++;  
+            printf("  Pared[%d]: p1=%d, p2=%d, type=%d\n",   
+                   i, wall->p1, wall->p2, wall->type);  
+            printf("    texture: %d, texture_top: %d, texture_bot: %d\n",  
+                   wall->texture, wall->texture_top, wall->texture_bot);  
+              
+            // Validar texturas para portales  
+            if (wall->type == 1) {  
+                if (wall->texture_top == 0 || wall->texture_bot == 0) {  
+                    printf("    ⚠️  ADVERTENCIA: Portal sin texturas top/bot\n");  
+                }  
+            }  
+        }  
+    }  
+      
+    if (connecting_walls == 0) {  
+        printf("  ❌ No se encontraron paredes que conecten estas regiones\n");  
+    } else {  
+        printf("  ✓ Encontradas %d paredes conectando las regiones\n", connecting_walls);  
+    }  
+      
+    printf("=== FIN DEBUG ===\n\n");  
+}
+
+int64_t libmod_heightmap_set_wld_fov(INSTANCE *my, int64_t *params) {  
+    float new_fov = *(float*)&params[0];  
+      
+    if (new_fov < 0.001f || new_fov > 0.01f) {  
+        fprintf(stderr, "Error: wld_fov debe estar entre 0.001 y 0.01\n");  
+        return 0;  
+    }  
+      
+    wld_angle_step = new_fov;  
+    return 1;  
+}
+
+void validate_and_fix_portals(WLD_Map *map) {  
+    if (!map) return;  
+      
+    int fixed_count = 0;  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        // Si es portal pero tiene textura en medio, corregir  
+        if (wall->type == 1 && wall->texture > 0) {  
+            printf("CORRECCIÓN: Portal[%d] tenía texture=%d, estableciendo a 0\n",   
+                   i, wall->texture);  
+            wall->texture = 0;  
+            fixed_count++;  
+        }  
+          
+        // Asegurar que portales tengan texturas top/bot  
+        if (wall->type == 1 && wall->back_region >= 0) {  
+            if (wall->texture_top == 0 && map->regions[wall->front_region]) {  
+                wall->texture_top = map->regions[wall->front_region]->ceil_tex;  
+            }  
+            if (wall->texture_bot == 0 && map->regions[wall->front_region]) {  
+                wall->texture_bot = map->regions[wall->front_region]->floor_tex;  
+            }  
+        }  
+    }  
+      
+    if (fixed_count > 0) {  
+        printf("DEBUG: Se corrigieron %d portales con textura incorrecta\n", fixed_count);  
+    }  
+}
+
+void export_map_to_text(WLD_Map *map, const char *filename) {  
+    FILE *f = fopen(filename, "w");  
+    if (!f) return;  
+      
+    fprintf(f, "PUNTOS:\n");  
+    for (int i = 0; i < map->num_points; i++) {  
+        fprintf(f, "  %d: (%d,%d)\n", i,   
+                map->points[i]->x, map->points[i]->y);  
+    }  
+      
+    fprintf(f, "\nPAREDES:\n");  
+    for (int i = 0; i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        fprintf(f, "  %d: p1=%d, p2=%d, front=%d, back=%d, type=%d\n",  
+                i, wall->p1, wall->p2, wall->front_region,   
+                wall->back_region, wall->type);  
+    }  
+      
+    fclose(f);  
+}
+
+// Añade este código para analizar las coordenadas  
+void analyze_wall_coordinates(WLD_Map *map) {  
+    printf("DEBUG: Analizando coordenadas de paredes...\n");  
+    for (int i = 0; i < 10 && i < map->num_walls; i++) {  
+        WLD_Wall *wall = map->walls[i];  
+        if (!wall) continue;  
+          
+        printf("Pared[%d]: p1=(%d,%d), p2=(%d,%d)\n",  
+               i,   
+               map->points[wall->p1]->x, map->points[wall->p1]->y,  
+               map->points[wall->p2]->x, map->points[wall->p2]->y);  
+    }  
+}
+
+
 
 #include "libmod_heightmap_exports.h"
+void render_wall_section(WLD_Map *map, int texture_index, int col,   
+                        int y_start, int y_end, float wall_u, float fog_factor,   
+                        char *section_name)  
+{  
+    if (y_start >= y_end) return;  
+      
+    if (texture_index <= 0) {  
+        // No dibujar nada si no hay textura (evitar colores de debug)
+        return;  
+    }  
+      
+    GRAPH *tex_graph = get_tex_image(texture_index);  
+    if (!tex_graph) return;  
+      
+    int tex_x = (int)(wall_u * tex_graph->width) % tex_graph->width;  
+    if (tex_x < 0) tex_x = 0;  
+    if (tex_x >= tex_graph->width) tex_x = tex_graph->width - 1;  
+      
+    float wall_height = y_end - y_start;  
+      
+    for (int y = y_start; y < y_end; y++) {  
+        float v = (float)(y - y_start) / wall_height;  
+        int tex_y = (int)(v * tex_graph->height) % tex_graph->height;  
+          
+        uint32_t pixel = gr_get_pixel(tex_graph, tex_x, tex_y);  
+          
+        uint8_t r = (pixel >> gPixelFormat->Rshift) & 0xFF;  
+        uint8_t g = (pixel >> gPixelFormat->Gshift) & 0xFF;  
+        uint8_t b = (pixel >> gPixelFormat->Bshift) & 0xFF;  
+          
+        r = (uint8_t)(r * fog_factor);  
+        g = (uint8_t)(g * fog_factor);  
+        b = (uint8_t)(b * fog_factor);  
+          
+        uint32_t color = SDL_MapRGB(gPixelFormat, r, g, b);  
+        gr_put_pixel(render_buffer, col, y, color);  
+    }  
+}
+
+void render_complex_wall_section(WLD_Map *map, WLD_Wall *wall, WLD_Region *region,      
+                                int region_idx, int col, int screen_w, int screen_h,      
+                                int y_start, int y_end, float wall_u, float fog_factor,      
+                                float cam_x, float cam_y, float cam_z, float hit_distance,  
+                                int clip_top, int clip_bottom)      
+{      
+    // Validar región adyacente      
+    WLD_Region *adjacent_region = NULL;      
+    int adjacent_idx = -1;      
+          
+    if (wall->front_region == region_idx) {      
+        adjacent_idx = wall->back_region;      
+    } else if (wall->back_region == region_idx) {      
+        adjacent_idx = wall->front_region;      
+    }      
+          
+    if (adjacent_idx < 0 || adjacent_idx >= map->num_regions) {      
+        // printf("DEBUG: Región adyacente inválida %d\n", adjacent_idx);      
+        render_wall_column(map, wall, region_idx, col, screen_w, screen_h,      
+                          cam_x, cam_y, cam_z, hit_distance, clip_top, clip_bottom);      
+        return;      
+    }      
+          
+    adjacent_region = map->regions[adjacent_idx];      
+    if (!adjacent_region || !adjacent_region->active) {      
+        // printf("DEBUG: Región adyacente nula o inactiva %d\n", adjacent_idx);      
+        render_wall_column(map, wall, region_idx, col, screen_w, screen_h,      
+                          cam_x, cam_y, cam_z, hit_distance, clip_top, clip_bottom);      
+        return;      
+    }      
+          
+    // Factor de proyección VPE      
+    float t1 = 300.0f / hit_distance;      
+          
+    // Calcular alturas proyectadas correctamente (Y=0 arriba)      
+    float curr_floor_t = (cam_z - region->floor_height);      
+    float curr_ceil_t = (cam_z - region->ceil_height);      
+    float adj_floor_t = (cam_z - adjacent_region->floor_height);      
+    float adj_ceil_t = (cam_z - adjacent_region->ceil_height);      
+          
+    // Usar fórmula consistente con render_wall_column      
+    int cf_y = (screen_h/2.0f) + curr_floor_t * t1;  // Y positivo = abajo      
+    int cc_y = (screen_h/2.0f) + curr_ceil_t * t1;   // Y positivo = abajo      
+    int af_y = (screen_h/2.0f) + adj_floor_t * t1;      
+    int ac_y = (screen_h/2.0f) + adj_ceil_t * t1;      
+          
+    // Asegurar orden correcto (techo arriba, piso abajo)      
+    if (cf_y < cc_y) {      
+        int temp = cf_y; cf_y = cc_y; cc_y = temp;      
+    }      
+    if (af_y < ac_y) {      
+        int temp = af_y; af_y = ac_y; ac_y = temp;      
+    }      
+          
+    // Limitar a pantalla      
+    cf_y = (cf_y < 0) ? 0 : (cf_y >= screen_h) ? screen_h-1 : cf_y;      
+    cc_y = (cc_y < 0) ? 0 : (cc_y >= screen_h) ? screen_h-1 : cc_y;      
+    af_y = (af_y < 0) ? 0 : (af_y >= screen_h) ? screen_h-1 : af_y;      
+    ac_y = (ac_y < 0) ? 0 : (ac_y >= screen_h) ? screen_h-1 : ac_y;      
+          
+    // CORRECCIÓN: Calcular wall_u si no se proporcionó      
+    if (wall_u == 0.0f) {      
+        int p1 = wall->p1;      
+        int p2 = wall->p2;      
+        if (p1 >= 0 && p1 < map->num_points && p2 >= 0 && p2 < map->num_points) {      
+            float x1 = map->points[p1]->x;      
+            float y1 = map->points[p1]->y;      
+            float x2 = map->points[p2]->x;      
+            float y2 = map->points[p2]->y;      
+                  
+            // Calcular punto de impacto del rayo      
+            float angle_offset = ((float)col - screen_w/2.0f) * 0.003f;      
+            float ray_dir_x = cos(camera.angle + angle_offset);      
+            float ray_dir_y = sin(camera.angle + angle_offset);      
+                  
+            float hit_x = cam_x + ray_dir_x * hit_distance;      
+            float hit_y = cam_y + ray_dir_y * hit_distance;      
+                  
+            // Calcular wall_u como distancia normalizada desde p1      
+            float wall_dx = x2 - x1;      
+            float wall_dy = y2 - y1;      
+            float wall_len = sqrtf(wall_dx * wall_dx + wall_dy * wall_dy);      
+                  
+            if (wall_len > 0.001f) {      
+                float t = ((hit_x - x1) * wall_dx + (hit_y - y1) * wall_dy) / (wall_len * wall_len);      
+                wall_u = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t;      
+            }      
+        }      
+    }      
+          
+    // Renderizar sección superior (techo más bajo)      
+    if (cc_y < ac_y) {  
+        // Clampear con clips  
+        int draw_start = (cc_y < clip_top) ? clip_top : cc_y;  
+        int draw_end = (ac_y > clip_bottom) ? clip_bottom : ac_y;  
+          
+        if (draw_start < draw_end) {  
+            render_wall_section(map, wall->texture_top, col, draw_start, draw_end,      
+                           wall_u, fog_factor, "SUPERIOR");      
+        }  
+    }      
+          
+    // Renderizar sección media (portal visible) - CORREGIDO  
+    int mid_top = (cc_y > ac_y) ? cc_y : ac_y;      
+    int mid_bot = (cf_y < af_y) ? cf_y : af_y;      
+      
+    // Clampear mid con clips  
+    int draw_mid_top = (mid_top < clip_top) ? clip_top : mid_top;  
+    int draw_mid_bot = (mid_bot > clip_bottom) ? clip_bottom : mid_bot;  
+      
+    if (draw_mid_top < draw_mid_bot) {  
+        if (wall->texture > 0) {  
+            // Renderizar textura del portal si existe  
+            render_wall_section(map, wall->texture, col, draw_mid_top, draw_mid_bot,    
+                           wall_u, fog_factor, "MEDIO");    
+        }  
+        // Si wall->texture == 0, NO renderizar nada aquí  
+        // El raycasting continuará y mostrará el sector adyacente  
+    }      
+          
+    // Renderizar sección inferior (piso más alto)      
+    if (af_y < cf_y) {      
+        // Clampear con clips  
+        int draw_start = (af_y < clip_top) ? clip_top : af_y;  
+        int draw_end = (cf_y > clip_bottom) ? clip_bottom : cf_y;  
+          
+        if (draw_start < draw_end) {  
+            render_wall_section(map, wall->texture_bot, col, draw_start, draw_end,      
+                           wall_u, fog_factor, "INFERIOR");      
+        }  
+    }      
+          
+    // Renderizar piso y techo de la región ACTUAL (hasta el portal)  
+    // Usamos cc_y (techo proyectado) y cf_y (suelo proyectado) como límites  
+    render_floor_and_ceiling(map, region, col, screen_w, screen_h,      
+                            cc_y, cf_y, cam_x, cam_y, cam_z,      
+                            hit_distance, fog_factor, clip_top, clip_bottom);      
+}

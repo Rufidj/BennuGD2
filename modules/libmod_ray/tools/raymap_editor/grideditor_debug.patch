@@ -1,0 +1,20 @@
+diff --git a/grideditor.cpp b/grideditor.cpp
+index 1234567..abcdefg 100644
+--- a/grideditor.cpp
++++ b/grideditor.cpp
+@@ -84,6 +84,12 @@ void GridEditor::setZoom(float zoom)
+ QPoint GridEditor::getCellAtPosition(const QPoint &pos)
+ {
+     int x = pos.x() / m_cellSize;
+     int y = pos.y() / m_cellSize;
++    
++    // DEBUG: Imprimir las primeras 10 conversiones
++    static int debug_count = 0;
++    if (debug_count < 10) {
++        qDebug() << "getCellAtPosition: pos=" << pos << " cellSize=" << m_cellSize 
++                 << " zoom=" << m_zoom << " -> cell(" << x << "," << y << ")";
++        debug_count++;
++    }
++    
+     return QPoint(x, y);
+ }

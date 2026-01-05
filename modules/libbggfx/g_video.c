@@ -300,13 +300,6 @@ int gr_set_mode( int width, int height, int flags ) {
         if ( frameless ) sdl_flags |= SDL_WINDOW_BORDERLESS;
         if ( fullscreen ) sdl_flags |= SDL_WINDOW_FULLSCREEN;
         if ( grab_input ) sdl_flags |= SDL_WINDOW_INPUT_GRABBED;
-
-          // AÑADIR AQUÍ - Solicitar OpenGL 3.3 Core Profile  
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);  
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);  
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);  
-          
-        
 /*
         GPU_InitFlagEnum GPU_flags = GPU_GetPreInitFlags() & ~( GPU_INIT_ENABLE_VSYNC | GPU_INIT_DISABLE_VSYNC );
         if ( !waitvsync ) GPU_flags |= GPU_INIT_DISABLE_VSYNC;
@@ -320,25 +313,6 @@ int gr_set_mode( int width, int height, int flags ) {
         GLint params = 0;
         glGetIntegerv( GL_MAX_TEXTURE_SIZE, &params );
         gMaxTextureSize = ( int64_t ) params;
-
-        // AÑADIR AQUÍ - Verificar versión OpenGL obtenida  
-        int major = 0, minor = 0;  
-        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);  
-        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);  
-          
-        const GLubyte* version = glGetString(GL_VERSION);  
-        const GLubyte* renderer = glGetString(GL_RENDERER);  
-          
-        printf("OpenGL Context Created:\n");  
-        printf("  Requested: 3.3 Core\n");  
-        printf("  Obtained: %d.%d\n", major, minor);  
-        printf("  Version String: %s\n", version);  
-        printf("  Renderer: %s\n", renderer);  
-          
-        if (major < 3 || (major == 3 && minor < 3)) {  
-            printf("WARNING: OpenGL 3.3 not available, got %d.%d instead\n", major, minor);  
-            printf("Some features may not work correctly.\n");  
-        }
 
     } else {
 #ifdef __ANDROID__
