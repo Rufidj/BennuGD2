@@ -154,6 +154,11 @@ int64_t system_paused = 0;
 #define _OS_ID          OS_PS3
 #endif
 
+#ifdef __EMSCRIPTEN__
+#undef _OS_ID
+#define _OS_ID          OS_EMSCRIPTEN
+#endif
+
 /* --------------------------------------------------------------------------- */
 
 #if defined(TARGET_GP2X_WIZ) || defined(TARGET_CAANOO)

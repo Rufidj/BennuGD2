@@ -34,6 +34,10 @@ public:
     static bool loadFPG(const QString &filename, QVector<TextureEntry> &textures,
                        std::function<void(int, int, const QString&)> progressCallback = nullptr);
     
+    // Guardar archivo FPG
+    static bool saveFPG(const QString &filename, const QVector<TextureEntry> &textures,
+                       bool compress = false);
+    
     // Obtener mapa de texturas por ID
     static QMap<int, QPixmap> getTextureMap(const QVector<TextureEntry> &textures);
     

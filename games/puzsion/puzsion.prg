@@ -19,7 +19,7 @@
 // a la vez, no usar funciones porque no sabia ni que existian, etc....
 // Sorry! Lo importante es que al darle al "play" todo funciona como debe (lucky!). Tambien es cierto que gracias
 // a estos errores he aprendido bastante para poder gestionar mi proximo proyecto infinitamente mejor.
-// Pd: BennuGd es la caña! Amzg tambien!
+// Pd: BennuGd es la caï¿½a! Amzg tambien!
 
 import "libmod_gfx";
 import "libmod_misc";
@@ -1940,7 +1940,7 @@ BEGIN
 				CHAIN++;
 				signal(type combo,s_kill);
 				combo(chain+1,1,0);
-				LISTA[CANDIDATO].ELIMINAR=CASILLA; //--> SE AÑADE EL NUMERO DE LA CASILLA AL STRUCT LISTA COMO CANDIDATO A DESTRUIR EN CASO DE QUE EL CHAIN SEA VALIDO
+				LISTA[CANDIDATO].ELIMINAR=CASILLA; //--> SE Aï¿½ADE EL NUMERO DE LA CASILLA AL STRUCT LISTA COMO CANDIDATO A DESTRUIR EN CASO DE QUE EL CHAIN SEA VALIDO
 				CANDIDATO++;
 
 

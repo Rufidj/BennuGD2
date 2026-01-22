@@ -103,9 +103,42 @@ int64_t gr_get_pixel( GRAPH * gr, int64_t x, int64_t y ) {
 
     bitmap_update_surface( gr );
 
+    if ( !gr->surface ) return -1;
+
     if ( x >= ( int64_t ) gr->surface->w || y >= ( int64_t ) gr->surface->h ) return -1;
 
-    return *( uint32_t * ) ( ( ( uint8_t * ) gr->surface->pixels ) + ( y * gr->surface->pitch + x * 4 ) );
+    int bpp = gr->surface->format->BytesPerPixel;
+    uint8_t *p = (uint8_t *)gr->surface->pixels + y * gr->surface->pitch + x * bpp;
+    uint32_t pixel = 0;
+
+    switch(bpp) {
+        case 1:
+            pixel = *p;
+            break;
+        case 2:
+            pixel = *(uint16_t *)p;
+            break;
+        case 3:
+            if(SDL_BYTEORDER == SDL_BIG_ENDIAN)
+                pixel = p[0] << 16 | p[1] << 8 | p[2];
+            else
+                pixel = p[0] | p[1] << 8 | p[2] << 16;
+            break;
+        case 4:
+            pixel = *(uint32_t *)p;
+            break;
+        default:
+            return 0;
+    }
+
+    /* Convert to global format if needed (e.g. 8-bit palettized to 32-bit RGBA) */
+    if ( gr->surface->format->format != gPixelFormat->format ) {
+        Uint8 r, g, b, a;
+        SDL_GetRGBA( pixel, gr->surface->format, &r, &g, &b, &a );
+        return (int32_t)SDL_MapRGBA( gPixelFormat, r, g, b, a );
+    }
+
+    return (int32_t)pixel;
 }
 #endif
 
@@ -146,7 +179,7 @@ void gr_put_pixel( GRAPH * gr, int64_t x, int64_t y, int64_t color ) {
     SDL_SetRenderTarget( gRenderer, gr->tex );
     SDL_GetRGBA( color, gPixelFormat, &c.r, &c.g, &c.b, &c.a ) ;
     SDL_SetRenderDrawColor( gRenderer, c.r, c.g, c.b, c.a );
-    SDL_Rect rect = { x, y, 1, 1 };
+    SDL_Rect rect = { (int)x, (int)y, 1, 1 };
     SDL_RenderFillRect( gRenderer, &rect );
     SDL_SetRenderTarget( gRenderer, NULL );
 #endif

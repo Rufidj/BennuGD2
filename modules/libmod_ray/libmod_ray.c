@@ -272,6 +272,28 @@ static void ray_bake_pvs_recursive(int source_id, int current_id, int depth, uin
     }
 }
 
+// HIERARCHY FIX: Helper function to recursively mark all descendants as visible
+static void mark_descendants_visible(int ancestor_idx, int descendant_idx) {
+    // Mark ancestor->descendant as visible
+    g_engine.pvs_matrix[ancestor_idx * g_engine.num_sectors + descendant_idx] = 1;
+    // Mark descendant->ancestor as visible (bidirectional)
+    g_engine.pvs_matrix[descendant_idx * g_engine.num_sectors + ancestor_idx] = 1;
+
+    // Recursively mark all children of this descendant
+    RAY_Sector *desc_sector = &g_engine.sectors[descendant_idx];
+    for (int c = 0; c < desc_sector->num_children; c++) {
+        int child_id = desc_sector->child_sector_ids[c];
+        
+        // Find child index
+        for (int j = 0; j < g_engine.num_sectors; j++) {
+            if (g_engine.sectors[j].sector_id == child_id) {
+                mark_descendants_visible(ancestor_idx, j);
+                break;
+            }
+        }
+    }
+}
+
 void ray_bake_pvs() {
     if (g_engine.num_sectors == 0) return;
     
@@ -307,28 +329,6 @@ void ray_bake_pvs() {
     // This ensures nested sectors are always visible from their parent
     // We need to do this TRANSITIVELY - grandparents can see grandchildren, etc.
     
-    // Helper function to recursively mark all descendants as visible
-    void mark_descendants_visible(int ancestor_idx, int descendant_idx) {
-        // Mark ancestor->descendant as visible
-        g_engine.pvs_matrix[ancestor_idx * g_engine.num_sectors + descendant_idx] = 1;
-        // Mark descendant->ancestor as visible (bidirectional)
-        g_engine.pvs_matrix[descendant_idx * g_engine.num_sectors + ancestor_idx] = 1;
-        
-        // Recursively mark all children of this descendant
-        RAY_Sector *desc_sector = &g_engine.sectors[descendant_idx];
-        for (int c = 0; c < desc_sector->num_children; c++) {
-            int child_id = desc_sector->child_sector_ids[c];
-            
-            // Find child index
-            for (int j = 0; j < g_engine.num_sectors; j++) {
-                if (g_engine.sectors[j].sector_id == child_id) {
-                    mark_descendants_visible(ancestor_idx, j);
-                    break;
-                }
-            }
-        }
-    }
-    
     for (int i = 0; i < g_engine.num_sectors; i++) {
         RAY_Sector *sector = &g_engine.sectors[i];
         
@@ -356,6 +356,7 @@ void ray_bake_pvs() {
     g_engine.pvs_ready = 1;
     printf("RAY: PVS Bake Complete.\n");
 }
+
 
 int64_t libmod_ray_load_map(INSTANCE *my, int64_t *params) {
     if (!g_engine.initialized) {
@@ -1139,3 +1140,13 @@ int64_t libmod_ray_set_texture_quality(INSTANCE *my, int64_t *params) {
 }
 
 #include "libmod_ray_exports.h"
+/* Hooks del módulo */
+void __bgdexport( libmod_ray, module_initialize )() {
+    if (!g_engine.initialized) {
+        memset(&g_engine, 0, sizeof(RAY_Engine));
+    }
+}
+
+void __bgdexport( libmod_ray, module_finalize )() {
+    // No action needed
+}

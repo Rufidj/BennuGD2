@@ -14,7 +14,7 @@ find_package(ZLIB REQUIRED)
 
 # Buscar Qt5 o Qt6
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets OpenGL OpenGLWidgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets OpenGL OpenGLWidgets Network)
 
 # Buscar OpenGL
 find_package(OpenGL REQUIRED)
@@ -24,6 +24,28 @@ set(PROJECT_SOURCES
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    mainwindow_darkmode.cpp
+    mainwindow_build.cpp
+    mainwindow_project.cpp
+    newprojectdialog.h newprojectdialog.cpp
+    projectsettingsdialog.h projectsettingsdialog.cpp
+    consolewidget.h consolewidget.cpp
+    assetbrowser.h assetbrowser.cpp
+    buildmanager.h buildmanager.cpp
+    bennugdinstaller.h bennugdinstaller.cpp
+    codegenerator.h codegenerator.cpp
+    processgenerator.h processgenerator.cpp
+    projectmanager.h projectmanager.cpp
+    codepreviewpanel.h codepreviewpanel.cpp
+    codeeditor.h codeeditor.cpp
+    codeeditordialog.h codeeditordialog.cpp
+    md3loader.h md3loader.cpp
+    entitypropertypanel.h entitypropertypanel.cpp
+    objtomd3converter.h objtomd3converter.cpp
+    objimportdialog.h objimportdialog.cpp
+    publishdialog.h publishdialog.cpp
+    publisher.h publisher.cpp
+    downloader.h downloader.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -32,6 +54,21 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_SOURCES}
         fpgloader.h
         fpgloader.cpp
+        fpgeditor.h
+        fpgeditor.cpp
+        effectgenerator.h
+        effectgenerator.cpp
+        effectgeneratordialog.h
+        effectgeneratordialog.cpp
+        camerakeyframe.h
+        camerapath.h
+        camerapath.cpp
+        camerapathio.h
+        camerapathio.cpp
+        camerapatheditor.h
+        camerapatheditor.cpp
+        camerapathcanvas.h
+        camerapathcanvas.cpp
         grideditor.h
         grideditor.cpp
         textureselector.h
@@ -53,12 +90,39 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         raycastrenderer.cpp
         insertboxdialog.h
         insertboxdialog.cpp
+        meshgeneratordialog.h
+        meshgeneratordialog.cpp
+        rampgenerator.h
+        rampgenerator.cpp
+        rampgeneratordialog.h
+        rampgeneratordialog.cpp
+        md3generator.h
+        md3generator.cpp
+        modelpreviewwidget.h
+        modelpreviewwidget.cpp
+        textureatlasgen.h
+        textureatlasgen.cpp
     )
 else()
     add_executable(raymap_editor
         ${PROJECT_SOURCES}
         fpgloader.h
         fpgloader.cpp
+        fpgeditor.h
+        fpgeditor.cpp
+        effectgenerator.h
+        effectgenerator.cpp
+        effectgeneratordialog.h
+        effectgeneratordialog.cpp
+        camerakeyframe.h
+        camerapath.h
+        camerapath.cpp
+        camerapathio.h
+        camerapathio.cpp
+        camerapatheditor.h
+        camerapatheditor.cpp
+        camerapathcanvas.h
+        camerapathcanvas.cpp
         grideditor.h
         grideditor.cpp
         textureselector.h
@@ -80,6 +144,18 @@ else()
         raycastrenderer.cpp
         insertboxdialog.h
         insertboxdialog.cpp
+        meshgeneratordialog.h
+        meshgeneratordialog.cpp
+        rampgenerator.h
+        rampgenerator.cpp
+        rampgeneratordialog.h
+        rampgeneratordialog.cpp
+        md3generator.h
+        md3generator.cpp
+        modelpreviewwidget.h
+        modelpreviewwidget.cpp
+        textureatlasgen.h
+        textureatlasgen.cpp
     )
 endif()
 
@@ -88,6 +164,7 @@ target_link_libraries(raymap_editor PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::OpenGL
     Qt${QT_VERSION_MAJOR}::OpenGLWidgets
+    Qt${QT_VERSION_MAJOR}::Network
     ${OPENGL_LIBRARIES}
     ZLIB::ZLIB
 )
@@ -112,3 +189,11 @@ install(TARGETS raymap_editor
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(raymap_editor)
 endif()
+
+# Copy loader_stub.exe to build directory
+add_custom_command(TARGET raymap_editor POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/loader_stub.exe"
+    "$<TARGET_FILE_DIR:raymap_editor>/loader_stub.exe"
+    COMMENT "Copying loader_stub.exe to output directory"
+)

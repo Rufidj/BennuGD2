@@ -12,12 +12,18 @@
 #include <QMessageBox>
 #include <QMenu>
 #include <QContextMenuEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
+#include <QFileInfo>
 #include <cmath>
+#include <cfloat>
 
 GridEditor::GridEditor(QWidget *parent)
     : QWidget(parent)
-    , m_mapData(nullptr)
-    , m_editMode(MODE_DRAW_SECTOR)
+    , m_mapData(new MapData())
+    , m_editMode(MODE_SELECT_SECTOR)
     , m_selectedTexture(1)
     , m_selectedSector(-1)
     , m_selectedWall(-1)
@@ -28,19 +34,33 @@ GridEditor::GridEditor(QWidget *parent)
     , m_panY(0.0f)
     , m_isDrawing(false)
     , m_isDraggingSector(false)
+    , m_isDraggingEntity(false)
     , m_draggedVertex(-1)
     , m_hasCameraPosition(false)
-    , m_cameraX(384.0f)
-    , m_cameraY(384.0f)
+    , m_cameraX(0.0f)
+    , m_cameraY(0.0f)
+    , m_manualPortalMode(false)
+    , m_isMovingGroup(false)
+    , m_movingGroupId(-1)
+    , m_showGrid(true) // Default true
 {
     setMinimumSize(800, 600);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
+    setAcceptDrops(true); // Enable Drag & Drop
 }
 
-void GridEditor::setMapData(MapData *data)
+GridEditor::~GridEditor()
 {
-    m_mapData = data;
+    if (m_mapData) {
+        delete m_mapData;
+    }
+}
+
+void GridEditor::newMap()
+{
+    if (m_mapData) delete m_mapData;
+    m_mapData = new MapData();
     update();
 }
 
@@ -79,6 +99,12 @@ void GridEditor::setSelectedWall(int wallId)
 void GridEditor::setZoom(float zoom)
 {
     m_zoom = qBound(0.1f, zoom, 10.0f);
+    update();
+}
+
+void GridEditor::showGrid(bool show)
+{
+    m_showGrid = show;
     update();
 }
 
@@ -207,6 +233,8 @@ int GridEditor::findSectorAt(const QPointF &worldPos)
     return bestSector;
 }
 
+
+
 int GridEditor::findWallAt(const QPointF &worldPos, float tolerance)
 {
     if (!m_mapData) return -1;
@@ -314,6 +342,28 @@ int GridEditor::findSpawnFlagAt(const QPointF &worldPos, float tolerance)
     return closestFlag;
 }
 
+int GridEditor::findEntityAt(const QPointF &worldPos, float tolerance)
+{
+    if (!m_mapData) return -1;
+    
+    float minDist = tolerance / m_zoom;
+    int closestEntity = -1;
+    
+    for (int i = 0; i < m_mapData->entities.size(); i++) {
+        const EntityInstance &ent = m_mapData->entities[i];
+        float dx = worldPos.x() - ent.x;
+        float dy = worldPos.y() - ent.y;
+        float dist = std::sqrt(dx * dx + dy * dy);
+        
+        if (dist < minDist) {
+            minDist = dist;
+            closestEntity = i;
+        }
+    }
+    
+    return closestEntity;
+}
+
 float GridEditor::pointToLineDistance(const QPointF &point, const QPointF &lineStart, const QPointF &lineEnd) const
 {
     QPointF v = lineEnd - lineStart;
@@ -365,6 +415,9 @@ void GridEditor::paintEvent(QPaintEvent *event)
     
     // Draw spawn flags
     drawSpawnFlags(painter);
+
+    // Draw entities
+    drawEntities(painter);
     
     // Draw camera
     drawCamera(painter);
@@ -372,6 +425,42 @@ void GridEditor::paintEvent(QPaintEvent *event)
     // Draw current polygon being drawn
     if (m_editMode == MODE_DRAW_SECTOR && !m_currentPolygon.isEmpty()) {
         drawCurrentPolygon(painter);
+    }
+    
+    // Draw group selection highlight
+    if (m_isMovingGroup && m_movingGroupId >= 0) {
+        const SectorGroup *group = m_mapData->findGroup(m_movingGroupId);
+        if (group) {
+            // Calculate bounding box of all sectors in group
+            float minX = FLT_MAX, minY = FLT_MAX;
+            float maxX = -FLT_MAX, maxY = -FLT_MAX;
+            
+            for (int sectorId : group->sector_ids) {
+                const Sector *sector = m_mapData->findSector(sectorId);
+                if (sector) {
+                    for (const QPointF &v : sector->vertices) {
+                        minX = qMin(minX, (float)v.x());
+                        minY = qMin(minY, (float)v.y());
+                        maxX = qMax(maxX, (float)v.x());
+                        maxY = qMax(maxY, (float)v.y());
+                    }
+                }
+            }
+            
+            // Draw bounding rectangle
+            QPoint topLeft = worldToScreen(QPointF(minX, minY));
+            QPoint bottomRight = worldToScreen(QPointF(maxX, maxY));
+            QRect boundingRect(topLeft, bottomRight);
+            
+            painter.setPen(QPen(QColor(255, 200, 0), 3, Qt::DashLine));
+            painter.setBrush(Qt::NoBrush);
+            painter.drawRect(boundingRect);
+            
+            // Draw group name
+            painter.setPen(QPen(QColor(255, 255, 255), 1));
+            painter.setFont(QFont("Arial", 12, QFont::Bold));
+            painter.drawText(topLeft + QPoint(5, -5), group->name);
+        }
     }
     
     // Draw cursor coordinates
@@ -440,7 +529,7 @@ void GridEditor::drawSectors(QPainter &painter)
         painter.setPen(Qt::NoPen);
         painter.drawPolygon(polygon);
         
-        // Draw sector ID
+        // Draw sector ID and Slope Info
         QPointF center(0, 0);
         for (const QPointF &v : sector.vertices) {
             center += v;
@@ -450,6 +539,8 @@ void GridEditor::drawSectors(QPainter &painter)
         
         painter.setPen(QPen(QColor(200, 200, 200), 1));
         painter.drawText(screenCenter, QString("S%1").arg(sector.sector_id));
+        
+        // SLOPE INDICATOR REMOVED
     }
 }
 
@@ -597,6 +688,12 @@ void GridEditor::mousePressEvent(QMouseEvent *event)
         return;
     }
     
+    // Handle group movement mode
+    if (m_isMovingGroup && event->button() == Qt::LeftButton) {
+        m_groupMoveStart = worldPos;
+        return;
+    }
+    
     if (event->button() == Qt::LeftButton) {
         switch (m_editMode) {
             case MODE_DRAW_SECTOR:
@@ -616,6 +713,15 @@ void GridEditor::mousePressEvent(QMouseEvent *event)
             }
                 
             case MODE_SELECT_WALL: {
+                // Check entities first
+                int entityIdx = findEntityAt(worldPos);
+                if (entityIdx >= 0) {
+                    m_selectedEntity = entityIdx;
+                    emit entitySelected(entityIdx, m_mapData->entities[entityIdx]);
+                    update();
+                    break;
+                }
+
                 int wallIdx = findWallAt(worldPos);
                 if (wallIdx >= 0 && m_selectedSector >= 0 && m_selectedSector < m_mapData->sectors.size()) {
                     // findWallAt sets m_selectedSector to the sector containing the wall
@@ -628,6 +734,21 @@ void GridEditor::mousePressEvent(QMouseEvent *event)
                     // No wall found - check if clicked inside a sector
                     int sectorIdx = findSectorAt(worldPos);
                     if (sectorIdx >= 0) {
+                        // Check if this sector belongs to a group
+                        int sectorId = m_mapData->sectors[sectorIdx].sector_id;
+                        int groupId = m_mapData->findGroupForSector(sectorId);
+                        
+                        if (groupId >= 0) {
+                            // Sector belongs to a group - auto-select group for movement
+                            setGroupMoveMode(groupId);
+                            m_groupMoveStart = worldPos;
+                            QMessageBox::information(this, tr("Grupo Seleccionado"),
+                                tr("Grupo seleccionado. Arrastra para mover todos los sectores del grupo.\n"
+                                   "Presiona ESC para cancelar."));
+                            update();
+                            return;
+                        }
+                        
                         // Check if we are clicking inside the ALREADY SELECTED sector
                         if (sectorIdx == m_selectedSector) {
                             // Start Dragging Sector
@@ -682,7 +803,7 @@ void GridEditor::mousePressEvent(QMouseEvent *event)
             }
                 
             case MODE_PLACE_SPAWN: {
-                int flagId = m_mapData ? m_mapData->spawnFlags.size() + 1 : 1;
+                int flagId = m_mapData ? m_mapData->getNextSpawnEntityId() : 1;
                 if (m_mapData) {
                     SpawnFlag flag;
                     flag.flagId = flagId;
@@ -696,7 +817,11 @@ void GridEditor::mousePressEvent(QMouseEvent *event)
                 break;
             }
                 
-
+            case MODE_PLACE_DECAL_FLOOR:
+            case MODE_PLACE_DECAL_CEILING:
+                emit decalPlaced(worldPos.x(), worldPos.y());
+                update();
+                break;
 
             case MODE_MANUAL_PORTAL: {
                 int wallIdx = findWallAt(worldPos);
@@ -706,6 +831,24 @@ void GridEditor::mousePressEvent(QMouseEvent *event)
                     // Force update to show potential highlight if we add it later
                     update();
                 }
+                break;
+            }
+            
+            case MODE_SELECT_ENTITY: {
+                int entityIdx = findEntityAt(worldPos);
+                if (entityIdx >= 0) {
+                    m_selectedEntity = entityIdx;
+                    emit entitySelected(entityIdx, m_mapData->entities[entityIdx]);
+                    
+                    m_isDraggingEntity = true;
+                    m_dragStartPos = worldPos;
+                    setCursor(Qt::SizeAllCursor);
+                } else {
+                    m_selectedEntity = -1;
+                    EntityInstance empty; // Dummy for deselection
+                    emit entitySelected(-1, empty);
+                }
+                update();
                 break;
             }
                 
@@ -772,6 +915,44 @@ void GridEditor::mouseMoveEvent(QMouseEvent *event)
     
     QPointF worldPos = screenToWorld(event->pos());
     
+    // Handle Group Movement
+    if (m_isMovingGroup && (event->buttons() & Qt::LeftButton) && m_movingGroupId >= 0 && m_mapData) {
+        // Calculate total offset from the start position
+        QPointF totalOffset = worldPos - m_groupMoveStart;
+        
+        // Find the group
+        const SectorGroup *group = m_mapData->findGroup(m_movingGroupId);
+        if (group) {
+            // Move all sectors in the group
+            for (int sectorId : group->sector_ids) {
+                Sector *sector = m_mapData->findSector(sectorId);
+                if (sector && m_originalGroupPositions.contains(sectorId)) {
+                    const QVector<QPointF> &originalVertices = m_originalGroupPositions[sectorId];
+                    
+                    // Update vertices from original positions + total offset
+                    for (int i = 0; i < sector->vertices.size() && i < originalVertices.size(); i++) {
+                        sector->vertices[i] = originalVertices[i] + totalOffset;
+                    }
+                    
+                    // Update walls from vertices
+                    for (int w = 0; w < sector->walls.size(); w++) {
+                        int v1 = w;
+                        int v2 = (w + 1) % sector->vertices.size();
+                        if (v1 < sector->vertices.size() && v2 < sector->vertices.size()) {
+                            sector->walls[w].x1 = sector->vertices[v1].x();
+                            sector->walls[w].y1 = sector->vertices[v1].y();
+                            sector->walls[w].x2 = sector->vertices[v2].x();
+                            sector->walls[w].y2 = sector->vertices[v2].y();
+                        }
+                    }
+                }
+            }
+        }
+        
+        update();
+        return;
+    }
+    
     // Handle Sector Dragging
     if (m_isDraggingSector && m_selectedSector >= 0 && m_selectedSector < m_mapData->sectors.size()) {
         float dx = worldPos.x() - m_dragStartPos.x();
@@ -827,6 +1008,36 @@ void GridEditor::mouseMoveEvent(QMouseEvent *event)
             emit mapChanged();
         }
     }
+    
+    // Entity dragging
+    if (m_isDraggingEntity && m_selectedEntity >= 0 && m_selectedEntity < m_mapData->entities.size()) {
+        float dx = worldPos.x() - m_dragStartPos.x();
+        float dy = worldPos.y() - m_dragStartPos.y();
+        
+        EntityInstance &ent = m_mapData->entities[m_selectedEntity];
+        ent.x += dx;
+        ent.y += dy;
+        
+        m_dragStartPos = worldPos;
+        update();
+        // Emit updated entity to panel (and visual mode via MainWindow)
+        // We reuse entitySelected to update panel values, OR create a new signal if needed.
+        // But MainWindow::onEntityChanged handles updateEntity (which loops back here).
+        // Let's check: MainWindow::onEntityChanged calls this->updateEntity.
+        // We want to notify MainWindow that entity changed.
+        
+        // Actually we need a signal "entityModified" from here to MainWindow.
+        // We have `entitySelected` which updates the panel. Let's use that to update the numbers.
+        // But we also want to update the Visual Mode.
+        // Ideally we emit `updateEntity` signal? No, `updateEntity` method is incoming.
+        
+        // Let's emit `entitySelected` again to update panel numbers
+        emit entitySelected(m_selectedEntity, ent);
+        // And emit dragged for visual update
+        emit entityMoved(m_selectedEntity, ent);
+        
+        return;
+    }
 }
 
 void GridEditor::mouseReleaseEvent(QMouseEvent *event)
@@ -838,25 +1049,58 @@ void GridEditor::mouseReleaseEvent(QMouseEvent *event)
             setCursor(Qt::ArrowCursor);
             emit mapChanged(); // Ensure final position is synced
         }
+        if (m_isDraggingEntity) {
+            m_isDraggingEntity = false;
+            setCursor(Qt::ArrowCursor);
+            emit mapChanged(); // Important to notify changes
+        }
     }
     else if (event->button() == Qt::MiddleButton) {
         setCursor(Qt::CrossCursor);
     }
 }
 
-void GridEditor::wheelEvent(QWheelEvent *event)
+void GridEditor::keyPressEvent(QKeyEvent *event)
 {
-    float delta = event->angleDelta().y() > 0 ? 1.1f : 0.9f;
-    setZoom(m_zoom * delta);
+    // ESC to cancel group movement
+    if (event->key() == Qt::Key_Escape) {
+        if (m_isMovingGroup) {
+            cancelGroupMove();
+            QMessageBox::information(this, tr("Cancelado"),
+                                   tr("Movimiento de grupo cancelado."));
+            return;
+        }
+    }
+    
+    // Slope Editing Keys REMOVED
+    
+    QWidget::keyPressEvent(event);
 }
-
 
 
 void GridEditor::contextMenuEvent(QContextMenuEvent *event)
 {
     QPointF worldPos = screenToWorld(event->pos());
     
-    // Check for spawn flag first (higher priority)
+    // Check for entity first (highest priority)
+    int entityIdx = findEntityAt(worldPos, 15.0f);
+    if (entityIdx >= 0 && m_mapData) {
+        const EntityInstance &ent = m_mapData->entities[entityIdx];
+        
+        QMenu menu(this);
+        QFileInfo info(ent.assetPath);
+        QAction *deleteAction = menu.addAction(tr("Eliminar Entidad '%1' (ID %2)").arg(info.fileName()).arg(ent.spawn_id));
+        
+        QAction *selectedItem = menu.exec(event->globalPos());
+        if (selectedItem == deleteAction) {
+            m_mapData->entities.removeAt(entityIdx);
+            emit mapChanged();
+            update();
+        }
+        return;
+    }
+
+    // Check for spawn flag
     int flagIdx = findSpawnFlagAt(worldPos, 15.0f);
     if (flagIdx >= 0 && m_mapData) {
         const SpawnFlag &flag = m_mapData->spawnFlags[flagIdx];
@@ -891,6 +1135,14 @@ void GridEditor::contextMenuEvent(QContextMenuEvent *event)
             }
         }
     }
+}
+
+void GridEditor::wheelEvent(QWheelEvent *event)
+{
+    // Zoom with mouse wheel
+    float delta = event->angleDelta().y() / 120.0f;
+    float newZoom = m_zoom * (1.0f + delta * 0.1f);
+    setZoom(newZoom);
 }
 
 void GridEditor::mouseDoubleClickEvent(QMouseEvent *event)
@@ -958,5 +1210,135 @@ void GridEditor::mouseDoubleClickEvent(QMouseEvent *event)
             update();
             QMessageBox::information(this, tr("Split Wall"), tr("Wall split successfully!"));
         }
+    }
+}
+
+/* ============================================================================
+   GROUP MOVEMENT
+   ============================================================================ */
+
+void GridEditor::setGroupMoveMode(int groupId)
+{
+    m_isMovingGroup = true;
+    m_movingGroupId = groupId;
+    m_originalGroupPositions.clear();
+    
+    // Store original positions of all sectors in the group
+    if (m_mapData) {
+        const SectorGroup *group = m_mapData->findGroup(groupId);
+        if (group) {
+            for (int sectorId : group->sector_ids) {
+                const Sector *sector = m_mapData->findSector(sectorId);
+                if (sector) {
+                    m_originalGroupPositions[sectorId] = sector->vertices;
+                }
+            }
+        }
+    }
+    
+    setCursor(Qt::SizeAllCursor);
+    update();
+}
+
+void GridEditor::cancelGroupMove()
+{
+    m_isMovingGroup = false;
+    m_movingGroupId = -1;
+    m_originalGroupPositions.clear();
+    setCursor(Qt::ArrowCursor);
+    update();
+}
+
+
+
+/* ============================================================================
+   DRAG AND DROP
+   ============================================================================ */
+
+void GridEditor::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+    }
+}
+
+void GridEditor::dragMoveEvent(QDragMoveEvent *event)
+{
+    event->acceptProposedAction();
+}
+
+void GridEditor::dropEvent(QDropEvent *event)
+{
+    const QMimeData *mimeData = event->mimeData();
+    
+    if (mimeData->hasUrls()) {
+        QList<QUrl> urlList = mimeData->urls();
+        if (urlList.isEmpty()) return;
+        
+        QString filePath = urlList.first().toLocalFile();
+        QFileInfo info(filePath);
+        QString ext = info.suffix().toLower();
+        
+        if (ext == "md3") {
+            // Calculate drop position in world coordinates
+            QPointF dropPos = screenToWorld(event->position().toPoint());
+            
+            // Create Entity Instance
+            EntityInstance entity;
+            entity.assetPath = filePath;
+            entity.type = "model";
+            
+            // Generate process name from filename (e.g., "caja.md3" -> "caja")
+            QString baseName = info.completeBaseName();  // Gets filename without extension
+            entity.processName = baseName;
+            
+            entity.x = dropPos.x();
+            entity.y = dropPos.y();
+            entity.z = 0.0f;
+            entity.spawn_id = m_mapData->getNextSpawnEntityId(); // Unified ID generation
+            
+            m_mapData->entities.append(entity);
+            
+            // QMessageBox removed as per user request
+                
+            update();
+            event->acceptProposedAction();
+        }
+    }
+}
+
+void GridEditor::drawEntities(QPainter &painter)
+{
+    if (!m_mapData) return;
+
+    painter.setBrush(QBrush(QColor(0, 200, 255))); // Cyan for entities
+    painter.setPen(QPen(QColor(0, 100, 200), 2));
+    
+    for (const EntityInstance &entity : m_mapData->entities) {
+        QPoint pos = worldToScreen(QPointF(entity.x, entity.y));
+        
+        // Draw diamond shape
+        QPolygon diamond;
+        diamond << QPoint(pos.x(), pos.y() - 6)
+                << QPoint(pos.x() + 6, pos.y())
+                << QPoint(pos.x(), pos.y() + 6)
+                << QPoint(pos.x() - 6, pos.y());
+        
+        painter.drawPolygon(diamond);
+        
+        // Draw entity name/asset
+        painter.setPen(QPen(QColor(200, 255, 255), 1));
+        painter.setFont(QFont("Arial", 8));
+        QFileInfo info(entity.assetPath);
+        painter.drawText(pos + QPoint(8, 0), info.fileName());
+    }
+}
+
+void GridEditor::updateEntity(int index, const EntityInstance &entity)
+{
+    if (index >= 0 && index < m_mapData->entities.size()) {
+        m_mapData->entities[index] = entity;
+        emit mapChanged();
+        update();
     }
 }

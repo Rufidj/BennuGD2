@@ -2,7 +2,7 @@
 
 show_help() {
     echo "usage:"
-    echo "    $0 [windows|windows32|linux|linux32|switch|macosx] [debug] [clean] [packages] [use_sdl2|use_sdl2_gpu] [verbose] [static] [one-job]"
+    echo "    $0 [windows|windows32|linux|linux32|switch|macosx|emscripten] [debug] [clean] [packages] [use_sdl2|use_sdl2_gpu] [verbose] [static] [one-job]"
     exit 1
 }
 
@@ -333,6 +333,32 @@ build_target() {
                     -DSDL2_MIXER_INCLUDE_DIR=$PREFIX_JNI/include/SDL2 \
                     -DSDLMIXER_LIBRARY=$PREFIX_JNI/lib/libSDL2_mixer.so \
                     -DBUILD_TARGET=interpreter"
+                ;;
+
+            emscripten|wasm)
+                TARGET=emscripten
+                STATIC_ENABLED=1 # force STATIC for Emscripten
+                USE_SDL2=1
+                USE_SDL2_GPU=0
+                
+                # Check if emscripten is available
+                if ! command -v emcc &> /dev/null; then
+                    echo "Error: emcc not found. Please install and activate Emscripten SDK first."
+                    echo "Visit: https://emscripten.org/docs/getting_started/downloads.html"
+                    exit 1
+                fi
+                
+                # Detect EMSCRIPTEN path if not set
+                if [ -z "$EMSCRIPTEN" ]; then
+                    export EMSCRIPTEN=$(dirname $(which emcc))
+                    echo "EMSCRIPTEN variable not set, auto-detected: $EMSCRIPTEN"
+                fi
+                
+                # Emscripten flags for headers (SDL2, etc)
+                # Note: Linker flags like ALLOW_MEMORY_GROWTH should be in CMakeLists.txt LINK_FLAGS
+                EXTRA_CFLAGS="$EXTRA_CFLAGS -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s USE_ZLIB=1 -s USE_OGG=1 -s USE_VORBIS=1 -s USE_LIBPNG=1"
+                
+                CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake -DBUILD_TARGET=interpreter"
                 ;;
 
             static)

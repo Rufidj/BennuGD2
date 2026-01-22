@@ -8,14 +8,18 @@ find_package(ZLIB REQUIRED)
 if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
     file(GLOB MODULE_HEADERS "${CMAKE_SOURCE_DIR}/modules/*")
 
-    find_package(SDL2 REQUIRED)
-    find_package(SDL2_mixer REQUIRED)
-    find_package(SDL2_image REQUIRED)
-    if(USE_SDL2_GPU)
-        find_package(SDL_GPU REQUIRED)
+    # Emscripten provides SDL2 through ports, so we don't need to find it
+    if(NOT EMSCRIPTEN)
+        find_package(SDL2 REQUIRED)
+        find_package(SDL2_mixer REQUIRED)
+        find_package(SDL2_image REQUIRED)
+        if(USE_SDL2_GPU)
+            find_package(SDL_GPU REQUIRED)
+        endif()
     endif()
 
     include_directories(${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS} ${SDL_GPU_INCLUDE_DIR} ${SDLMIXER_INCLUDE_DIRS} ${SDL2_mixer_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/core/bgdrtm ${MODULE_HEADERS})
+
 
     foreach(module ${MODULE_HEADERS})
         get_filename_component(lib_name ${module} NAME)
@@ -88,6 +92,48 @@ if(ANDROID)
     add_library(main SHARED ${SOURCES})
     list(APPEND OTHER_LIBS log)
     target_link_libraries(main  ${SDL2_LIBRARY} ${SDL2_LIBRARIES} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ${EXTRA_LIBS} ${OTHER_LIBS})
+elseif(EMSCRIPTEN)
+    add_definitions(-D__EMSCRIPTEN__)
+    
+    # Create the executable
+    add_executable(bgdi ${SOURCES})
+    
+    # Emscripten-specific linker flags
+    set(EMSCRIPTEN_LINK_FLAGS "")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s WASM=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s ASSERTIONS=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_SDL=2")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_SDL_IMAGE=2")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s SDL2_IMAGE_FORMATS='[\"png\",\"jpg\",\"bmp\"]'")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_SDL_MIXER=2")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_ZLIB=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_OGG=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_VORBIS=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s USE_LIBPNG=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s EXPORTED_FUNCTIONS='[\"_main\"]'")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s TOTAL_MEMORY=67108864")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s FORCE_FILESYSTEM=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} -s ASYNCIFY=1")
+    set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} --shell-file ${CMAKE_SOURCE_DIR}/core/bgdi/shell.html")
+    
+    # Preload game.dcb if it exists (user should place their game.dcb in the build directory)
+    # set(EMSCRIPTEN_LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS} --preload-file game.dcb")
+    
+    # Set output to .html (will also generate .js and .wasm)
+    set_target_properties(bgdi PROPERTIES SUFFIX ".html")
+    set_target_properties(bgdi PROPERTIES LINK_FLAGS "${EMSCRIPTEN_LINK_FLAGS}")
+    
+    target_link_libraries(bgdi -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${EXTRA_LIBS} ${OTHER_LIBS})
+    
+    # Copy shell.html to build directory for reference
+    add_custom_command(TARGET bgdi POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/core/bgdi/shell.html
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shell_template.html
+        COMMENT "Copying shell.html template to build directory"
+    )
 else()
     add_executable(bgdi ${SOURCES})
     target_link_libraries(bgdi -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${EXTRA_LIBS} ${OTHER_LIBS})

@@ -481,7 +481,7 @@ GLOBAL
     int punteria_player1 = 50;
     // Esto controla el motor del juego
     int copos_nieve; // cantidad maxima de copos de nieve k puede haber
-    int imita_graf; // efecto gr fico que muestra en el agua al personaje
+    int imita_graf; // efecto grï¿½fico que muestra en el agua al personaje
     int imita_flags;
     int imita_angle;
     int ke_nivel; // selecciona nivel a ejecutar
@@ -781,7 +781,7 @@ BEGIN
     cristal2 = sound_load( "sound/cristal2.wav" );
     sound2 = music_load( "sound/sound2.mp3" );
     // quieto=sound_load("sound/quieto.wav");
-    // golpe1=sound_load("sound/golpe1.wav"); // GUA EN TODA LA CARA (AÑADIR)
+    // golpe1=sound_load("sound/golpe1.wav"); // GUA EN TODA LA CARA (Aï¿½ADIR)
     golpe2 = sound_load( "sound/golpe2.wav" );
     golpe3 = sound_load( "sound/golpe3.wav" );
     golpe4 = sound_load( "sound/golpe4.wav" );
@@ -1151,7 +1151,7 @@ BEGIN
             camara_juego();
             signal( type jose_player1, s_kill );
             jose_player1( 69, 383 );
-            nombre_pantalla = "2.2 Infiltración en la base";
+            nombre_pantalla = "2.2 Infiltraciï¿½n en la base";
             mapa_pantalla = 576;
         end
         if ( estado_fase == 8 )
@@ -1177,7 +1177,7 @@ BEGIN
         if ( estado_fase == 22 )
             nave( 150, 320 );
             camara_nave();
-            nombre_pantalla = "3.1 Vuelo en avión";
+            nombre_pantalla = "3.1 Vuelo en aviï¿½n";
             mapa_pantalla = 0;
         end
         if ( estado_fase == 23 )
@@ -1190,7 +1190,7 @@ BEGIN
             camara_vertical();
             signal( type jose_player1, s_kill );
             jose_player1( 60, 3361 );
-            nombre_pantalla = "3.3 Montaña peligrosa";
+            nombre_pantalla = "3.3 Montaï¿½a peligrosa";
             mapa_pantalla = 650;
         end
         if ( estado_fase == 25 )
@@ -2211,7 +2211,7 @@ BEGIN
             end
         end
         if ( estado == 6 )
-            obj_nombre = "vacío       ";
+            obj_nombre = "vacï¿½o       ";
             obj_linea1 = "---";
             obj_linea2 = "---";
             obj_linea3 = "---";
@@ -2275,21 +2275,21 @@ BEGIN
                 x = 281;
                 y = 207;
                 if ( objetos_navecilla > 0 )
-                    obj_nombre = "Un Avión";
+                    obj_nombre = "Un Aviï¿½n";
                 end
             end
             if ( posicion == 12 )
                 x = 308;
                 y = 207;
                 if ( objetos_melon > 0 )
-                    obj_nombre = "Un melón";
+                    obj_nombre = "Un melï¿½n";
                 end
             end
             if ( posicion == 13 )
                 x = 335;
                 y = 207;
                 if ( objetos_pirana > 0 )
-                    obj_nombre = "Una piraña";
+                    obj_nombre = "Una piraï¿½a";
                 end
             end
             if ( posicion == 14 )
@@ -2306,8 +2306,8 @@ BEGIN
                     obj_nombre = "Un ovni";
                 end
             end
-            if ( obj_nombre != "vacío       " )
-                obj_linea1 = "Objetos ocultos de colección:";
+            if ( obj_nombre != "vacï¿½o       " )
+                obj_linea1 = "Objetos ocultos de colecciï¿½n:";
                 obj_linea2 = "Aparecen tras eliminar";
                 obj_linea3 = "a todos los enemigos";
             end
@@ -2326,9 +2326,9 @@ BEGIN
                 y = 171;
                 if ( objetos_combustible > 0 )
                     obj_nombre = "Combustible";
-                    obj_linea1 = "Un recipiente con un líquido negro?";
+                    obj_linea1 = "Un recipiente con un lï¿½quido negro?";
                     obj_linea2 = "parece salsa de esa del chino";
-                    obj_linea3 = "pero sabe a combustible de avión";
+                    obj_linea3 = "pero sabe a combustible de aviï¿½n";
                 end
             end
             if ( posicion == 16 )
@@ -3485,7 +3485,7 @@ BEGIN
                 municion_arma9 = -1;
                 municion_arma10 = -1;
             end
-            // tambi‚n perdera todos los objetos conseguidos , etc
+            // tambiï¿½n perdera todos los objetos conseguidos , etc
             nivel_player1 = 1;
             puntuacion = 0;
             agilidad_player1 = 1;
@@ -4033,7 +4033,7 @@ BEGIN
     objetivos_a1 = 0;
     objetivos_b = "incompleto";
     // situacion de la fase, numero enemigos
-    if ( cantidadificultad == 1 ) // nivel f cil
+    if ( cantidadificultad == 1 ) // nivel fï¿½cil
         elicopteros = 0;
         enemigos_tierra = 20;
         tankes = 1;
@@ -4047,7 +4047,7 @@ BEGIN
         camiones = 1;
         coche( 1250, 426, 1 );
     end
-    if ( cantidadificultad == 3 ) // nivel dif¡cil
+    if ( cantidadificultad == 3 ) // nivel difï¿½cil
         elicopteros = 0;
         enemigos_tierra = 40;
         tankes = 1;
@@ -4306,7 +4306,7 @@ BEGIN
                 estado2 = -1;
             end
             if ( crea_enemigos == 0 AND estado == 1 )
-                if ( cantidadificultad == 1 ) // nivel f cil
+                if ( cantidadificultad == 1 ) // nivel fï¿½cil
                     enemigo_arabe( 1296, 420, 1, 1, 1 );
                     enemigo_arabe( 1276, 420, 1, 1, 1 );
                     enemigo_dispara( 1276, 440, fase1, 0 );
@@ -4419,7 +4419,7 @@ BEGIN
             objetivos_a1 = 0;
             objetivos_b = "incompleto";
             // situacion de la fase, numero enemigos
-            if ( cantidadificultad == 1 ) // en el nivel f cil
+            if ( cantidadificultad == 1 ) // en el nivel fï¿½cil
                 elicopteros = 2;
                 enemigos_tierra = 10;
                 tankes = 1;
@@ -4810,7 +4810,7 @@ BEGIN
             piedras( x, y, 406, rand( 70, 95 ), 14 );
             piedras( x, y, 406, rand( 70, 95 ), 19 );
             piedras( x, y, 406, rand( 70, 95 ), 20 );
-            if ( cantidadificultad == 1 ) // en el nivel f cil
+            if ( cantidadificultad == 1 ) // en el nivel fï¿½cil
                 enemigos_tierra = 40;
                 elicopteros = 0;
                 tankes = 1;
@@ -5350,7 +5350,7 @@ BEGIN
     objetivos_a1 = 0;
     objetivos_b = "-";
     // situacion de la fase, numero enemigos
-    if ( cantidadificultad == 1 ) // nivel f cil
+    if ( cantidadificultad == 1 ) // nivel fï¿½cil
         elicopteros = 3;
         enemigos_tierra = 30;
         enemigo_arabe( 1761, 420, 1, 1, 1 );
@@ -5367,7 +5367,7 @@ BEGIN
         enemigo_dispara( 1261, 289, fase1, 1 );
         elicoptero2( 2000, 100, 200, fase1, 1 );
     end
-    if ( cantidadificultad == 3 ) // nivel dif¡cil
+    if ( cantidadificultad == 3 ) // nivel difï¿½cil
         elicopteros = 5;
         enemigos_tierra = 50;
         enemigo_arabe( 1761, 420, 1, 1, 1 );
@@ -5651,7 +5651,7 @@ BEGIN
             objetivos_a1 = 0;
             objetivos_b = "-";
             // situacion de la fase, numero enemigos
-            if ( cantidadificultad == 1 ) // en el nivel f cil
+            if ( cantidadificultad == 1 ) // en el nivel fï¿½cil
                 enemigos_tierra = 40;
                 elicopteros = 3;
                 tankes = 1;
@@ -6107,7 +6107,7 @@ BEGIN
             objetivos_a1 = 0;
             objetivos_b = "incompleto";
             // situacion de la fase, numero enemigos
-            if ( cantidadificultad == 1 ) // en el nivel f cil
+            if ( cantidadificultad == 1 ) // en el nivel fï¿½cil
                 elicopteros = 6;
                 elicoptero2( 2000, 100, 200, fase1, 1 );
                 lancha( 1000, 355 );
@@ -6236,7 +6236,7 @@ BEGIN
             objetivos_a1 = 0;
             objetivos_b = "-";
             // situacion de la fase, numero enemigos
-            if ( cantidadificultad == 1 ) // en el nivel f cil
+            if ( cantidadificultad == 1 ) // en el nivel fï¿½cil
                 enemigos_tierra = 0;
                 elicopteros = 0;
                 tankes = 1;
@@ -6784,7 +6784,7 @@ BEGIN
     LOOP
         /*
 if (x_p1>limite_pantalla-640 AND una_vez==0)
-if (cantidadificultad==1)   // en el nivel f cil
+if (cantidadificultad==1)   // en el nivel fï¿½cil
 enemigos_tierra=15;
 elicopteros=4;
 end
@@ -14650,7 +14650,7 @@ end
 
 PROCESS enemigo_atropellado( double x, double y, int graph, int file );
 PRIVATE
-    int grita; // cuando salga atropellada gritar 
+    int grita; // cuando salga atropellada gritarï¿½
     double x_incr;
     double y_incr;
     int estado;
@@ -14846,7 +14846,7 @@ PRIVATE
     int anda_un_rato; // pega unos pasos...
     int destino; // .. hacia un destino ..
     int destino_aleatorio; // .. sin conocer
-    int destino_cobarde; // .. por cobard¡a
+    int destino_cobarde; // .. por cobardï¿½a
     int se_sorprende; // y cuando ve al protagonista
     int ataca_ya; // suelta un espadazo
     int grafico_ataca; // moviendo la espada ..XDD
@@ -14995,7 +14995,7 @@ BEGIN
         end
         if ( region_out( id, 0 ) AND accion != 3 AND accion != 5 )
             rutina = 0;
-        end // si no esta en vision te buscar 
+        end // si no esta en vision te buscarï¿½
         if ( y > 5640 )
             if ( enemigos_tierra > 0 )
                 if ( de_onde_salgo == 1 )
@@ -15143,14 +15143,14 @@ BEGIN
         // Accion 2 atacar
         if ( accion == 2 )
             angle = 0;
-            // si tiene una inteligencia lenta, ser  poco preciso
+            // si tiene una inteligencia lenta, serï¿½ poco preciso
             if ( tiempo_para_pensar => 10 )
                 if ( anda_un_rato == 0 AND ataca_ya =< 0 )
                     destino_aleatorio = rand( -4, 5 );
                     anda_un_rato = rand( 5, 70 );
                 end
             end
-            // si esta dotado de mucha inteligencia ser  m s preciso
+            // si esta dotado de mucha inteligencia serï¿½ mï¿½s preciso
             if ( tiempo_para_pensar < 10 AND ataca_ya =< 0 )
                 if ( x < kiero_este AND destino == 0 )
                     destino = 1;
@@ -15173,7 +15173,7 @@ BEGIN
                     destino = 2;
                 end
             end
-            // Cuando este cerca del objetivo atacar 
+            // Cuando este cerca del objetivo atacarï¿½
             if ( ataca_ya == 0 )
                 if ( NOT(( y < y_p1 -100 ) OR y > y_p1 + 100 ))
                     if ( x > kiero_este + 20 AND x < kiero_este + 50 AND flags == 1 )
@@ -16077,7 +16077,7 @@ PRIVATE
     int grita;
     int doble_intento;
     int doble_tiempo;
-    int ke_arma_cojo; // segun avances en el juego, los enemigos tmb podr n coger armas m s potentes
+    int ke_arma_cojo; // segun avances en el juego, los enemigos tmb podrï¿½n coger armas mï¿½s potentes
 BEGIN
     if ( estado_fase == 3 )
         if ( rondas_fase == 1 )
@@ -16594,7 +16594,7 @@ BEGIN
             if ( haz_graficos == 59 )
                 haz_graficos = 0;
             end
-            // en el disparo se tira hacia atr s
+            // en el disparo se tira hacia atrï¿½s
             if ( he_disparao > 0 )
                 he_disparao--;
             end
@@ -16947,7 +16947,7 @@ BEGIN
         if ( elicopteros <= 0 )
             elicopteros = 1;
         end
-        // si josel muere tambi‚n para el sonido
+        // si josel muere tambiï¿½n para el sonido
         if ( limite_vida_player1 =< 0 AND una_vez == 0 )
             if ( sound_is_playing( s_elice ))
                 sound_stop( s_elice );
@@ -16981,7 +16981,7 @@ BEGIN
                 rabia = 0;
             end
         end
-        // hazlo m s salvaje
+        // hazlo mï¿½s salvaje
         if ( tiempo_de_vida => 200 )
             cada_cuando--;
             tiempo_de_vida = 0;
@@ -17252,7 +17252,7 @@ BEGIN
         if ( elicopteros <= 0 )
             elicopteros = 1;
         end
-        // si josel muere tambi‚n para el sonido
+        // si josel muere tambiï¿½n para el sonido
         if ( limite_vida_player1 =< 0 AND una_vez == 0 )
             if ( sound_is_playing( s_elice ))
                 sound_stop( s_elice );
@@ -17286,7 +17286,7 @@ BEGIN
                 rabia = 0;
             end
         end
-        // hazlo m s salvaje
+        // hazlo mï¿½s salvaje
         if ( tiempo_de_vida => 200 )
             cada_cuando--;
             tiempo_de_vida = 0;
@@ -18834,7 +18834,7 @@ end
 
 PROCESS viento( double x, double y, int graph, int file, int tipo );
 PRIVATE
-    int escena_camello; // este proceso ser  el encargao de hacer salir al cAmello
+    int escena_camello; // este proceso serï¿½ el encargao de hacer salir al cAmello
     int escena_cuando;
     int escena_lado = 1;
     int cabrones;

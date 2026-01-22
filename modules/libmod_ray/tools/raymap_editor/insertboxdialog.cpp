@@ -35,14 +35,14 @@ InsertBoxDialog::InsertBoxDialog(const QMap<int, QPixmap> &textureCache, QWidget
     QFormLayout *heightLayout = new QFormLayout(heightGroup);
     
     m_floorZSpin = new QDoubleSpinBox();
-    m_floorZSpin->setRange(-1000.0, 1000.0);
+    m_floorZSpin->setRange(-100000.0, 100000.0);
     m_floorZSpin->setValue(0.0);
     m_floorZSpin->setSuffix(" units");
     m_floorZSpin->setToolTip(tr("Altura del suelo (Z)"));
     heightLayout->addRow(tr("Suelo Z:"), m_floorZSpin);
     
     m_ceilingZSpin = new QDoubleSpinBox();
-    m_ceilingZSpin->setRange(-1000.0, 1000.0);
+    m_ceilingZSpin->setRange(-100000.0, 100000.0);
     m_ceilingZSpin->setValue(256.0);
     m_ceilingZSpin->setSuffix(" units");
     m_ceilingZSpin->setToolTip(tr("Altura del techo (Z)"));

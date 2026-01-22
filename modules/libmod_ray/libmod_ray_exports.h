@@ -8,7 +8,9 @@
 
 #include "bgddl.h"
 
-#if defined(__BGDC__) || !defined(__STATIC__)
+#ifndef __STATIC__
+#define __STATIC__
+#endif
 
 #include "libmod_ray.h"
 
@@ -66,7 +68,7 @@ DLSYSFUNCS __bgdexport(libmod_ray, functions_exports)[] = {
     FUNC(NULL, NULL, 0, NULL)
 };
 
-#endif
+
 
 /* Hooks del módulo */
 void __bgdexport(libmod_ray, module_initialize)();

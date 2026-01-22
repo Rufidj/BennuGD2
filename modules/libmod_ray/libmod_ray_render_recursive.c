@@ -21,6 +21,14 @@ extern RAY_Engine g_engine;
 
 /* Check visibility function */
 extern void ray_cast_ray(int sector_id, float x, float y, float angle, RAY_RayHit *hits, int *num_hits);
+extern void ray_draw_floor_ceiling(GRAPH *dest, int screen_x, float ray_angle, int sector_id, 
+                                  float start_dist, float end_dist, float *z_buffer, 
+                                  int *clip_top, int *clip_bottom);
+extern void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *hit, int screen_x, int *clip_top, int *clip_bottom);
+extern float ray_strip_screen_height(float view_dist, float distance, float actual_height);
+extern int ray_sector_get_num_children(RAY_Sector *sector);
+extern int ray_sector_get_child(RAY_Sector *sector, int index);
+
 
 #define MAX_RECURSION_DEPTH 16
 

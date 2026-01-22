@@ -54,22 +54,27 @@ struct Sector {
     /* Geometría del polígono (máx 16 vértices) */
     QVector<QPointF> vertices;
     
+    /* Paredes */
+    QVector<Wall> walls;
+    
     /* Alturas */
     float floor_z;
     float ceiling_z;
+    
+    /* Slopes - REMOVED (Replaced by MD3 Models) */
+    // Pivot is implicitly wall[0]
     
     /* Texturas */
     int floor_texture_id;
     int ceiling_texture_id;
     
-    /* Paredes */
-    QVector<Wall> walls;
+    /* Iluminación */
+    int light_level;
     
     /* Portales (IDs) */
     QVector<int> portal_ids;
     
-    /* Iluminación */
-    int light_level;
+    int group_id;  // NEW: ID of the group this sector belongs to (-1 if ungrouped)
     
     /* Jerarquía de sectores anidados */
     int parent_sector_id;              // -1 = root, >=0 = parent sector ID
@@ -82,7 +87,7 @@ struct Sector {
     /* Constructor */
     Sector() : sector_id(0), floor_z(0.0f), ceiling_z(256.0f),
                floor_texture_id(0), ceiling_texture_id(0), light_level(255),
-               parent_sector_id(-1) {}
+               group_id(-1), parent_sector_id(-1) {}
 };
 
 
@@ -128,6 +133,48 @@ struct SpawnFlag {
 };
 
 /* ============================================================================
+   ENTITY INSTANCE - For process generation
+   ============================================================================ */
+
+struct EntityInstance {
+    QString processName;
+    QString assetPath;
+    QString type;
+    int spawn_id;
+    float x, y, z;
+    
+    EntityInstance() : spawn_id(0), x(0), y(0), z(0) {}
+    EntityInstance(const QString &pname, const QString &asset, const QString &t, int id, float px, float py, float pz)
+        : processName(pname), assetPath(asset), type(t), spawn_id(id), x(px), y(py), z(pz) {}
+};
+
+/* ============================================================================
+   DECAL - Overlay texture for floors/ceilings
+   ============================================================================ */
+
+struct Decal {
+    int id;                     // Unique decal ID
+    int sector_id;              // Sector this decal belongs to
+    bool is_floor;              // true = floor, false = ceiling
+    
+    // Position and size (world coordinates)
+    float x, y;                 // Center position
+    float width, height;        // Dimensions
+    float rotation;             // Rotation in radians
+    
+    // Texture
+    int texture_id;             // Texture ID from FPG
+    
+    // Rendering
+    float alpha;                // Transparency (0.0 = invisible, 1.0 = opaque)
+    int render_order;           // Render order (higher = on top)
+    
+    Decal() : id(0), sector_id(-1), is_floor(true),
+              x(0), y(0), width(100), height(100), rotation(0),
+              texture_id(0), alpha(1.0f), render_order(0) {}
+};
+
+/* ============================================================================
    CAMERA
    ============================================================================ */
 
@@ -138,6 +185,18 @@ struct CameraData {
     bool enabled;
     
     CameraData() : x(384.0f), y(384.0f), z(0.0f), rotation(0.0f), pitch(0.0f), enabled(false) {}
+};
+
+/* ============================================================================
+   SECTOR GROUP - Agrupación de sectores relacionados
+   ============================================================================ */
+
+struct SectorGroup {
+    int group_id;
+    QString name;
+    QVector<int> sector_ids;  // IDs de sectores en este grupo
+    
+    SectorGroup() : group_id(-1), name("Grupo") {}
 };
 
 /* ============================================================================
@@ -154,6 +213,15 @@ struct MapData {
     
     /* Spawn Flags */
     QVector<SpawnFlag> spawnFlags;
+    
+    /* Decals */
+    QVector<Decal> decals;
+
+    /* Entities (MD3 Models) */
+    QVector<EntityInstance> entities;
+    
+    /* Sector Groups */
+    QVector<SectorGroup> sectorGroups;
     
     /* Cámara */
     CameraData camera;
@@ -173,6 +241,55 @@ struct MapData {
             if (s.sector_id > maxId) maxId = s.sector_id;
         }
         return maxId + 1;
+    }
+    
+    /* Helper: Get next group ID */
+    int getNextGroupId() const {
+        int maxId = -1;
+        for (const SectorGroup &g : sectorGroups) {
+            if (g.group_id > maxId) maxId = g.group_id;
+        }
+        return maxId + 1;
+    }
+    
+    /* Helper: Find sector by ID */
+    Sector* findSector(int sectorId) {
+        for (Sector &s : sectors) {
+            if (s.sector_id == sectorId) return &s;
+        }
+        return nullptr;
+    }
+    
+    const Sector* findSector(int sectorId) const {
+        for (const Sector &s : sectors) {
+            if (s.sector_id == sectorId) return &s;
+        }
+        return nullptr;
+    }
+    
+    /* Helper: Find group by ID */
+    SectorGroup* findGroup(int groupId) {
+        for (SectorGroup &g : sectorGroups) {
+            if (g.group_id == groupId) return &g;
+        }
+        return nullptr;
+    }
+    
+    const SectorGroup* findGroup(int groupId) const {
+        for (const SectorGroup &g : sectorGroups) {
+            if (g.group_id == groupId) return &g;
+        }
+        return nullptr;
+    }
+    
+    /* Helper: Find which group contains a sector */
+    int findGroupForSector(int sectorId) const {
+        for (const SectorGroup &g : sectorGroups) {
+            if (g.sector_ids.contains(sectorId)) {
+                return g.group_id;
+            }
+        }
+        return -1;
     }
     
     /* Helper: Get next wall ID */
@@ -195,18 +312,39 @@ struct MapData {
         return maxId + 1;
     }
     
-    /* Helper: Find sector by ID */
-    Sector* findSector(int sector_id) {
-        for (Sector &s : sectors) {
-            if (s.sector_id == sector_id) return &s;
+    /* Helper: Get next decal ID */
+    int getNextDecalId() const {
+        int maxId = -1;
+        for (const Decal &d : decals) {
+            if (d.id > maxId) maxId = d.id;
         }
-        return nullptr;
+        return maxId + 1;
+    }
+
+    /* Helper: Get next unified ID for SpawnFlags and Entities */
+    int getNextSpawnEntityId() const {
+        int maxId = 0;
+        for (const SpawnFlag &f : spawnFlags) {
+            if (f.flagId > maxId) maxId = f.flagId;
+        }
+        for (const EntityInstance &e : entities) {
+            if (e.spawn_id > maxId) maxId = e.spawn_id;
+        }
+        return maxId + 1;
     }
     
     /* Helper: Find portal by ID */
     Portal* findPortal(int portal_id) {
         for (Portal &p : portals) {
             if (p.portal_id == portal_id) return &p;
+        }
+        return nullptr;
+    }
+    
+    /* Helper: Find decal by ID */
+    Decal* findDecal(int decal_id) {
+        for (Decal &d : decals) {
+            if (d.id == decal_id) return &d;
         }
         return nullptr;
     }

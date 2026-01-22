@@ -11,11 +11,22 @@
 #include <QCheckBox>
 #include <QGroupBox>
 #include <QListWidget>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QDockWidget>
 #include "mapdata.h"
 #include "grideditor.h"
+#include "codeeditordialog.h"
+#include "codepreviewpanel.h"
+#include "consolewidget.h"
 #include "textureselector.h"
 #include "visualmodewidget.h"
+#include "fpgeditor.h"
+#include "entitypropertypanel.h"
+
+class BuildManager;
+class ProjectManager;
+class AssetBrowser;
 
 class MainWindow : public QMainWindow
 {
@@ -26,6 +37,12 @@ public:
     ~MainWindow();
     
 private slots:
+    // ... existing slots ...
+
+    // Code Editor Integration
+    void onOpenCodeEditor(const QString &filePath = QString());
+    void onCodePreviewOpenRequested(const QString &filePath);
+    
     // File menu
     void onNewMap();
     void onOpenMap();
@@ -37,6 +54,35 @@ private slots:
     void openRecentMap();
     void openRecentFPG();
     
+    // Tabs
+    void onTabCloseRequested(int index);
+    void onTabChanged(int index);
+    void openMapFile(const QString &filePath); // Renamed from onOpenMap to avoid ambiguity
+    
+    // Tools menu
+    void onOpenFPGEditor();
+    void onFPGReloaded();
+    void onOpenEffectGenerator();
+    void onOpenCameraPathEditor();
+    void onOpenMeshGenerator(); // NEW: MD3 Generator
+    
+    // Project Management
+    void onNewProject();
+    void onOpenProject();
+    void onCloseProject();
+    void onProjectSettings();
+    void onPublishProject();
+
+    // Build System
+    void onBuildProject();
+    void onRunProject();
+    void onBuildAndRun();
+    void onStopRunning();
+    void onInstallBennuGD2();
+    void onConfigureBennuGD2();
+    void setupBuildSystem();
+    void onGenerateCode();
+
     // View menu
     void onZoomIn();
     void onZoomOut();
@@ -87,13 +133,20 @@ private slots:
     void onInsertDoor();        // Future
     void onInsertElevator();    // Future
     void onInsertStairs();      // Future
+    // void onGenerateRamp();      // REMOVED
     
     void onSetParentSector();  // Assign parent sector to selected sector    // Future
     
-    // Sector list (NEW)
-    void onSectorListItemClicked(QListWidgetItem *item);
-    void updateSectorList();  // Refresh the sector list
-    void onSectorListContextMenu(const QPoint &pos); // Context menu slot
+    // Sector tree (hierarchical)
+    void onSectorTreeItemClicked(QTreeWidgetItem *item, int column);
+    void onSectorTreeItemDoubleClicked(QTreeWidgetItem *item, int column);
+    
+    // Entity selection
+    void onEntitySelected(int index, EntityInstance entity); // NEW
+    void onEntityChanged(int index, EntityInstance entity); // NEW
+    
+    void updateSectorList();  // Refresh the sector tree
+    void onSectorTreeContextMenu(const QPoint &pos); // Context menu slot
     
     // Sector operations
     void deleteSelectedSector();
@@ -110,20 +163,69 @@ private slots:
     void addToRecentMaps(const QString &filename);
     void addToRecentFPGs(const QString &filename);
     
+    // Decal editing
+    void onDecalPlaced(float x, float y);
+    void onDecalSelected(int decalId);
+    void onDecalXChanged(double value);
+    void onDecalYChanged(double value);
+    void onDecalWidthChanged(double value);
+    void onDecalHeightChanged(double value);
+    void onDecalRotationChanged(double value);
+    void onDecalTextureChanged(int value);
+    void onSelectDecalTexture();
+    void onDecalAlphaChanged(double value);
+    void onDecalRenderOrderChanged(int value);
+    void onDeleteDecal();
+
+    // Dark Mode
+    void onToggleDarkMode(bool checked);
+    
+    // Tools
+    void openObjConverter();
+    void loadSettings();
+    void saveSettings();
+    
 private:
     // UI Components
-    GridEditor *m_gridEditor;
+    QTabWidget *m_tabWidget; // Replaces m_gridEditor
+    GridEditor* getCurrentEditor() const; // Helper to get current tab
+    
     VisualModeWidget *m_visualModeWidget;
+
+    // Console
+    ConsoleWidget *m_consoleWidget;
+    QDockWidget *m_consoleDock;
+
+    // Code Preview
+    CodePreviewPanel *m_codePreviewPanel;
+    QDockWidget *m_codePreviewDock;
+    
+    // Code Editor Window
+    CodeEditorDialog *m_codeEditorDialog;
+    
+    // Build System
+    BuildManager *m_buildManager;
+
+    // Project System
+    ProjectManager *m_projectManager;
+    AssetBrowser *m_assetBrowser;
+    QDockWidget *m_assetDock;
+
     // Texture cache for selector
     QMap<int, QPixmap> m_textureCache;
+    
+    // Property panels
+    QWidget *m_sectorPanel;
+    QWidget *m_wallPanel;
+    EntityPropertyPanel *m_entityPanel; // NEW
     
     // Dock widgets
     QDockWidget *m_sectorDock;
     QDockWidget *m_wallDock;
     QDockWidget *m_sectorListDock;  // NEW: List of all sectors
     
-    // Sector list
-    QListWidget *m_sectorListWidget;  // NEW
+    // Sector tree (hierarchical with groups)
+    QTreeWidget *m_sectorTree;  // NEW: Hierarchical sector tree
     
     // Sector controls
     QLabel *m_sectorIdLabel;
@@ -142,6 +244,19 @@ private:
     QDoubleSpinBox *m_wallSplitLowerSpin;
     QDoubleSpinBox *m_wallSplitUpperSpin;
     
+    // Decal controls
+    QDockWidget *m_decalDock;
+    QLabel *m_decalIdLabel;
+    QDoubleSpinBox *m_decalXSpin;
+    QDoubleSpinBox *m_decalYSpin;
+    QDoubleSpinBox *m_decalWidthSpin;
+    QDoubleSpinBox *m_decalHeightSpin;
+    QDoubleSpinBox *m_decalRotationSpin;
+    QSpinBox *m_decalTextureSpin;
+    QDoubleSpinBox *m_decalAlphaSpin;
+    QSpinBox *m_decalRenderOrderSpin;
+    QPushButton *m_deleteDecalButton;
+    
     // Toolbar
     QComboBox *m_modeCombo;
     QSpinBox *m_selectedTextureSpin;
@@ -151,12 +266,17 @@ private:
     // Status bar
     QLabel *m_statusLabel;
     
+    // Tools
+    FPGEditor *m_fpgEditor;
+    
     // Data
-    MapData m_mapData;
-    QString m_currentMapFile;
+    // MapData m_mapData; // MOVED TO GRIDEDITOR
+    // QString m_currentMapFile; // MOVED TO TAB PROPERTY
+    QString m_currentFPGPath;
     int m_currentFPG;
     int m_selectedSectorId;
     int m_selectedWallId;
+    int m_selectedDecalId;
     
     // Slots for Skybox
     void onSkyboxTextureChanged(int value);
@@ -203,6 +323,7 @@ private:
     QAction *m_zoomInAction;
     QAction *m_zoomOutAction;
     QAction *m_zoomResetAction;
+    QAction *m_viewGridAction; // NEW: Replaces m_newAction confusion? Or was it missing?
     QAction *m_visualModeAction;
     
     // Insert Tools
@@ -217,6 +338,7 @@ private:
     void updateWindowTitle();
     void updateSectorPanel();
     void updateWallPanel();
+    void updateDecalPanel();
 };
 
 #endif // MAINWINDOW_H

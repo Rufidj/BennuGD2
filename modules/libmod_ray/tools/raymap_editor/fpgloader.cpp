@@ -121,6 +121,12 @@ bool FPGLoader::loadFPG(const QString &filename, QVector<TextureEntry> &textures
     qDebug() << "Iniciando lectura de chunks...";
 
     while (!in.atEnd()) {
+        // Check if we have enough bytes left for a chunk header (68 bytes minimum)
+        if (in.device()->bytesAvailable() < 68) {
+            qDebug() << "No hay suficientes bytes para otro chunk, finalizando lectura";
+            break;
+        }
+        
         // Leer estructura FPG_info usando operadores >> que respetan endianness
         FPG_CHUNK chunk;
         in >> chunk.code >> chunk.regsize;
@@ -145,6 +151,12 @@ bool FPGLoader::loadFPG(const QString &filename, QVector<TextureEntry> &textures
             chunk.width > 4096 || chunk.height > 4096) {
             qDebug() << "Chunk con dimensiones inválidas, saltando";
             continue;
+        }
+        
+        // Validar que el código sea razonable (evitar IDs basura como 0xFFFFFFFF)
+        if (chunk.code < 0 || chunk.code > 100000) {
+            qDebug() << "Chunk con código inválido:" << chunk.code << ", finalizando lectura";
+            break;
         }
 
         // Leer control points si flags > 0
@@ -212,6 +224,149 @@ bool FPGLoader::loadFPG(const QString &filename, QVector<TextureEntry> &textures
     qDebug() << "Texturas FPG cargadas:" << textures.size();
 
     return textures.size() > 0;
+}
+
+bool FPGLoader::saveFPG(const QString &filename, const QVector<TextureEntry> &textures, bool compress)
+{
+    if (textures.isEmpty()) {
+        qWarning() << "No textures to save";
+        return false;
+    }
+    
+    QByteArray fpgData;
+    QDataStream out(&fpgData, QIODevice::WriteOnly);
+    out.setByteOrder(QDataStream::LittleEndian);
+    out.setFloatingPointPrecision(QDataStream::SinglePrecision);
+    
+    // Write FPG header correctly "f32\x1A\x0D\x0A\x00\x00" (8 bytes)
+    // Standard BennuGD header structure for 32-bit FPG
+    const char header[8] = {'f', '3', '2', '\x1A', '\x0D', '\x0A', '\x00', '\x00'};
+    out.writeRawData(header, 8);
+    
+    qDebug() << "Writing FPG with" << textures.size() << "textures";
+    
+    // Write each texture as a chunk
+    for (const TextureEntry &tex : textures) {
+        if (tex.pixmap.isNull()) continue;
+        
+        // Convert pixmap to image
+        QImage image = tex.pixmap.toImage().convertToFormat(QImage::Format_RGBA8888);
+        
+        // Calculate data size
+        int pixelDataSize = image.width() * image.height() * 4;
+        
+        // Write chunk header
+        FPG_CHUNK chunk;
+        chunk.code = tex.id;
+        
+        // Regsize: size of data + struct remaining fields (starting from name)
+        // name(32) + filename(12) + width(4) + height(4) + flags(4) = 56 bytes
+        // + control points (flags * 4) (0 in this case)
+        // + pixel data
+        chunk.regsize = 56 + pixelDataSize;
+        
+        // Fill name and filename
+        memset(chunk.name, 0, 32);
+        memset(chunk.filename, 0, 12);
+        
+        QString baseName = tex.filename;
+        if (baseName.length() > 31) baseName = baseName.left(31);
+        strncpy(chunk.name, baseName.toLatin1().constData(), 31);
+        
+        QString shortName = baseName;
+        if (shortName.length() > 11) shortName = shortName.left(11);
+        strncpy(chunk.filename, shortName.toLatin1().constData(), 11);
+        
+        chunk.width = image.width();
+        chunk.height = image.height();
+        chunk.flags = 0; // No control points
+        
+        qDebug() << "Writing texture" << chunk.code << "size:" << chunk.width << "x" << chunk.height << "regsize:" << chunk.regsize;
+        
+        // Write chunk header - ensure we write int32 values
+        qint32 code32 = chunk.code;
+        qint32 regsize32 = chunk.regsize;
+        qint32 width32 = chunk.width;
+        qint32 height32 = chunk.height;
+        qint32 flags32 = chunk.flags;
+        
+        out << code32 << regsize32;
+        out.writeRawData(chunk.name, 32);
+        out.writeRawData(chunk.filename, 12);
+        out << width32 << height32 << flags32;
+        
+        // Convert RGBA to BGRA for FPG format
+        // pixelDataSize already calculated above
+        char* pixelBuffer = new char[pixelDataSize];
+        memcpy(pixelBuffer, image.constBits(), pixelDataSize);
+        
+        // Swap R and B channels
+        for (int i = 0; i < pixelDataSize; i += 4) {
+            char temp = pixelBuffer[i];
+            pixelBuffer[i] = pixelBuffer[i + 2];   // R = B
+            pixelBuffer[i + 2] = temp;             // B = R
+        }
+        
+        // Write pixel data
+        out.writeRawData(pixelBuffer, pixelDataSize);
+        delete[] pixelBuffer;
+    }
+    
+    // Write to file
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly)) {
+        qWarning() << "Failed to open file for writing:" << filename;
+        return false;
+    }
+    
+    if (compress) {
+        // Compress with gzip
+        z_stream strm;
+        strm.zalloc = Z_NULL;
+        strm.zfree = Z_NULL;
+        strm.opaque = Z_NULL;
+        
+        int ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+        if (ret != Z_OK) {
+            qWarning() << "Failed to initialize compression";
+            file.close();
+            return false;
+        }
+        
+        strm.avail_in = fpgData.size();
+        strm.next_in = (Bytef*)fpgData.data();
+        
+        // Allocate buffer large enough for compressed data
+        // deflateBound gives upper bound on compressed size
+        uLong compressedBound = deflateBound(&strm, fpgData.size());
+        QByteArray compressedData;
+        compressedData.resize(compressedBound);
+        
+        strm.avail_out = compressedData.size();
+        strm.next_out = (Bytef*)compressedData.data();
+        
+        ret = deflate(&strm, Z_FINISH);
+        if (ret != Z_STREAM_END) {
+            qWarning() << "Compression failed, ret =" << ret;
+            deflateEnd(&strm);
+            file.close();
+            return false;
+        }
+        
+        uLong compressedSize = compressedData.size() - strm.avail_out;
+        deflateEnd(&strm);
+        
+        qDebug() << "Compressed" << fpgData.size() << "bytes to" << compressedSize << "bytes";
+        
+        file.write(compressedData.data(), compressedSize);
+    } else {
+        // Write uncompressed
+        file.write(fpgData);
+    }
+    
+    file.close();
+    qDebug() << "FPG saved successfully:" << filename << "(" << textures.size() << "textures)";
+    return true;
 }
 
 QMap<int, QPixmap> FPGLoader::getTextureMap(const QVector<TextureEntry> &textures)

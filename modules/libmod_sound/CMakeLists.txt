@@ -5,8 +5,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
-find_package(SDL2 REQUIRED)
-find_package(SDL2_mixer REQUIRED)
+if(NOT EMSCRIPTEN)
+    find_package(SDL2 REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+
+endif()
 
 add_definitions(${EXTRA_CFLAGS})
 

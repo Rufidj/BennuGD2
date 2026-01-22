@@ -1,6 +1,6 @@
 //------------------------------------------------//
-//Program: ¡GOODY!  The Remake
-//Author:  José Javier Cárceles Marmol (coptroner)
+//Program: ï¿½GOODY!  The Remake
+//Author:  Josï¿½ Javier Cï¿½rceles Marmol (coptroner)
 //Team: Coptron games (c) 2004-2006
 //
 //BennuGD2 Port by SplinterGU (2011/07/11)
@@ -4642,21 +4642,21 @@ begin
       Case  8: Titulo=write(l_mensajes,320,452,4,"SI NO HAY MONEY NO HAY HERRAMIENTAS"); End
       Case  9: Titulo=write(l_mensajes,320,452,4,"UFF! NO PUEDO CON MAS HERRAMIENTAS"); End
       Case 10: Titulo=write(l_mensajes,320,452,4,"DINERITO FRESCO!!"); End
-      Case 11: Titulo=write(l_mensajes,320,452,4,"¡OUH!"); End
+      Case 11: Titulo=write(l_mensajes,320,452,4,"ï¿½OUH!"); End
    End
   else
    Switch(mensa)
       Case  1: Titulo=write(l_mensajes,320,452,4,"OH MY GOD! I FORGOT MY LADDER!"); End
       Case  2: Titulo=write(l_mensajes,320,452,4,"I NEED A BEER!"); End
-      Case  3: Titulo=write(l_mensajes,320,452,4,"OOPS! DOESN´T WORK HERE!"); End
-      Case  4: Titulo=write(l_mensajes,320,452,4,"UMM… FEELS DELICIOUS!!!"); End
+      Case  3: Titulo=write(l_mensajes,320,452,4,"OOPS! DOESNï¿½T WORK HERE!"); End
+      Case  4: Titulo=write(l_mensajes,320,452,4,"UMMï¿½ FEELS DELICIOUS!!!"); End
       Case  5: Titulo=write(l_mensajes,320,452,4,"ANOTHER NUMBER TO THE GLORY!!"); End
       Case  6: Titulo=write(l_mensajes,320,452,4,"YOU SON OF THE *****!!!"); End
       Case  7: Titulo=write(l_mensajes,320,452,4,"GLGLGLGLG..."); End
       Case  8: Titulo=write(l_mensajes,320,452,4,"SHOW ME DA MONEY!"); End
-      Case  9: Titulo=write(l_mensajes,320,452,4,"UFF! I CANT´T CARRY MORE TOOLS..."); End
+      Case  9: Titulo=write(l_mensajes,320,452,4,"UFF! I CANTï¿½T CARRY MORE TOOLS..."); End
       Case 10: Titulo=write(l_mensajes,320,452,4,"FRESH MONEY!!"); End
-      Case 11: Titulo=write(l_mensajes,320,452,4,"¡OUCH!"); End
+      Case 11: Titulo=write(l_mensajes,320,452,4,"ï¿½OUCH!"); End
    End
   end
    Repeat mueve++; Frame; Until(mueve>70);
@@ -4791,7 +4791,7 @@ begin
                  End
               End
            End
-           Case 3://-- Lata Combinación --//
+           Case 3://-- Lata Combinaciï¿½n --//
               mueve++;
               switch (mueve)
                  case 3,11: graph=18; end
@@ -5028,7 +5028,7 @@ begin
 End
 
 
-//--- Vagón del METRO ---//
+//--- Vagï¿½n del METRO ---//
 //#Section: METRO
 Process Metro (double x,y, int file,graph,z,vagon)
 Private
@@ -5426,7 +5426,7 @@ begin
    End
 End
 
-//#Section: Enemigo: PIRAÑAS
+//#Section: Enemigo: PIRAï¿½AS
 
 Process Peces(double x,y, int file,graph,z, double size)
 Private
@@ -6200,8 +6200,8 @@ begin
         Goody2=collision(Type goody);
         Switch(accion)
            Case 1:
-                angulo2+=pi/incx;                 // Halla el tama¤o de los incrementos
-                angulo3+=pi/incy;                 // que se har n en las dos coordenadas
+                angulo2+=pi/incx;                 // Halla el tamaï¿½o de los incrementos
+                angulo3+=pi/incy;                 // que se harï¿½n en las dos coordenadas
                 x=xrelativa+get_distx(angulo2,distx);    // Incrementa la coordenada x
                 y=yrelativa+get_disty(angulo3,disty);    // Incrementa la coordenada y
 

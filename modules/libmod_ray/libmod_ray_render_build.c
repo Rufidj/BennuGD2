@@ -11,11 +11,19 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdint.h>
 #include <SDL2/SDL.h>
 
 extern RAY_Engine g_engine;
 extern uint32_t ray_sample_texture(GRAPH *texture, int tex_x, int tex_y);
 extern uint32_t ray_fog_pixel(uint32_t pixel, float distance);
+
+// Helper for bilinear sampling (fallback to nearest neighbor if simplified)
+static inline uint32_t ray_sample_texture_bilinear(GRAPH *texture, float u, float v) {
+    return ray_sample_texture(texture, (int)u, (int)v);
+}
 
 /* ============================================================================
    BUILD ENGINE CONSTANTS AND GLOBALS
@@ -69,8 +77,12 @@ static int32_t ylookup[MAXSCREENWIDTH];  // Row offsets (y * width), max 2048 ro
 /* Helper to commit changes to GPU */
 static void frame_commit(GRAPH *dest) {
     if (dest->surface) {
-        // Force texture update if using SDL2/GPU
-        bitmap_update_surface(dest); 
+        // Force texture update from CPU surface to GPU texture
+#ifdef USE_SDL2
+        dest->texture_must_update = 1;
+#else
+        dest->dirty = 1;
+#endif
     }
 }
 
@@ -2017,7 +2029,7 @@ void ray_render_frame_build(GRAPH *dest)
                g_engine.internalWidth, g_engine.internalHeight,
                g_engine.displayWidth, g_engine.displayHeight);
         GRAPH *sky = bitmap_get(g_engine.fpg_id, g_engine.skyTextureID);
-        if (sky) printf("DEBUG: Sky Bitmap Valid: %dx%d\n", sky->width, sky->height);
+        if (sky) printf("DEBUG: Sky Bitmap Valid: %dx%d\n", (int)sky->width, (int)sky->height);
         else printf("DEBUG: Sky Bitmap NULL!\n");
     }
     

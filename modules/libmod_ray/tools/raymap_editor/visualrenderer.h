@@ -10,6 +10,7 @@
 #include <QMap>
 #include <QImage>
 #include "mapdata.h"
+#include "md3loader.h"
 
 /**
  * VisualRenderer - OpenGL renderer for the Visual Mode
@@ -53,6 +54,7 @@ private:
     void renderWalls();
     void renderFloors();
     void renderCeilings();
+    void drawSkybox(const QVector3D &cameraPos); // NEW
     
     // Shader programs
     QOpenGLShaderProgram *m_shaderProgram;
@@ -74,10 +76,18 @@ private:
     QVector<GeometryBuffer> m_wallBuffers;
     QVector<GeometryBuffer> m_floorBuffers;
     QVector<GeometryBuffer> m_ceilingBuffers;
+    QVector<GeometryBuffer> m_entityBuffers;  // Billboard sprites for entities
+    
+    // Sky rendering
+    GeometryBuffer m_skyBuffer;
+    int m_skyTextureId;
     
     // Textures
     QMap<int, QOpenGLTexture*> m_textures;
     QOpenGLTexture *m_defaultTexture;
+    
+    // Models
+    QMap<QString, MD3Loader*> m_models;
     
     // Camera matrices
     QMatrix4x4 m_viewMatrix;

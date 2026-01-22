@@ -52,7 +52,7 @@ search_symbols()
     echo "/* ---------- $2 ---------- */"
     echo " "
 
-    for i in $(grep __bgdexport $(for ii in $SCOPE; do find $MODULES_PATH/$ii -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)'; done) /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/'| grep $2); do
+    for i in $(grep __bgdexport $(for ii in $SCOPE; do find $MODULES_PATH/$ii -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)'; done) /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s*([[:alnum:]_]+)[, ]+([[:alnum:]_]+)/\1_\2/'| grep $2); do
         echo "extern $1 $i$3;"
     done
 
@@ -72,13 +72,13 @@ make_fake_dl_item()
     local symbol="$2"
     local line_to_print=""
 
-    for i in $(grep -w __bgdexport $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/' 2>/dev/null|grep $symbol); do
+    for i in $(grep -w __bgdexport $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s*([[:alnum:]_]+)[, ]+([[:alnum:]_]+)/\1_\2/' 2>/dev/null|grep $symbol); do
         line_to_print="$i"
         echo $line_to_print
     done
 
     if [ -z "$line_to_print" ]; then
-        for i in $(grep -w __bgdexport_ifdef $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r "s/\s(\w+)[, ]+(\w+)[, ]+(\w+)/\1 \2_\3/" 2>/dev/null|grep $symbol); do
+        for i in $(grep -w __bgdexport_ifdef $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r "s/\s*([[:alnum:]_]+)[, ]+([[:alnum:]_]+)[, ]+([[:alnum:]_]+)/\1 \2_\3/" 2>/dev/null|grep $symbol); do
             line_to_print="$i"
             echo "$line_to_print"
         done

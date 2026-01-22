@@ -1,6 +1,7 @@
 #include "libmod_ray.h"
 #include "libmod_ray_md3.h"
 #include <math.h>
+#include <stdlib.h>
 
 extern RAY_Engine g_engine;
 extern float *g_zbuffer;
@@ -33,11 +34,6 @@ void ray_render_md3(GRAPH *dest, RAY_Sprite *sprite) {
     int half_w = g_engine.displayWidth / 2;
     int half_h = g_engine.displayHeight / 2;
     
-    // Buffers for transformed vertices (Reused per surface)
-    static RAY_Point screen_verts[MD3_MAX_VERTICES];
-    static float depth_verts[MD3_MAX_VERTICES];
-    static int valid_verts[MD3_MAX_VERTICES];
-    
     // Loop Surfaces
     for (int s = 0; s < model->header.numSurfaces; s++) {
         RAY_MD3_Surface *surf = &model->surfaces[s];
@@ -52,6 +48,20 @@ void ray_render_md3(GRAPH *dest, RAY_Sprite *sprite) {
         
         md3_vertex_t *verts1 = &surf->vertices[frame1 * surf->header.numVerts];
         md3_vertex_t *verts2 = &surf->vertices[frame2 * surf->header.numVerts];
+        
+        // Allocate dynamic buffers for this surface's vertices
+        int num_verts = surf->header.numVerts;
+        RAY_Point *screen_verts = (RAY_Point*)malloc(num_verts * sizeof(RAY_Point));
+        float *depth_verts = (float*)malloc(num_verts * sizeof(float));
+        int *valid_verts = (int*)malloc(num_verts * sizeof(int));
+        
+        if (!screen_verts || !depth_verts || !valid_verts) {
+            // Allocation failed - cleanup and skip this surface
+            if (screen_verts) free(screen_verts);
+            if (depth_verts) free(depth_verts);
+            if (valid_verts) free(valid_verts);
+            continue;
+        }
         
         // Transform Vertices
         for (int i = 0; i < surf->header.numVerts; i++) {
@@ -141,6 +151,11 @@ void ray_render_md3(GRAPH *dest, RAY_Sprite *sprite) {
                              depth_verts[idx1], depth_verts[idx2], depth_verts[idx3],
                              use_texture);
         }
+        
+        // Free dynamic buffers
+        free(screen_verts);
+        free(depth_verts);
+        free(valid_verts);
     }
 }
 

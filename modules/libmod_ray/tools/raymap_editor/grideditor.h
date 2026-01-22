@@ -14,9 +14,16 @@ class GridEditor : public QWidget
     
 public:
     explicit GridEditor(QWidget *parent = nullptr);
+    ~GridEditor();
     
     // Map data
-    void setMapData(MapData *data);
+    MapData* mapData() const { return m_mapData; }
+    void newMap(); // Reset map
+    
+    // File management
+    QString fileName() const { return m_fileName; }
+    void setFileName(const QString &file) { m_fileName = file; }
+    
     
     // Textures
     void setTextures(const QMap<int, QPixmap> &textures);
@@ -30,7 +37,10 @@ public:
         MODE_PLACE_SPAWN,      // Place spawn flags
         MODE_PLACE_CAMERA,     // Place camera
         MODE_SELECT_SECTOR,    // Select sector
-        MODE_MANUAL_PORTAL     // Link portals manually
+        MODE_PLACE_DECAL_FLOOR,   // Place floor decal
+        MODE_PLACE_DECAL_CEILING, // Place ceiling decal
+        MODE_MANUAL_PORTAL,       // Link portals manually
+        MODE_SELECT_ENTITY        // Select and move entities
     };
     void setEditMode(EditMode mode);
     
@@ -47,8 +57,19 @@ public:
     void setCameraPosition(float x, float y);
     void getCameraPosition(float &x, float &y) const;
     bool hasCameraPosition() const { return m_hasCameraPosition; }
+
+    // Grid
+    void showGrid(bool show);
+
+    // Group movement
+    void setGroupMoveMode(int groupId);  // NEW: Enable group movement mode
+    void cancelGroupMove();              // NEW: Cancel group movement
+    
+    // Entity modification
+    void updateEntity(int index, const EntityInstance &entity);
     
 signals:
+    void statusMessage(const QString &msg); // NEW: Consolidated status signal
     void sectorSelected(int sectorId);
     void sectorCreated(int sectorId);  // NEW: Emitted when a new sector is created
     void wallSelected(int sectorIndex, int wallIndex);
@@ -58,15 +79,26 @@ signals:
     void mapChanged(); // Emitted when geometry changes (dragging)
     void cameraPlaced(float x, float y);
     void spawnFlagPlaced(int flagId, float x, float y);
+    void decalPlaced(float x, float y);
+    void entitySelected(int index, EntityInstance entity); // NEW
+    void entityMoved(int index, EntityInstance entity); // NEW: While dragging
+    
+
     
 protected:
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
-    void contextMenuEvent(QContextMenuEvent *event) override; // NEW
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
+    
+    // Drag & Drop
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
     
 private:
     MapData *m_mapData;
@@ -77,6 +109,9 @@ private:
     int m_selectedWall;  // wall_id (legacy)
     int m_selectedWallSector;  // Sector index of selected wall
     int m_selectedWallIndex;   // Wall index within sector
+    int m_selectedEntity; // NEW: Index of selected entity in m_mapData->entities
+    
+    // ... view transform ...
     
     // View transform
     float m_zoom;
@@ -85,6 +120,7 @@ private:
     // Drawing state
     bool m_isDrawing;
     bool m_isDraggingSector;            // NEW: Dragging whole sector
+    bool m_isDraggingEntity;            // NEW: Dragging entity
     bool m_isDraggingWall;              // Future expansion?
     QVector<QPointF> m_currentPolygon;  // For MODE_DRAW_SECTOR
     int m_draggedVertex;                // For MODE_EDIT_VERTICES
@@ -105,11 +141,19 @@ private:
     void drawPortals(QPainter &painter);
     void drawSprites(QPainter &painter);
     void drawSpawnFlags(QPainter &painter);
+    void drawEntities(QPainter &painter); // NEW: Draw MD3 entities
     void drawCamera(QPainter &painter);
     void drawCurrentPolygon(QPainter &painter);
     void drawCursorInfo(QPainter &painter);
+    bool m_manualPortalMode;
     
-    // Coordinate conversion
+    // Group movement
+    bool m_isMovingGroup;
+    int m_movingGroupId;
+    QPointF m_groupMoveStart;
+    QMap<int, QVector<QPointF>> m_originalGroupPositions; // sectorId -> original vertices
+    
+    // Helper functions
     QPointF screenToWorld(const QPoint &screenPos) const;
     QPoint worldToScreen(const QPointF &worldPos) const;
     
@@ -119,8 +163,12 @@ private:
     // Hit testing
     int findSectorAt(const QPointF &worldPos);
     int findWallAt(const QPointF &worldPos, float tolerance = 10.0f);
+    int findEntityAt(const QPointF &worldPos, float tolerance = 10.0f);
     int findVertexAt(const QPointF &worldPos, int &sectorId, float tolerance = 10.0f);
     int findSpawnFlagAt(const QPointF &worldPos, float tolerance = 10.0f);
+    
+    QString m_fileName;
+    bool m_showGrid;
 };
 
 #endif // GRIDEDITOR_H

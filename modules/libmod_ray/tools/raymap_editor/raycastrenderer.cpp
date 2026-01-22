@@ -205,7 +205,7 @@ void RaycastRenderer::loadTexture(int id, const QImage &image)
     }
     
     // Create new texture
-    QOpenGLTexture *texture = new QOpenGLTexture(image.mirrored(false, true));
+    QOpenGLTexture *texture = new QOpenGLTexture(image.flipped(Qt::Vertical));
     texture->setMinificationFilter(QOpenGLTexture::Linear);
     texture->setMagnificationFilter(QOpenGLTexture::Linear);
     texture->setWrapMode(QOpenGLTexture::Repeat);

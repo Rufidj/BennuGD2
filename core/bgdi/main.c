@@ -55,6 +55,11 @@
 #define LOG_TAG "bgdi-native"
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
 #include "bgdi.h"
 #include "bgdrtm.h"
 #include "xstrings.h"
@@ -260,7 +265,7 @@ int main( int argc, char *argv[] ) {
     setvbuf( stdout, NULL, _IONBF, BUFSIZ );
 
     /* get executable full pathname  */
-#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined ( __ANDROID__ )
+#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined ( __ANDROID__ ) || defined ( __EMSCRIPTEN__ )
     appexefullpath = strdup( argv[0] );
 #else
     appexefullpath = get_executable_full_path( argv[ 0 ] );
@@ -268,7 +273,7 @@ int main( int argc, char *argv[] ) {
 
     appexename = get_executable_name( appexefullpath );
 
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
     if ( ( !strchr( appexefullpath, '\\' ) && !strchr( appexefullpath, '/' ) ) ) {
         struct stat st;
         if ( stat( appexefullpath, &st ) || !S_ISREG( st.st_mode ) ) {
@@ -291,7 +296,7 @@ int main( int argc, char *argv[] ) {
     /* add binary path */
     file_addp( appexepath );
 
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
     standalone = strncmpi( appexename, "bgdi", 4 );
     if ( standalone ) {
         /* Hand-made interpreter: search for DCB at EOF */
@@ -362,7 +367,7 @@ int main( int argc, char *argv[] ) {
 
     /* Init application title for windowed modes */
 
-#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ )
+#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ ) || defined( __EMSCRIPTEN__ )
     filename = "game.dcb";
 #endif
 
@@ -372,7 +377,7 @@ int main( int argc, char *argv[] ) {
     appname = remove_app_extension( en );
     free( en );
 
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
     if ( !embedded ) {
 #endif
         /* First try to load directly (we expect myfile.dcb) */
@@ -380,7 +385,7 @@ int main( int argc, char *argv[] ) {
             int dcbloaded = 0;
 
             /* Check if we should try to add an extension */
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
             if ( standalone || !file_has_extension( filename ) || filename[strlen(filename)-1] == '.' ) {
 #else
             if ( !file_has_extension( filename ) || filename[strlen(filename)-1] == '.' ) {
@@ -406,7 +411,7 @@ int main( int argc, char *argv[] ) {
                 return -1 ;
             }
         }
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
     } else {
         dcb_load_from( fp, ( const char * ) dcbname, dcb_signature.dcb_offset );
     }

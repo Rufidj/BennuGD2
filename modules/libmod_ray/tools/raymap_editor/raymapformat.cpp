@@ -11,6 +11,7 @@
 #include <QDebug>
 #include <cstring>
 #include <QMap>
+#include <QFileInfo>
 
 RayMapFormat::RayMapFormat()
 {
@@ -199,12 +200,54 @@ bool RayMapFormat::loadMap(const QString &filename, MapData &mapData,
         mapData.spawnFlags.append(flag);
     }
     
+    /* Load entities (appended at end for compatibility) */
+    mapData.entities.clear();
+    
+    // Check if there is more data (entities appended)
+    if (!in.atEnd()) {
+        uint32_t num_entities;
+        in.readRawData(reinterpret_cast<char*>(&num_entities), sizeof(uint32_t));
+        
+        for (uint32_t i = 0; i < num_entities; i++) {
+            EntityInstance entity;
+            
+            in.readRawData(reinterpret_cast<char*>(&entity.spawn_id), sizeof(int));
+            in.readRawData(reinterpret_cast<char*>(&entity.x), sizeof(float));
+            in.readRawData(reinterpret_cast<char*>(&entity.y), sizeof(float));
+            in.readRawData(reinterpret_cast<char*>(&entity.z), sizeof(float));
+            
+            // Asset path
+            uint32_t pathLen;
+            in.readRawData(reinterpret_cast<char*>(&pathLen), sizeof(uint32_t));
+            QByteArray pathBytes;
+            pathBytes.resize(pathLen);
+            in.readRawData(pathBytes.data(), pathLen);
+            entity.assetPath = QString::fromUtf8(pathBytes);
+            
+            // Type
+            uint32_t typeLen;
+            in.readRawData(reinterpret_cast<char*>(&typeLen), sizeof(uint32_t));
+            QByteArray typeBytes;
+            typeBytes.resize(typeLen);
+            in.readRawData(typeBytes.data(), typeLen);
+            entity.type = QString::fromUtf8(typeBytes);
+            
+            // Generate processName from asset path if not set
+            // (for backward compatibility with old maps)
+            QFileInfo assetInfo(entity.assetPath);
+            entity.processName = assetInfo.completeBaseName();
+            
+            mapData.entities.append(entity);
+        }
+    }
+    
     file.close();
     
     qDebug() << "Mapa cargado:" << mapData.sectors.size() << "sectores,"
              << mapData.portals.size() << "portales,"
              << mapData.sprites.size() << "sprites,"
-             << mapData.spawnFlags.size() << "spawn flags";
+             << mapData.spawnFlags.size() << "spawn flags,"
+             << mapData.entities.size() << "entidades";
     
     return true;
 }
@@ -244,7 +287,7 @@ bool RayMapFormat::saveMap(const QString &filename, const MapData &mapData,
     uint32_t num_sectors = mapData.sectors.size();
     uint32_t num_portals = mapData.portals.size();
     uint32_t num_sprites = mapData.sprites.size();
-    uint32_t num_spawn_flags = mapData.spawnFlags.size();
+    uint32_t num_spawn_flags = mapData.spawnFlags.size() + mapData.entities.size(); // Include entities!
     
     float camera_x = mapData.camera.x;
     float camera_y = mapData.camera.y;
@@ -361,12 +404,46 @@ bool RayMapFormat::saveMap(const QString &filename, const MapData &mapData,
     
     if (progressCallback) progressCallback("Guardando spawn flags...");
     
-    /* Write spawn flags */
+    /* Write spawn flags (including entities) */
+    // First write regular spawn flags
     for (const SpawnFlag &flag : mapData.spawnFlags) {
         out.writeRawData(reinterpret_cast<const char*>(&flag.flagId), sizeof(int));
         out.writeRawData(reinterpret_cast<const char*>(&flag.x), sizeof(float));
         out.writeRawData(reinterpret_cast<const char*>(&flag.y), sizeof(float));
         out.writeRawData(reinterpret_cast<const char*>(&flag.z), sizeof(float));
+    }
+    
+    // Then write entities as spawn flags (so motor can load them)
+    for (const EntityInstance &entity : mapData.entities) {
+        out.writeRawData(reinterpret_cast<const char*>(&entity.spawn_id), sizeof(int));
+        out.writeRawData(reinterpret_cast<const char*>(&entity.x), sizeof(float));
+        out.writeRawData(reinterpret_cast<const char*>(&entity.y), sizeof(float));
+        out.writeRawData(reinterpret_cast<const char*>(&entity.z), sizeof(float));
+    }
+    
+    if (progressCallback) progressCallback("Guardando entidades...");
+    
+    /* Write entities (appended at end for compatibility) */
+    uint32_t num_entities = mapData.entities.size();
+    out.writeRawData(reinterpret_cast<const char*>(&num_entities), sizeof(uint32_t));
+    
+    for (const EntityInstance &entity : mapData.entities) {
+        out.writeRawData(reinterpret_cast<const char*>(&entity.spawn_id), sizeof(int));
+        out.writeRawData(reinterpret_cast<const char*>(&entity.x), sizeof(float));
+        out.writeRawData(reinterpret_cast<const char*>(&entity.y), sizeof(float));
+        out.writeRawData(reinterpret_cast<const char*>(&entity.z), sizeof(float));
+        
+        // Asset path
+        QByteArray pathBytes = entity.assetPath.toUtf8();
+        uint32_t pathLen = pathBytes.size();
+        out.writeRawData(reinterpret_cast<const char*>(&pathLen), sizeof(uint32_t));
+        out.writeRawData(pathBytes.data(), pathLen);
+        
+        // Type
+        QByteArray typeBytes = entity.type.toUtf8();
+        uint32_t typeLen = typeBytes.size();
+        out.writeRawData(reinterpret_cast<const char*>(&typeLen), sizeof(uint32_t));
+        out.writeRawData(typeBytes.data(), typeLen);
     }
     
     /* Flush */
@@ -375,7 +452,8 @@ bool RayMapFormat::saveMap(const QString &filename, const MapData &mapData,
     file.close();
     
     qDebug() << "Mapa guardado:" << mapData.sectors.size() << "sectores,"
-             << mapData.portals.size() << "portales";
+             << mapData.portals.size() << "portales,"
+             << mapData.entities.size() << "entidades";
     
     return true;
 }

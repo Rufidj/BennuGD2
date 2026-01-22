@@ -8,7 +8,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "../../bin/")
 set(CMAKE_MODULE_PATH ../../cmake/Modules)
 
 # Buscar SDL2 (requerido por libbggfx)
-find_package(SDL2 REQUIRED)
+if(NOT EMSCRIPTEN)
+    find_package(SDL2 REQUIRED)
+
+endif()
 
 add_definitions(-D__LIBMOD_RAY ${EXTRA_CFLAGS})
 
@@ -36,7 +39,6 @@ set(SOURCES_LIBMOD_RAY
     libmod_ray_render_md2.c
     libmod_ray_md3.c
     libmod_ray_render_md3.c
-    libmod_ray_render_gpu.c
 )
 
 add_library(mod_ray ${LIBRARY_BUILD_TYPE} ${SOURCES_LIBMOD_RAY})

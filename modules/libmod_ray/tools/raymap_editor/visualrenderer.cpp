@@ -10,6 +10,7 @@ VisualRenderer::VisualRenderer()
     , m_cameraZ(32.0f)
     , m_cameraYaw(0.0f)
     , m_cameraPitch(0.0f)
+    , m_skyTextureId(-1)
     , m_initialized(false)
 {
 }
@@ -74,6 +75,12 @@ void VisualRenderer::cleanup()
         delete m_defaultTexture;
         m_defaultTexture = nullptr;
     }
+    
+    // Clean up models
+    for (MD3Loader *loader : m_models) {
+        delete loader;
+    }
+    m_models.clear();
     
     m_initialized = false;
 }
@@ -170,13 +177,17 @@ void VisualRenderer::setMapData(const MapData &mapData)
     // Store map data for portal lookups
     m_mapData = mapData;
     
+    // Store sky texture ID
+    m_skyTextureId = mapData.skyTextureID;
+    
     // Clear existing geometry
     clearGeometry();
     
     // Generate new geometry
     generateGeometry(mapData);
     
-    qDebug() << "Map data loaded:" << mapData.sectors.size() << "sectors";
+    qDebug() << "Map data loaded:" << mapData.sectors.size() << "sectors," 
+             << mapData.entities.size() << "entities, sky texture:" << m_skyTextureId;
 }
 
 void VisualRenderer::generateGeometry(const MapData &mapData)
@@ -205,6 +216,178 @@ void VisualRenderer::generateGeometry(const MapData &mapData)
     
     qDebug() << "Texture IDs used by geometry:" << usedTextures;
     qDebug() << "Texture IDs loaded in renderer:" << m_textures.keys();
+    
+    // Generate entity billboards or 3D models
+    int entityIndex = 0;
+    for (const EntityInstance &entity : mapData.entities) {
+ 
+
+        bool modelLoaded = false;
+        int entityTextureId = 1000 + entityIndex;
+        
+        // Try to find/load texture first (for both model and billboard)
+        QString texturePath = entity.assetPath;
+        if (texturePath.endsWith(".md3", Qt::CaseInsensitive)) {
+            texturePath.replace(".md3", ".png", Qt::CaseInsensitive);
+        } else {
+            texturePath += ".png";
+        }
+        
+        QImage entityImage(texturePath);
+        if (!entityImage.isNull()) {
+            loadTexture(entityTextureId, entityImage);
+        } else {
+            // Placeholder texture
+            QImage placeholder(64, 64, QImage::Format_RGB888);
+            QColor colors[] = {Qt::red, Qt::green, Qt::blue, Qt::yellow, Qt::cyan, Qt::magenta};
+            placeholder.fill(colors[entityIndex % 6]);
+            loadTexture(entityTextureId, placeholder);
+        }
+
+        // Try to load and render MD3 model
+        if (entity.assetPath.endsWith(".md3", Qt::CaseInsensitive)) {
+            MD3Loader *loader = nullptr;
+            
+            // Check cache
+            if (m_models.contains(entity.assetPath)) {
+                loader = m_models[entity.assetPath];
+            } else {
+                // Load new
+                loader = new MD3Loader();
+                if (loader->load(entity.assetPath)) {
+                    m_models[entity.assetPath] = loader;
+                    qDebug() << "Loaded MD3 model:" << entity.assetPath;
+                } else {
+                    delete loader;
+                    loader = nullptr;
+                    qWarning() << "Failed to load MD3:" << entity.assetPath;
+                }
+            }
+            
+            if (loader) {
+                // Generate geometry for each surface
+                const QVector<RenderSurface> &surfaces = loader->getSurfaces();
+                for (const RenderSurface &surf : surfaces) {
+                    QVector<float> vertices;
+                    
+                    for (unsigned int idx : surf.indices) {
+                        if ((int)idx < surf.vertices.size()) {
+                            QVector3D p = surf.vertices[idx];
+                            QVector2D uv = surf.texCoords[idx];
+                            
+                            // Transform MD3 (Z-up) to World (Y-up for OpenGL rendering of RayMap)
+                            // Map X -> GL X
+                            // Map Y -> GL Z
+                            // Map Z (Height) -> GL Y
+                            
+                            // MD3 Standard: X=Forward, Y=Left, Z=Up
+                            // We need testing for orientation, but let's try mapping MD3 Z to Map Height (GL Y)
+                            
+                            float wx = entity.x + p.x();
+                            float wy = entity.z + p.z(); // Height
+                            float wz = entity.y + p.y();
+                            
+                            vertices << wx << wy << wz;
+                            vertices << uv.x() << uv.y();
+                            vertices << 0.0f << 1.0f << 0.0f; // Dummy normal
+                        }
+                    }
+                    
+                    if (!vertices.isEmpty()) {
+                        GeometryBuffer buffer;
+                        buffer.vbo = new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+                        buffer.vbo->create();
+                        buffer.vbo->bind();
+                        buffer.vbo->allocate(vertices.constData(), vertices.size() * sizeof(float));
+                        
+                        buffer.vao = new QOpenGLVertexArrayObject();
+                        buffer.vao->create();
+                        buffer.vao->bind();
+                        
+                        glEnableVertexAttribArray(0);
+                        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+                        glEnableVertexAttribArray(1);
+                        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+                        glEnableVertexAttribArray(2);
+                        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+                        
+                        buffer.vao->release();
+                        buffer.vbo->release();
+                        
+                        buffer.vertexCount = vertices.size() / 8;
+                        buffer.textureId = entityTextureId; // Use the entity texture we loaded
+                        buffer.lightLevel = 1.0f;
+                        
+                        m_entityBuffers.append(buffer);
+                    }
+                }
+                modelLoaded = true;
+            }
+        }
+        
+        // Fallback to Billboard if model failed to load
+        if (!modelLoaded) {
+            QVector<float> vertices;
+            float size = 32.0f; 
+            
+            // Quad logic here...
+            vertices << entity.x - size << entity.z << entity.y;
+            vertices << 0.0f << 0.0f;
+            vertices << 1.0f << 0.0f << 0.0f;
+            
+            vertices << entity.x + size << entity.z << entity.y;
+            vertices << 1.0f << 0.0f;
+            vertices << 1.0f << 0.0f << 0.0f;
+            
+            vertices << entity.x + size << entity.z + size*2 << entity.y;
+            vertices << 1.0f << 1.0f;
+            vertices << 1.0f << 0.0f << 0.0f;
+            
+            vertices << entity.x - size << entity.z << entity.y;
+            vertices << 0.0f << 0.0f;
+            vertices << 1.0f << 0.0f << 0.0f;
+            
+            vertices << entity.x + size << entity.z + size*2 << entity.y;
+            vertices << 1.0f << 1.0f;
+            vertices << 1.0f << 0.0f << 0.0f;
+            
+            vertices << entity.x - size << entity.z + size*2 << entity.y;
+            vertices << 0.0f << 1.0f;
+            vertices << 1.0f << 0.0f << 0.0f;
+            
+            if (!vertices.isEmpty()) {
+                GeometryBuffer buffer;
+                buffer.vbo = new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
+                buffer.vbo->create();
+                buffer.vbo->bind();
+                buffer.vbo->allocate(vertices.constData(), vertices.size() * sizeof(float));
+                
+                buffer.vao = new QOpenGLVertexArrayObject();
+                buffer.vao->create();
+                buffer.vao->bind();
+                
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+                glEnableVertexAttribArray(2);
+                glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+                
+                buffer.vao->release();
+                buffer.vbo->release();
+                
+                buffer.vertexCount = 6;
+                buffer.textureId = entityTextureId;
+                buffer.lightLevel = 1.0f;
+                
+                m_entityBuffers.append(buffer);
+            }
+        }
+        
+        entityIndex++;
+    }
+    
+    qDebug() << "Generated" << m_entityBuffers.size() << "entity billboards";
 }
 
 void VisualRenderer::generateSectorGeometry(const Sector &sector)
@@ -272,7 +455,8 @@ void VisualRenderer::generateSectorGeometry(const Sector &sector)
     }
     
     // Generate ceiling geometry (triangulated polygon, facing down)
-    {
+    // Only generate if not Sky (ID > 0)
+    if (sector.ceiling_texture_id > 0) {
         QVector<float> vertices;
         
         // Simple fan triangulation from first vertex (reversed winding for downward face)
@@ -606,6 +790,12 @@ void VisualRenderer::clearGeometry()
         delete buffer.vao;
     }
     m_ceilingBuffers.clear();
+    
+    for (GeometryBuffer &buffer : m_entityBuffers) {
+        delete buffer.vbo;
+        delete buffer.vao;
+    }
+    m_entityBuffers.clear();
 }
 
 void VisualRenderer::loadTexture(int id, const QImage &image)
@@ -626,7 +816,7 @@ void VisualRenderer::loadTexture(int id, const QImage &image)
     }
     
     // Create new texture
-    QOpenGLTexture *texture = new QOpenGLTexture(image.mirrored(false, true));
+    QOpenGLTexture *texture = new QOpenGLTexture(image.flipped(Qt::Vertical));
     texture->setMinificationFilter(QOpenGLTexture::Linear);
     texture->setMagnificationFilter(QOpenGLTexture::Linear);
     texture->setWrapMode(QOpenGLTexture::Repeat);
@@ -660,6 +850,7 @@ void VisualRenderer::setProjection(float fov, float aspect, float nearPlane, flo
     m_projectionMatrix.perspective(fov, aspect, nearPlane, farPlane);
 }
 
+// Redefined render to include Skybox
 void VisualRenderer::render(int width, int height)
 {
     if (!m_initialized) {
@@ -667,65 +858,135 @@ void VisualRenderer::render(int width, int height)
     }
     
     static int frameCount = 0;
-    if (frameCount++ % 60 == 0) {  // Log every 60 frames
+    if (frameCount++ % 60 == 0) {
         qDebug() << "Rendering: camera=(" << m_cameraX << m_cameraY << m_cameraZ << ")"
-                 << "yaw=" << qRadiansToDegrees(m_cameraYaw) << "pitch=" << qRadiansToDegrees(m_cameraPitch)
-                 << "buffers: walls=" << m_wallBuffers.size() 
-                 << "floors=" << m_floorBuffers.size()
-                 << "ceilings=" << m_ceilingBuffers.size();
+                 << "yaw=" << qRadiansToDegrees(m_cameraYaw) << "pitch=" << qRadiansToDegrees(m_cameraPitch);
     }
     
     // Update projection aspect ratio
     setProjection(90.0f, (float)width / (float)height, 0.1f, 10000.0f);
     
     // Clear buffers
-    glClearColor(0.2f, 0.3f, 0.5f, 1.0f); // Sky blue
+    glClearColor(0.4f, 0.6f, 0.9f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // Use shader program
     m_shaderProgram->bind();
     
-    // Calculate MVP matrix
+    // Draw Skybox (if available)
+    if (m_skyTextureId > 0 && m_textures.contains(m_skyTextureId)) {
+        drawSkybox(QVector3D(m_cameraX, m_cameraY, m_cameraZ));
+        
+        // Restore state
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+    }
+    
+    // Calculate MVP matrix for world
     QMatrix4x4 mvp = m_projectionMatrix * m_viewMatrix;
     m_shaderProgram->setUniformValue(m_uniformMVP, mvp);
     m_shaderProgram->setUniformValue(m_uniformTexture, 0);
     
-    // Render floors
-    for (const GeometryBuffer &buffer : m_floorBuffers) {
-        // Bind texture
-        QOpenGLTexture *texture = m_textures.value(buffer.textureId, m_defaultTexture);
-        texture->bind(0);
-        
-        m_shaderProgram->setUniformValue(m_uniformLightLevel, buffer.lightLevel);
-        
-        buffer.vao->bind();
-        glDrawArrays(GL_TRIANGLES, 0, buffer.vertexCount);
-        buffer.vao->release();
-    }
+    // Helper lambda for rendering buffers
+    auto renderBuffers = [&](const QVector<GeometryBuffer> &buffers) {
+        for (const GeometryBuffer &buffer : buffers) {
+            QOpenGLTexture *texture = m_textures.value(buffer.textureId, m_defaultTexture);
+            if (texture) texture->bind(0);
+            
+            m_shaderProgram->setUniformValue(m_uniformLightLevel, buffer.lightLevel);
+            
+            buffer.vao->bind();
+            glDrawArrays(GL_TRIANGLES, 0, buffer.vertexCount);
+            buffer.vao->release();
+        }
+    };
     
-    // Render ceilings
-    for (const GeometryBuffer &buffer : m_ceilingBuffers) {
-        QOpenGLTexture *texture = m_textures.value(buffer.textureId, m_defaultTexture);
-        texture->bind(0);
-        
-        m_shaderProgram->setUniformValue(m_uniformLightLevel, buffer.lightLevel);
-        
-        buffer.vao->bind();
-        glDrawArrays(GL_TRIANGLES, 0, buffer.vertexCount);
-        buffer.vao->release();
-    }
+    // Disable culling for floors/ceilings to handle arbitrary winding order
+    glDisable(GL_CULL_FACE);
+    renderBuffers(m_floorBuffers);
+    renderBuffers(m_ceilingBuffers);
+    glEnable(GL_CULL_FACE);
     
-    // Render walls
-    for (const GeometryBuffer &buffer : m_wallBuffers) {
-        QOpenGLTexture *texture = m_textures.value(buffer.textureId, m_defaultTexture);
-        texture->bind(0);
-        
-        m_shaderProgram->setUniformValue(m_uniformLightLevel, buffer.lightLevel);
-        
-        buffer.vao->bind();
-        glDrawArrays(GL_TRIANGLES, 0, buffer.vertexCount);
-        buffer.vao->release();
-    }
+    renderBuffers(m_wallBuffers);
+    
+    // Render entities (billboards / md3)
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    renderBuffers(m_entityBuffers);
+    glDisable(GL_BLEND);
     
     m_shaderProgram->release();
+}
+
+// 2D Parallax Skybox
+void VisualRenderer::drawSkybox(const QVector3D &cameraPos)
+{
+    if (m_skyTextureId <= 0 || !m_textures.contains(m_skyTextureId)) return;
+    
+    QOpenGLTexture *tex = m_textures[m_skyTextureId];
+    if (!tex) return;
+    
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    
+    tex->bind();
+    
+    m_shaderProgram->setUniformValue(m_uniformMVP, QMatrix4x4()); // Screen space
+    m_shaderProgram->setUniformValue(m_uniformLightLevel, 1.0f); // Full bright
+    
+    // Parallax calculation
+    float fovRatio = 90.0f / 360.0f; 
+    float yawNorm = qRadiansToDegrees(m_cameraYaw) / 360.0f;
+    float uStart = -yawNorm; 
+    float uEnd = uStart + fovRatio;
+    float pitchNorm = qRadiansToDegrees(m_cameraPitch) / 90.0f;
+    float vShift = pitchNorm * 0.8f; 
+    
+    float v1 = 0.0f - vShift; // Bottom
+    float v2 = 1.0f - vShift; // Top
+    
+    // Create quad data dynamic
+    float quadData[] = {
+        // X, Y, Z,   U, V,   NX, NY, NZ
+        -1.0f, -1.0f, 0.99f,   uStart, v1,   0,0,1,
+         1.0f, -1.0f, 0.99f,   uEnd, v1,     0,0,1,
+         1.0f,  1.0f, 0.99f,   uEnd, v2,     0,0,1,
+         
+         1.0f,  1.0f, 0.99f,   uEnd, v2,     0,0,1,
+        -1.0f,  1.0f, 0.99f,   uStart, v2,   0,0,1,
+        -1.0f, -1.0f, 0.99f,   uStart, v1,   0,0,1
+    };
+    
+    static QOpenGLBuffer vbo(QOpenGLBuffer::VertexBuffer);
+    static QOpenGLVertexArrayObject vao;
+    static bool init = false;
+    
+    if (!init) {
+        if (vao.create() && vbo.create()) {
+            init = true;
+        }
+    }
+    
+    if (init) {
+        vao.bind();
+        vbo.bind();
+        vbo.allocate(quadData, sizeof(quadData)); // Dynamic update
+        
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3*sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5*sizeof(float)));
+        
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        
+        vao.release();
+        vbo.release();
+    }
+    
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
 }

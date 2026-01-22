@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <float.h>
 
 /* External engine instance */
 extern RAY_Engine g_engine;
