@@ -2103,31 +2103,47 @@ void ray_render_frame_build(GRAPH *dest)
     sectors_rendered_this_frame = 0;
     
     // Profiling timers
+    #ifndef _WIN32
     struct timespec prof_start, prof_end;
     clock_gettime(CLOCK_MONOTONIC, &prof_start);
+    #endif
     
     // Build Engine standard: Render camera sector and recursively through portals
     // All visible geometry MUST be connected by portals
     render_sector(dest, camera_sector_id, 0, xdimen - 1, 0);
     
+    #ifndef _WIN32
     clock_gettime(CLOCK_MONOTONIC, &prof_end);
     double sector_time = (prof_end.tv_sec - prof_start.tv_sec) * 1000.0 + 
                          (prof_end.tv_nsec - prof_start.tv_nsec) / 1000000.0;
+    #else
+    double sector_time = 0.0;
+    #endif
     
     // Draw Sprites/Models
+    #ifndef _WIN32
     clock_gettime(CLOCK_MONOTONIC, &prof_start);
+    #endif
     render_sprites_and_models(dest);
+    #ifndef _WIN32
     clock_gettime(CLOCK_MONOTONIC, &prof_end);
     double sprite_time = (prof_end.tv_sec - prof_start.tv_sec) * 1000.0 + 
                          (prof_end.tv_nsec - prof_start.tv_nsec) / 1000000.0;
+    #else
+    double sprite_time = 0.0;
+    #endif
     
     // Commit software buffer to GPU texture
     frame_commit(dest);
     
     // PERFORMANCE MEASUREMENT
+    #ifndef _WIN32
     clock_gettime(CLOCK_MONOTONIC, &end_time);
     double frame_time = (end_time.tv_sec - start_time.tv_sec) * 1000.0 + 
                         (end_time.tv_nsec - start_time.tv_nsec) / 1000000.0;
+    #else
+    double frame_time = 0.0;
+    #endif
     
     total_frame_time += frame_time;
     frame_count++;
