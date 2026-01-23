@@ -35,6 +35,7 @@
 
 #include "libbginput.h"
 #include "libsdlhandler.h"
+#include <string.h>
 
 #ifdef _MSC_VER
 #pragma pack(push, 1)
