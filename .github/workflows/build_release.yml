@@ -21,10 +21,20 @@ jobs:
 
       - name: Set up environment for ${{ matrix.env }}
         run: |
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
           if [ "${{ matrix.env }}" == "linux32" ]; then
             sudo dpkg --add-architecture i386
-            sudo apt update
+            # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          sudo apt update
             sudo apt install -y gcc-multilib g++-multilib binutils git cmake build-essential zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386
           else
             sudo apt install -y binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
@@ -56,6 +66,10 @@ jobs:
 
       - name: Set up environment
         run: |
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev
 
@@ -135,6 +149,10 @@ jobs:
 
       - name: Set up environment
         run: |
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev
 
@@ -215,6 +233,12 @@ jobs:
 
       - name: Set up osxcross
         run: |
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
+          # Remove broken Microsoft repos blocking apt update
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
           sudo apt install -y wget git cmake clang pkg-config tar xz-utils gobjc gobjc++ libobjc-9-dev openssl
           mkdir -p /opt
