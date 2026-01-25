@@ -1,0 +1,148 @@
+name: Build & Release BennuGD2
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version Tag (e.g. v2.0.0)'
+        required: true
+        default: 'v2.0.0'
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows
+            os: windows-latest
+            artifact: bennugd2-windows-x64.zip
+          - platform: Linux
+            os: ubuntu-22.04
+            artifact: bennugd2-linux-x64.tar.gz
+          - platform: macOS
+            os: macos-latest
+            artifact: bennugd2-macos-x64.zip
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # --- DEPENDENCIES WINDOWS ---
+      - name: Install Dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vcpkg install sdl2:x64-windows sdl2-image:x64-windows sdl2-mixer:x64-windows sdl2-ttf:x64-windows curl:x64-windows zlib:x64-windows libpng:x64-windows openssl:x64-windows
+          # Ensure dependencies are available for CMake
+
+      # --- DEPENDENCIES LINUX ---
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake \
+               libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+               libssl-dev libcurl4-openssl-dev libpng-dev zlib1g-dev
+
+      # --- DEPENDENCIES MACOS ---
+      - name: Install Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf openssl curl
+
+      # --- BUILD ---
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          
+          TOOLCHAIN_ARG=""
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+             TOOLCHAIN_ARG="-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          fi
+          
+          cmake .. $TOOLCHAIN_ARG -DCMAKE_BUILD_TYPE=Release
+      
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # --- PACKAGE WINDOWS ---
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          mkdir dist
+          mkdir dist/bin
+          
+          # Copy executables from Release folder
+          Copy-Item build/Release/bgdc.exe dist/bin/
+          Copy-Item build/Release/bgdi.exe dist/bin/
+          
+          # Try copying common lib names built by Bennu
+          Copy-Item build/Release/*.dll dist/bin/ -ErrorAction SilentlyContinue
+          Copy-Item build/Release/libmod_*.dll dist/bin/ -ErrorAction SilentlyContinue
+          
+          # Copy VCPKG DLLs (Dependencies)
+          if (Test-Path "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin") {
+             Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/*.dll" dist/bin/
+          }
+          
+          cd dist
+          Compress-Archive -Path * -DestinationPath "$env:GITHUB_WORKSPACE\bennugd2-windows-x64.zip"
+
+      # --- PACKAGE LINUX ---
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist/bin
+          cp build/bgdc dist/bin/
+          cp build/bgdi dist/bin/
+          # Copy built modules (.so)
+          cp build/*.so dist/bin/ 2>/dev/null || true
+          cp build/lib*.so dist/bin/ 2>/dev/null || true
+          
+          cd dist
+          tar -czvf $GITHUB_WORKSPACE/bennugd2-linux-x64.tar.gz .
+
+      # --- PACKAGE MACOS ---
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist/bin
+          cp build/bgdc dist/bin/
+          cp build/bgdi dist/bin/
+          cp build/*.dylib dist/bin/ 2>/dev/null || true
+          cp build/lib*.dylib dist/bin/ 2>/dev/null || true
+          
+          cd dist
+          zip -r $GITHUB_WORKSPACE/bennugd2-macos-x64.zip .
+
+      # --- UPLOAD ---
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: Release ${{ github.event.inputs.version }}
+          files: |
+            bennugd2-windows-x64.zip/bennugd2-windows-x64.zip
+            bennugd2-linux-x64.tar.gz/bennugd2-linux-x64.tar.gz
+            bennugd2-macos-x64.zip/bennugd2-macos-x64.zip
