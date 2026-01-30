@@ -9,11 +9,16 @@ set(CMAKE_MODULE_PATH ../../cmake/Modules)
 
 # Buscar SDL2 (requerido por libbggfx)
 if(NOT EMSCRIPTEN)
-    find_package(SDL2 REQUIRED)
-
+    if(NOT DEFINED SDL2_INCLUDE_DIR)
+        find_package(SDL2 REQUIRED)
+    endif()
 endif()
 
 add_definitions(-D__LIBMOD_RAY ${EXTRA_CFLAGS})
+
+if(ANDROID)
+    include_directories(${PREFIX_JNI}/include)
+endif()
 
 include_directories(
     ${SDL2_INCLUDE_DIR}
