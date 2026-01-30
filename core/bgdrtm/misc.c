@@ -159,6 +159,11 @@ int64_t system_paused = 0;
 #define _OS_ID          OS_EMSCRIPTEN
 #endif
 
+#ifdef VITA
+#undef _OS_ID
+#define _OS_ID          OS_VITA
+#endif
+
 /* --------------------------------------------------------------------------- */
 
 #if defined(TARGET_GP2X_WIZ) || defined(TARGET_CAANOO)

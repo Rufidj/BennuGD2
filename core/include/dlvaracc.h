@@ -81,6 +81,56 @@
 #define LOCADDR(m,a,b)    ((uint8_t *)(intptr_t)((a)->locdata) + (uint64_t)(intptr_t)m##_locals_fixup[b].data_offset)
 #define GLOADDR(m,a)      (m##_globals_fixup[a].data_offset)
 
+#ifdef VITA
+/* Vita (ARM) requires aligned access or special handling for unaligned data */
+typedef uint64_t u64_unaligned __attribute__((aligned(1)));
+typedef int64_t  s64_unaligned __attribute__((aligned(1)));
+typedef double   dbl_unaligned __attribute__((aligned(1)));
+typedef uint32_t u32_unaligned __attribute__((aligned(1)));
+typedef int32_t  s32_unaligned __attribute__((aligned(1)));
+typedef float    flt_unaligned __attribute__((aligned(1)));
+typedef uint16_t u16_unaligned __attribute__((aligned(1)));
+typedef int16_t  s16_unaligned __attribute__((aligned(1)));
+
+#define LOCQWORD(m,a,b)   (*(u64_unaligned *)LOCADDR(m,a,b))
+#define LOCDWORD(m,a,b)   (*(u32_unaligned *)LOCADDR(m,a,b))
+#define LOCWORD(m,a,b)    (*(u16_unaligned *)LOCADDR(m,a,b))
+#define LOCBYTE(m,a,b)    (*(uint8_t  *)LOCADDR(m,a,b))
+
+#define LOCINT64(m,a,b)   (*(s64_unaligned  *)LOCADDR(m,a,b))
+#define LOCINT32(m,a,b)   (*(s32_unaligned  *)LOCADDR(m,a,b))
+#define LOCINT16(m,a,b)   (*(s16_unaligned  *)LOCADDR(m,a,b))
+#define LOCINT8(m,a,b)    (*(int8_t   *)LOCADDR(m,a,b))
+
+#define LOCUINT64(m,a,b)  LOCQWORD(m,a,b)
+#define LOCUINT32(m,a,b)  LOCDWORD(m,a,b)
+#define LOCUINT16(m,a,b)  LOCWORD(m,a,b)
+#define LOCUINT8(m,a,b)   LOCBYTE(m,a,b)
+
+#define LOCFLOAT(m,a,b)   (*(flt_unaligned    *)LOCADDR(m,a,b))
+#define LOCDOUBLE(m,a,b)  (*(dbl_unaligned   *)LOCADDR(m,a,b))
+
+
+#define GLOQWORD(m,a)     (*(u64_unaligned *)GLOADDR(m,a))
+#define GLODWORD(m,a)     (*(u32_unaligned *)GLOADDR(m,a))
+#define GLOWORD(m,a)      (*(u16_unaligned *)GLOADDR(m,a))
+#define GLOBYTE(m,a)      (*(uint8_t  *)GLOADDR(m,a))
+
+#define GLOINT64(m,a)     (*(s64_unaligned  *)GLOADDR(m,a))
+#define GLOINT32(m,a)     (*(s32_unaligned  *)GLOADDR(m,a))
+#define GLOINT16(m,a)     (*(s16_unaligned  *)GLOADDR(m,a))
+#define GLOINT8(m,a)      (*(int8_t   *)GLOADDR(m,a))
+
+#define GLOUINT64(m,a)    GLOQWORD(m,a)
+#define GLOUINT32(m,a)    GLODWORD(m,a)
+#define GLOUINT16(m,a)    GLOWORD(m,a)
+#define GLOUINT8(m,a)     GLOBYTE(m,a)
+
+#define GLOFLOAT(m,a)     (*(flt_unaligned    *)GLOADDR(m,a))
+#define GLODOUBLE(m,a)    (*(dbl_unaligned   *)GLOADDR(m,a))
+
+#else
+
 #define LOCQWORD(m,a,b)   (*(uint64_t *)LOCADDR(m,a,b))
 #define LOCDWORD(m,a,b)   (*(uint32_t *)LOCADDR(m,a,b))
 #define LOCWORD(m,a,b)    (*(uint16_t *)LOCADDR(m,a,b))
@@ -117,6 +167,7 @@
 
 #define GLOFLOAT(m,a)     (*(float    *)GLOADDR(m,a))
 #define GLODOUBLE(m,a)    (*(double   *)GLOADDR(m,a))
+#endif
 
 
 /* --------------------------------------------------------------------------- */

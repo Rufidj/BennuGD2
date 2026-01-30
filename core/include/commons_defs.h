@@ -63,6 +63,7 @@
 #define OS_SWITCH               1004
 #define OS_PS3                  1005
 #define OS_EMSCRIPTEN           1006
+#define OS_VITA                 1007
 
 #endif
 

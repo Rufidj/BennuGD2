@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>BennuGD2 Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            margin-bottom: 30px;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        #canvas-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #output {
+            width: 100%;
+            max-width: 800px;
+            height: 200px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #0f0;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-bottom: 20px;
+        }
+
+        #status {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            height: 30px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .controls p {
+            margin: 5px 0;
+            opacity: 0.8;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .info-box h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-box li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .info-box li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .subtitle {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 BennuGD2</h1>
+        <p class="subtitle">Game Development Framework - WebAssembly Edition</p>
+        
+        <div id="status">
+            <span class="spinner"></span>
+            <span id="status-text">Inicializando...</span>
+        </div>
+
+        <div class="progress-container" id="progress-container">
+            <div class="progress-bar" id="progress-bar">0%</div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+        </div>
+
+        <div id="output"></div>
+
+        <div class="controls">
+            <p><strong>Controles:</strong></p>
+            <p>Usa el teclado y el ratón para interactuar con el juego</p>
+            <p>Presiona F11 para pantalla completa</p>
+        </div>
+
+        <div class="info-box">
+            <h3>Acerca de BennuGD2</h3>
+            <ul>
+                <li>Motor de desarrollo de juegos multiplataforma</li>
+                <li>Compilado a WebAssembly con Emscripten</li>
+                <li>Soporte para gráficos 2D, audio y entrada de usuario</li>
+                <li>Compatible con SDL2</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type='text/javascript'>
+        var statusElement = document.getElementById('status');
+        var statusText = document.getElementById('status-text');
+        var progressContainer = document.getElementById('progress-container');
+        var progressBar = document.getElementById('progress-bar');
+        var outputElement = document.getElementById('output');
+        var canvas = document.getElementById('canvas');
+
+        var Module = {
+            preRun: [],
+            postRun: [],
+            print: (function() {
+                return function(text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                    outputElement.innerHTML += text + '\n';
+                    outputElement.scrollTop = outputElement.scrollHeight;
+                };
+            })(),
+            printErr: function(text) {
+                if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                console.error(text);
+                outputElement.innerHTML += '<span style="color: #f44;">' + text + '</span>\n';
+                outputElement.scrollTop = outputElement.scrollHeight;
+            },
+            canvas: canvas,
+            setStatus: function(text) {
+                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+                if (text === Module.setStatus.last.text) return;
+                
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var now = Date.now();
+                
+                if (m && now - Module.setStatus.last.time < 30) return;
+                
+                Module.setStatus.last.time = now;
+                Module.setStatus.last.text = text;
+                
+                if (m) {
+                    text = m[1];
+                    progressContainer.style.display = 'block';
+                    var progress = parseInt(m[2]) * 100 / parseInt(m[4]);
+                    progressBar.style.width = progress + '%';
+                    progressBar.textContent = progress.toFixed(0) + '%';
+                } else {
+                    progressContainer.style.display = 'none';
+                }
+                
+                statusText.textContent = text;
+                
+                if (text === '') {
+                    statusElement.style.display = 'none';
+                } else {
+                    statusElement.style.display = 'block';
+                }
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function(left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ? 'Preparando... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'Todos los recursos descargados');
+            }
+        };
+        
+        Module.setStatus('Descargando...');
+        
+        window.onerror = function(event) {
+            Module.setStatus('Error: ' + event);
+            statusElement.style.display = 'block';
+            statusText.textContent = 'Error al cargar el juego';
+        };
+
+        // Auto-focus canvas for keyboard input
+        canvas.addEventListener('click', function() {
+            canvas.focus();
+        }, false);
+        
+        // Prevent default browser shortcuts that might interfere
+        document.addEventListener('keydown', function(e) {
+            // Prevent F5 refresh
+            if (e.key === 'F5') {
+                e.preventDefault();
+            }
+            // Allow F11 for fullscreen
+            if (e.key === 'F11') {
+                return true;
+            }
+            // Prevent other F-keys
+            if (e.key.startsWith('F') && e.key.length > 1) {
+                e.preventDefault();
+            }
+        });
+    </script>
+    {{{ SCRIPT }}}
+</body>
+</html>

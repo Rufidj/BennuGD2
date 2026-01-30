@@ -62,6 +62,13 @@
 
 #include "bgdi.h"
 #include "bgdrtm.h"
+
+#ifdef VITA
+#include <psp2/power.h>
+unsigned int _newlib_heap_size_user = 128 * 1024 * 1024;
+
+#else
+#endif
 #include "xstrings.h"
 #include "dirs.h"
 #include "messages.h"
@@ -70,7 +77,7 @@
 
 static char * dcb_exts[] = { ".dcb", ".dat", ".bin", NULL };
 
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
 static int standalone  = 0;  /* 1 only if this is an standalone interpreter   */
 static int embedded    = 0;  /* 1 only if this is a stub with an embedded DCB */
 #endif
@@ -253,7 +260,29 @@ int main( int argc, char *argv[] ) {
 //    consoleInit(NULL);
     romfsInit();
     fsdevMountSdmc();
-    chdir("romfs:/");
+    chdir("romfs:/"); // Enforce romfs for embedded assets
+    
+    // Debug logging
+    freopen("sdmc:/switch/BennuGD2_log.txt", "w", stdout);
+    freopen("sdmc:/switch/BennuGD2_err.txt", "w", stderr);
+#endif
+
+#ifdef VITA
+    scePowerSetArmClockFrequency(444);
+    scePowerSetGpuClockFrequency(222);
+    // SDL_setenv("VITA_DISABLE_TOUCH_FRONT", "1", 1); // Enable Touch!
+    // SDL_setenv("VITA_DISABLE_TOUCH_BACK", "1");   // Enable Rear Touch!
+    
+    // Enable logging to file for debugging crashes
+    freopen("ux0:/data/BennuGD_log.txt", "w", stdout);
+    freopen("ux0:/data/BennuGD_err.txt", "w", stderr);
+    
+    // Clear log
+    FILE *f = fopen("ux0:/data/BennuGD_log.txt", "w");
+    if (f) { fprintf(f, "--- START ---\n"); fclose(f); }
+
+    chdir("app0:/");
+    chdir("app0:/");
 #endif
 
     char * filename = NULL, dcbname[ __MAX_PATH ];
@@ -265,7 +294,7 @@ int main( int argc, char *argv[] ) {
     setvbuf( stdout, NULL, _IONBF, BUFSIZ );
 
     /* get executable full pathname  */
-#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined ( __ANDROID__ ) || defined ( __EMSCRIPTEN__ )
+#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined ( __ANDROID__ ) || defined ( __EMSCRIPTEN__ ) || defined( VITA )
     appexefullpath = strdup( argv[0] );
 #else
     appexefullpath = get_executable_full_path( argv[ 0 ] );
@@ -273,7 +302,7 @@ int main( int argc, char *argv[] ) {
 
     appexename = get_executable_name( appexefullpath );
 
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ ) && !defined( VITA )
     if ( ( !strchr( appexefullpath, '\\' ) && !strchr( appexefullpath, '/' ) ) ) {
         struct stat st;
         if ( stat( appexefullpath, &st ) || !S_ISREG( st.st_mode ) ) {
@@ -296,7 +325,7 @@ int main( int argc, char *argv[] ) {
     /* add binary path */
     file_addp( appexepath );
 
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __EMSCRIPTEN__ ) && !defined( VITA )
     standalone = strncmpi( appexename, "bgdi", 4 );
     if ( standalone ) {
         /* Hand-made interpreter: search for DCB at EOF */
@@ -367,7 +396,7 @@ int main( int argc, char *argv[] ) {
 
     /* Init application title for windowed modes */
 
-#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ ) || defined( __EMSCRIPTEN__ )
+#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ ) || defined( __EMSCRIPTEN__ ) || defined( VITA )
     filename = "game.dcb";
 #endif
 
@@ -436,6 +465,7 @@ int main( int argc, char *argv[] ) {
 //#endif
 
     argv[0] = filename;
+    
     bgdrtm_entry( argc, argv );
 
     if ( mainproc ) {

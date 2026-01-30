@@ -110,7 +110,7 @@ typedef struct {
 
 typedef struct {
     uint64_t    Id; /* Identifier of Name, Segment Key 1 */
-    BASETYPE    Type; /* Segment Key 2 */
+    int32_t     Type; /* Segment Key 2 */
     uint64_t    Params; /* Segment Key 3 */
     uint64_t    Code;
 } __PACKED DCB_SYSPROC_CODE;

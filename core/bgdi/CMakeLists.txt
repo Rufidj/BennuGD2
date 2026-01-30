@@ -4,6 +4,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")
 
 find_package(ZLIB REQUIRED)
+message(STATUS "DEBUG: NINTENDO_SWITCH=${NINTENDO_SWITCH} CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}")
 
 if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
     file(GLOB MODULE_HEADERS "${CMAKE_SOURCE_DIR}/modules/*")
@@ -37,9 +38,15 @@ if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
         set(OGL_LIB -lGL)
     endif()
 
-    if(NINTENDO_SWITCH)
+    if(NINTENDO_SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
+        message(STATUS "Configuring for Nintendo Switch...")
         set(OGL_LIB -lglad -lEGL -lGLESv2 -lglapi -ldrm_nouveau -lnx -lm)
         set(OTHER_LIBS -lpng -ljpeg -lwebp -lmpg123 -lmodplug -lopusfile -lopus -lvorbisfile -lvorbis -logg)
+    endif()
+
+    if(VITA)
+        message(STATUS "Configuring for PS Vita...")
+        set(OTHER_LIBS -lpng -ljpeg -lz -lm -lSceDisplay_stub -lSceGxm_stub -lSceCtrl_stub -lSceAudio_stub -lSceAudioIn_stub -lScePower_stub -lSceTouch_stub -lSceCommonDialog_stub -lSceHid_stub -lSceMotion_stub -lSceAppMgr_stub -lSceAppUtil_stub -lSceSysmodule_stub -lvorbisfile -lvorbis -logg -lxmp -lopusfile -lopus -lmodplug -lstdc++ -lwebpdemux -lwebp -lpthread)
     endif()
 
     if(PS3_PPU)
@@ -80,13 +87,15 @@ if(MINGW)
 endif()
 
 if(ANDROID)
-    find_package(SDL2 REQUIRED)
+    if(NOT DEFINED SDL2_INCLUDE_DIR)
+        find_package(SDL2 REQUIRED)
+    endif()
 
     include_directories(${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS})
 
     add_definitions(-D__ANDROID__ -DUSE_GLES2)
-    include_directories(${CMAKE_SOURCE_DIR}/vendor/android/include)
-    set(ANDROID_PATH_LIB -L${CMAKE_SOURCE_DIR}/vendor/android/lib)
+    include_directories(${PREFIX_JNI}/include)
+    set(ANDROID_PATH_LIB -L${PREFIX_JNI}/lib)
     set(OGL_LIB GLESv1_CM GLESv2 OpenSLES log android)
 
     add_library(main SHARED ${SOURCES})
@@ -136,6 +145,34 @@ elseif(EMSCRIPTEN)
     )
 else()
     add_executable(bgdi ${SOURCES})
-    target_link_libraries(bgdi -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${EXTRA_LIBS} ${OTHER_LIBS})
+    target_link_libraries(bgdi -L${CMAKE_SOURCE_DIR}/bin bgdrtm -Wl,--start-group ${EXTRA_LIBS} ${OTHER_LIBS} -Wl,--end-group)
+endif()
+
+if(VITA)
+    add_definitions(-DVITA)
+    include("$ENV{VITASDK}/share/vita.cmake")
+    
+    # Explicitly point to the binary because the macro expects it in the current dir
+    set(BGDI_EXEC "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}bgdi")
+    
+    vita_create_self(bgdi.self "${BGDI_EXEC}" UNSAFE)
+    
+    # Ensure bgdi is built before trying to convert it
+    if(TARGET bgdi-velf)
+        add_dependencies(bgdi-velf bgdi)
+    endif()
+
+    vita_create_vpk(Joselkiller.vpk BGDI00001 bgdi.self
+        VERSION "01.00"
+        NAME "Josel Killer"
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/Joselkiller.dcb" game.dcb
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/fnt" fnt
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/fpg" fpg
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/sound" sound
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/controls.txt" controls.txt
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/data.txt" data.txt
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/durezas.txt" durezas.txt
+        FILE "/home/ruben/BennuGD2/games/Joselkiller/resources.txt" resources.txt
+    )
 endif()
 

@@ -104,6 +104,101 @@ typedef struct _instance {
 
 /* Macros for accessing local or private instance data. */
 
+#ifdef VITA
+/* Vita (ARM) requires aligned access or special handling for unaligned data */
+// Note: Typedefs must be compatible or re-defined. Since this is a header, 
+// if dlvaracc.h is included they might conflict if named identically. 
+// But dlvaracc.h uses u64_unaligned etc. I will use same here or include dlvaracc.h logic?
+// instance_st.h usually included autonomously. I'll define local typedefs with prefix if needed 
+// or reuse if I assume dlvaracc.h is standard. 
+// Better use specific unique names here to avoid redefinition errors if headers are mixed.
+
+typedef uint64_t u64_inst_unaligned __attribute__((aligned(1)));
+typedef int64_t  s64_inst_unaligned __attribute__((aligned(1)));
+typedef double   dbl_inst_unaligned __attribute__((aligned(1)));
+typedef uint32_t u32_inst_unaligned __attribute__((aligned(1)));
+typedef int32_t  s32_inst_unaligned __attribute__((aligned(1)));
+typedef float    flt_inst_unaligned __attribute__((aligned(1)));
+typedef uint16_t u16_inst_unaligned __attribute__((aligned(1)));
+typedef int16_t  s16_inst_unaligned __attribute__((aligned(1)));
+
+#define LOCQWORD(a,b)   ( *(u64_inst_unaligned *) ((uint8_t *)(a->locdata)+b) )
+#define LOCDWORD(a,b)   ( *(u32_inst_unaligned *) ((uint8_t *)(a->locdata)+b) )
+#define LOCWORD(a,b)    ( *(u16_inst_unaligned *) ((uint8_t *)(a->locdata)+b) )
+#define LOCBYTE(a,b)    ( *(uint8_t  *) ((uint8_t *)(a->locdata)+b) )
+
+#define LOCINT64(a,b)   ( *(s64_inst_unaligned  *) ((uint8_t *)(a->locdata)+b) )
+#define LOCINT32(a,b)   ( *(s32_inst_unaligned  *) ((uint8_t *)(a->locdata)+b) )
+#define LOCINT16(a,b)   ( *(s16_inst_unaligned  *) ((uint8_t *)(a->locdata)+b) )
+#define LOCINT8(a,b)    ( *(int8_t   *) ((uint8_t *)(a->locdata)+b) )
+
+#define LOCUINT64(a,b)  LOCQWORD(a,b)
+#define LOCUINT32(a,b)  LOCDWORD(a,b)
+#define LOCUINT16(a,b)  LOCWORD(a,b)
+#define LOCUINT8(a,b)   LOCBYTE(a,b)
+
+#define LOCFLOAT(a,b)   ( *(flt_inst_unaligned   *) ((uint8_t *)(a->locdata)+b) )
+#define LOCDOUBLE(a,b)  ( *(dbl_inst_unaligned  *) ((uint8_t *)(a->locdata)+b) )
+
+
+#define PRIQWORD(a,b)   ( *(u64_inst_unaligned *) ((uint8_t *)(a->pridata)+b) )
+#define PRIDWORD(a,b)   ( *(u32_inst_unaligned *) ((uint8_t *)(a->pridata)+b) )
+#define PRIWORD(a,b)    ( *(u16_inst_unaligned *) ((uint8_t *)(a->pridata)+b) )
+#define PRIBYTE(a,b)    ( *(uint8_t  *) ((uint8_t *)(a->pridata)+b) )
+
+#define PRIINT64(a,b)   ( *(s64_inst_unaligned  *) ((uint8_t *)(a->pridata)+b) )
+#define PRIINT32(a,b)   ( *(s32_inst_unaligned  *) ((uint8_t *)(a->pridata)+b) )
+#define PRIINT16(a,b)   ( *(s16_inst_unaligned  *) ((uint8_t *)(a->pridata)+b) )
+#define PRIINT8(a,b)    ( *(int8_t   *) ((uint8_t *)(a->pridata)+b) )
+
+#define PRIUINT64(a,b)  PRIQWORD(a,b)
+#define PRIUINT32(a,b)  PRIDWORD(a,b)
+#define PRIUINT16(a,b)  PRIWORD(a,b)
+#define PRIUINT8(a,b)   PRIBYTE(a,b)
+
+#define PRIFLOAT(a,b)   ( *(flt_inst_unaligned    *) ((uint8_t *)(a->pridata)+b) )
+#define PRIDOUBLE(a,b)  ( *(dbl_inst_unaligned   *) ((uint8_t *)(a->pridata)+b) )
+
+
+#define PUBQWORD(a,b)   ( *(u64_inst_unaligned *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBDWORD(a,b)   ( *(u32_inst_unaligned *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBWORD(a,b)    ( *(u16_inst_unaligned *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBBYTE(a,b)    ( *(uint8_t  *) ((uint8_t *)(a->pubdata)+b) )
+
+#define PUBINT64(a,b)   ( *(s64_inst_unaligned  *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBINT32(a,b)   ( *(s32_inst_unaligned  *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBINT16(a,b)   ( *(s16_inst_unaligned  *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBINT8(a,b)    ( *(int8_t   *) ((uint8_t *)(a->pubdata)+b) )
+
+#define PUBUINT64(a,b)  PUBQWORD(a,b)
+#define PUBUINT32(a,b)  PUBDWORD(a,b)
+#define PUBUINT16(a,b)  PUBWORD(a,b)
+#define PUBUINT8(a,b)   PUBBYTE(a,b)
+
+#define PUBFLOAT(a,b)   ( *(flt_inst_unaligned    *) ((uint8_t *)(a->pubdata)+b) )
+#define PUBDOUBLE(a,b)  ( *(dbl_inst_unaligned   *) ((uint8_t *)(a->pubdata)+b) )
+
+
+#define GLOQWORD(b)     ( *(u64_inst_unaligned *) ((uint8_t *)(globaldata)+b) )
+#define GLODWORD(b)     ( *(u32_inst_unaligned *) ((uint8_t *)(globaldata)+b) )
+#define GLOWORD(b)      ( *(u16_inst_unaligned *) ((uint8_t *)(globaldata)+b) )
+#define GLOBYTE(b)      ( *(uint8_t  *) ((uint8_t *)(globaldata)+b) )
+
+#define GLOINT64(b)     ( *(s64_inst_unaligned  *) ((uint8_t *)(globaldata)+b) )
+#define GLOINT32(b)     ( *(s32_inst_unaligned  *) ((uint8_t *)(globaldata)+b) )
+#define GLOINT16(b)     ( *(s16_inst_unaligned  *) ((uint8_t *)(globaldata)+b) )
+#define GLOINT8(b)      ( *(int8_t   *) ((uint8_t *)(globaldata)+b) )
+
+#define GLOUINT64(b)    GLOQWORD(b)
+#define GLOUINT32(b)    GLODWORD(b)
+#define GLOUINT16(b)    GLOWORD(b)
+#define GLOUINT8(b)     GLOBYTE(b)
+
+#define GLOFLOAT(b)     ( *(flt_inst_unaligned    *) ((uint8_t *)(globaldata)+b) )
+#define GLODOUBLE(b)    ( *(dbl_inst_unaligned   *) ((uint8_t *)(globaldata)+b) )
+
+#else
+
 #define LOCQWORD(a,b)   ( *(uint64_t *) ((uint8_t *)(a->locdata)+b) )
 #define LOCDWORD(a,b)   ( *(uint32_t *) ((uint8_t *)(a->locdata)+b) )
 #define LOCWORD(a,b)    ( *(uint16_t *) ((uint8_t *)(a->locdata)+b) )
@@ -178,5 +273,6 @@ typedef struct _instance {
 
 #define GLOFLOAT(b)     ( *(float    *) ((uint8_t *)(globaldata)+b) )
 #define GLODOUBLE(b)    ( *(double   *) ((uint8_t *)(globaldata)+b) )
+#endif
 
 #endif
