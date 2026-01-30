@@ -6,7 +6,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 if(NOT EMSCRIPTEN)
-    find_package(SDL2 REQUIRED)
+    if(NOT DEFINED SDL2_INCLUDE_DIR)
+        find_package(SDL2 REQUIRED)
+    endif()
+    
     if(USE_SDL2_GPU)
         find_package(SDL_GPU REQUIRED)
 endif()
@@ -28,6 +31,10 @@ else()
          )
 endif()
 
+if(VITA)
+    list(APPEND SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/vita_gl_stubs.c")
+endif()
+
 if(MINGW)
     set(OGL_LIB -lopengl32)
 endif()
@@ -41,6 +48,10 @@ if(ANDROID)
     include_directories(${PREFIX_JNI}/include)
     set(ANDROID_PATH_LIB -L${PREFIX_JNI}/lib)
     set(OGL_LIB GLESv1_CM GLESv2 OpenSLES log android)
+endif()
+
+if(VITA)
+    set(OGL_LIB vita2d vitaGL vitashark SceShaccCgExt SceGxm_stub SceDisplay_stub SceCommonDialog_stub SceSysmodule_stub SceAppMgr_stub SceCtrl_stub SceMotion_stub SceTouch_stub SceAudio_stub SceAudioIn_stub SceHid_stub SceIme_stub SceKernelDmacMgr_stub ScePower_stub SceNet_stub SceNetCtl_stub ScePgf_stub SceRazorCapture_stub SceShaccCg_stub m mathneon taihen_stub)
 endif()
 
 add_library(bggfx ${LIBRARY_BUILD_TYPE} ${SOURCES_LIBBGGFX})

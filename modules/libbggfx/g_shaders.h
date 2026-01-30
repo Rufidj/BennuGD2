@@ -30,7 +30,9 @@
 
 #if USE_SDL2
 #ifndef __ANDROID__
+#ifndef VITA
 #include <GL/glew.h>
+#endif
 #endif
 #include <SDL_opengl.h>
 #endif

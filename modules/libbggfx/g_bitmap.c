@@ -35,7 +35,7 @@
 #include "libbggfx.h"
 #include "bitwise_map.h"
 
-// #define __DISABLE_PALETTES__
+#define __DISABLE_PALETTES__
 
 /* --------------------------------------------------------------------------- */
 
@@ -171,6 +171,12 @@ GRAPH * bitmap_new( int64_t code, int64_t width, int64_t height, SDL_Surface * s
 /* --------------------------------------------------------------------------- */
 
 void bitmap_update_surface( GRAPH * gr ) {
+#ifdef VITA
+    // Vita cannot read back from GPU (Tiled memory / No SDL Renderer).
+    // Prevent destroying the valid CPU surface.
+    gr->dirty = 0;
+    return;
+#endif
     if ( gr->tex && gr->dirty ) {
         if ( gr->surface ) {
             SDL_FreeSurface( gr->surface );

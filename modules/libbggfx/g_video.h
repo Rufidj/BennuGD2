@@ -97,7 +97,15 @@ extern SDL_Renderer * gRenderer;
 extern GPU_Target * gRenderer;
 #endif
 extern SDL_RendererInfo gRendererInfo;
+extern SDL_RendererInfo gRendererInfo;
 extern SDL_PixelFormat * gPixelFormat;
+
+#ifdef VITA
+extern SDL_Surface * vscreen;
+extern SDL_Texture * vscreen_tex;
+#endif
+
+
 
 /* --------------------------------------------------------------------------- */
 

@@ -26,16 +26,26 @@
  *
  */
 
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fmath.h>
+
+#if defined(__vita__) && !defined(VITA)
+#define VITA
+#endif
 
 /* --------------------------------------------------------------------------- */
 
 #include "bgddl.h"
 #include "libbggfx.h"
 #include "dlvaracc.h"
+
+#ifdef VITA
+#include <vita2d.h>
+#endif
 
 // #define __DISABLE_PALETTES__
 
@@ -52,6 +62,45 @@
 static inline int gr_update_texture( GRAPH * gr ) {
     SDL_Surface * surface;
 
+#ifdef VITA
+    // Vita2D Path: Force ABGR8888 conversion and upload
+    if ( gr->surface->format->format == SDL_PIXELFORMAT_ABGR8888 ) {
+        surface = gr->surface;
+    } else {
+        surface = SDL_ConvertSurfaceFormat( gr->surface, SDL_PIXELFORMAT_ABGR8888, 0 );
+        if ( !surface ) return -1;
+    }
+    
+    if (gr->tex && surface->pixels) {
+        vita2d_texture *vtex = (vita2d_texture*)gr->tex;
+        void *tdata = vita2d_texture_get_datap(vtex);
+        int tstride = vita2d_texture_get_stride(vtex);
+        // Assuming 32-bit ABGR8888 (4 bytes per pixel)
+        int h = gr->height;
+        int copy_width = gr->width * 4;
+        
+        static int debug_tex_up = 0;
+        if (debug_tex_up < 10) {
+             Uint32 *p32 = (Uint32*)surface->pixels;
+             Uint32 center_px = p32[(surface->h/2) * (surface->pitch/4) + (surface->w/2)];
+             // printf("DEBUG TEX UPDATE: W %d H %d Stride %d Ptr %p SurfP %d | Pix[0]=%08X Center=%08X\n", 
+             //        (int)gr->width, (int)gr->height, tstride, tdata, surface->pitch, p32[0], center_px);
+             debug_tex_up++;
+        }
+        
+        Uint8 *src = (Uint8*)surface->pixels;
+        Uint8 *dst = (Uint8*)tdata;
+        
+        if (tdata) {
+            for (int i=0; i<h; i++) {
+                memcpy(dst, src, copy_width);
+                src += surface->pitch;
+                dst += tstride;
+            }
+        }
+    }
+#else
+    // Standard SDL Path
 #ifndef __DISABLE_PALETTES__
     if ( gr->surface->format->format == gPixelFormat->format ) {
         surface = gr->surface;
@@ -70,6 +119,7 @@ static inline int gr_update_texture( GRAPH * gr ) {
     } else {
         SDL_UpdateTexture( gr->tex, NULL, surface->pixels, surface->pitch );
     }
+#endif
 
 #ifndef __DISABLE_PALETTES__
     if ( surface != gr->surface ) SDL_FreeSurface( surface );
@@ -177,7 +227,16 @@ int gr_create_image_for_graph( GRAPH * gr ) {
     }
 
     if ( !gr->tex ) {
-        gr->tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET, gr->width, gr->height );
+#ifdef VITA
+        printf("DEBUG: VITA PATH TAKEN for texture creation %dx%d.\n", (int)gr->width, (int)gr->height);
+        // Vita2D Texture Creation (Stored as void* in gr->tex)
+        gr->tex = (SDL_Texture*) vita2d_create_empty_texture_format(gr->width, gr->height, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR);
+        if (!gr->tex) printf("ERROR: Failed to create Vita2D Texture %dx%d\n", (int)gr->width, (int)gr->height);
+        else printf("DEBUG: Created Vita2D Tex %p (%dx%d)\n", gr->tex, (int)gr->width, (int)gr->height);
+#else
+        // Optimization: Use STATIC access for better Vita GLES2 performance
+        gr->tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_STATIC, gr->width, gr->height );
+#endif
         if ( !gr->tex ) {
             printf ("error in RW texture creation [%s]\n", SDL_GetError() );
             return 1;
@@ -542,7 +601,8 @@ void gr_blit(   GRAPH * dest,
                     srcrect.w = w;
                     srcrect.h = h;
 #ifdef USE_SDL2
-                    gr->segments[seg].tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET /*SDL_TEXTUREACCESS_STATIC*/, w, h );
+                    // Optimization: Use STATIC access
+                    gr->segments[seg].tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_STATIC, w, h );
                     if ( !gr->segments[seg].tex ) {
                         printf ("error creando multi textura RO [%s]\n", SDL_GetError() );
                         return;
@@ -610,11 +670,21 @@ void gr_blit(   GRAPH * dest,
         }
 #ifdef USE_SDL2
         else {
+#ifdef VITA
+            /* Vita2D Texture Creation for RO graphs */
+            gr->tex = (SDL_Texture*) vita2d_create_empty_texture_format(gr->width, gr->height, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR);
+#else
             gr->tex = SDL_CreateTexture( gRenderer, gPixelFormat->format, SDL_TEXTUREACCESS_TARGET /*SDL_TEXTUREACCESS_STATIC*/, gr->width, gr->height );
+#endif
             if ( !gr->tex ) {
                 printf ("error creando textura RO [%s]\n", SDL_GetError() );
                 return;
             }
+
+#ifdef VITA
+            // Force blend mode for Vita to ensure transparency works
+            SDL_SetTextureBlendMode( gr->tex, SDL_BLENDMODE_BLEND );
+#endif
 
             gr_update_texture(gr);
         }
@@ -690,13 +760,13 @@ void gr_blit(   GRAPH * dest,
 #endif
     }
 
-#ifdef USE_SDL2
+#if defined(USE_SDL2) || defined(VITA)
     centerx *= scalex_adjusted;
     centery *= scaley_adjusted;
 #endif
 
     if ( gr->segments ) {
-#ifdef USE_SDL2
+#if defined(USE_SDL2) || defined(VITA)
         SDL_Texture * tex;
 #endif
 #ifdef USE_SDL2_GPU
@@ -704,7 +774,7 @@ void gr_blit(   GRAPH * dest,
 #endif
         int mirror_offset = 0;
 
-#ifdef USE_SDL2
+#if defined(USE_SDL2) || defined(VITA)
         if ( flags & B_HMIRROR ) mirror_offset += gr->nsegments;
         if ( flags & B_VMIRROR ) mirror_offset += gr->nsegments * 2;
 #endif
@@ -714,7 +784,7 @@ void gr_blit(   GRAPH * dest,
                     offy = gr->segments[ i ].offy;
 
             tex = gr->segments[ i ].tex;
-#ifdef USE_SDL2
+#if defined(USE_SDL2) || defined(VITA)
             offx *= scalex_adjusted,
             offy *= scaley_adjusted;
 
@@ -733,6 +803,75 @@ void gr_blit(   GRAPH * dest,
             //Render
             SDL_RenderCopyEx( gRenderer, tex, gr_clip, &dstrect, angle / -1000.0, &center, flip );
 #endif
+#ifdef VITA
+            /* VITA2D BACKEND RENDERER (Segments) */
+            extern int vita_in_scene;
+            int local_scene_started = 0;
+            if (!vita_in_scene) {
+                vita2d_start_drawing();
+                local_scene_started = 1;
+            }
+
+            SDL_Texture *v_tex_seg = (SDL_Texture*)tex;
+            if (v_tex_seg) {
+                vita2d_texture *vtex = (vita2d_texture *)v_tex_seg;
+                // Reuse logic similar to single tex but for segments
+                 float g_scale_x = (renderer_width > 0) ? (960.0f / (float)renderer_width) : 1.0f;
+                 float g_scale_y = (renderer_height > 0) ? (544.0f / (float)renderer_height) : 1.0f;
+                 
+                 float draw_x = dstrect.x * g_scale_x;
+                 float draw_y = dstrect.y * g_scale_y;
+                 float draw_sx = scalex_adjusted * g_scale_x;
+                 float draw_sy = scaley_adjusted * g_scale_y;
+
+                 unsigned int color_mod = 0xFFFFFFFF;
+                 if (color_r != 255 || color_g != 255 || color_b != 255 || alpha != 255) {
+                     color_mod = (alpha << 24) | (color_b << 16) | (color_g << 8) | color_r;
+                 }
+
+                 vita2d_texture_set_filters(vtex, SCE_GXM_TEXTURE_FILTER_POINT, SCE_GXM_TEXTURE_FILTER_POINT);
+
+                 float tx = 0, ty = 0, tw = gr->segments[i].width, th = gr->segments[i].height;
+                 if (gr_clip) {
+                     tx = gr_clip->x; ty = gr_clip->y; tw = gr_clip->w; th = gr_clip->h;
+                 }
+
+                 int mirror_x = (flags & 1); 
+                 int mirror_y = (flags & 2);
+
+                 if (angle == 0 && color_mod == 0xFFFFFFFF && !mirror_x && !mirror_y) {
+                      vita2d_draw_texture_part_scale(vtex, draw_x, draw_y, tx, ty, tw, th, draw_sx, draw_sy);
+                 } else {
+                     float rads = ((float)angle / 1000.0f) * (3.14159265f / 180.0f);
+                     float final_sx = mirror_x ? -draw_sx : draw_sx;
+                     float final_sy = mirror_y ? -draw_sy : draw_sy;
+                     
+                     // Calculate Pivot Correction
+                     // Vita2D rotates around geometric center (tw/2, th/2).
+                     // We want hotspot (center.x, center.y) effectively at (draw_x + center.x*scale).
+                     // Correction vector from GeoCenter to Hotspot: V = (center.x - tw/2).
+                     // Rotated/Scaled V in screen space: V' = V * final_sx.
+                     // Screen Pivot Pos = TargetHotspot - V'
+                     // TargetHotspot = (dstrect.x + center.x) * g_scale = scrx * g_scale. (Assuming segment offset handled in draw_x?)
+                     // FOR SEGMENTS: draw_x is already adjusted. draw_x corresponds to dstrect.x of segment.
+                     // Segment center? Usually 0? 
+                     // Let's assume single texture math for now, segments might be tricky.
+                     // Using approximate center logic for segments:
+                     float seg_center_x = tw / 2.0f; 
+                     float seg_center_y = th / 2.0f;
+                     float pivot_x = (seg_center_x - tw/2.0f) * final_sx; // 0
+                     float pivot_y = (seg_center_y - th/2.0f) * final_sy; // 0
+                     // For segments, simplistic approach:
+                     float center_draw_x = draw_x + (tw/2.0f * g_scale_x); // Midpoint of segment dest
+                     float center_draw_y = draw_y + (th/2.0f * g_scale_y);
+                     
+                     vita2d_draw_texture_part_tint_scale_rotate(vtex, color_mod, center_draw_x, center_draw_y, tx, ty, tw, th, final_sx, final_sy, rads);
+                 }
+            }
+            if (local_scene_started) {
+                vita2d_end_drawing();
+            }
+#endif
 #ifdef USE_SDL2_GPU
             gr_set_blend( tex, blend_mode, custom_blendmode );
             GPU_SetRGBA( tex, color_r, color_g, color_b, alpha );
@@ -747,7 +886,7 @@ void gr_blit(   GRAPH * dest,
 #endif
         }
     } else {
-#ifdef USE_SDL2
+#if defined(USE_SDL2) || defined(VITA)
         center.x = centerx;
         center.y = centery;
 
@@ -756,12 +895,154 @@ void gr_blit(   GRAPH * dest,
         dstrect.w = scalex_adjusted * w;
         dstrect.h = scaley_adjusted * h;
 
-        gr_set_blend( gr->tex, blend_mode, custom_blendmode );
-        SDL_SetTextureAlphaMod( gr->tex, alpha );
-        SDL_SetTextureColorMod( gr->tex, color_r, color_g, color_b );
+#ifdef VITA
+        /* VITA2D BACKEND RENDERER (Single Texture) */
+        
+        extern int vita_in_scene;
+        int local_scene_started = 0;
+        if (!vita_in_scene) {
+            vita2d_start_drawing();
+            local_scene_started = 1;
+        }
 
-        //Render
-        SDL_RenderCopyEx( gRenderer, gr->tex, gr_clip, &dstrect, angle / -1000.0, &center, flip );
+        SDL_Texture *v_tex = (SDL_Texture*)gr->tex;
+        if (v_tex) {
+            vita2d_texture *vtex = (vita2d_texture *)v_tex;
+            
+            // Global Scale Factor (Game Resolution -> Vita 960x544)
+            // Use vita_virtual_width if available to avoid SDL resize quirks
+            extern int vita_virtual_width;
+            extern int vita_virtual_height;
+            
+            float base_w = (vita_virtual_width > 0) ? (float)vita_virtual_width : 
+                          ((renderer_width > 0) ? (float)renderer_width : 960.0f);
+            float base_h = (vita_virtual_height > 0) ? (float)vita_virtual_height : 
+                          ((renderer_height > 0) ? (float)renderer_height : 544.0f);
+
+            float g_scale_x = 960.0f / base_w;
+            float g_scale_y = 544.0f / base_h;
+            
+            // Clipping support (Scaled to Physical Resolution)
+            if (gr_clip) {
+                // printf("CLIP ON: %d %d %d %d -> Scaled %d %d %d %d\n", 
+                //        gr_clip->x, gr_clip->y, gr_clip->w, gr_clip->h,
+                //        (int)(gr_clip->x * g_scale_x), (int)(gr_clip->y * g_scale_y),
+                //        (int)(gr_clip->w * g_scale_x), (int)(gr_clip->h * g_scale_y));
+                 vita2d_set_clip_rectangle(
+                    (int)(gr_clip->x * g_scale_x),
+                    (int)(gr_clip->y * g_scale_y),
+                    (int)(gr_clip->w * g_scale_x),
+                    (int)(gr_clip->h * g_scale_y)
+                );
+                vita2d_enable_clipping();
+            } else {
+                // printf("CLIP OFF\n");
+                vita2d_disable_clipping();
+            }
+            
+            // Calculate Final Position on Screen (Scaled)
+            // Bennu dstrect.x/y are Top-Left coordinates in Logical space
+             float draw_x = dstrect.x * g_scale_x;
+             float draw_y = dstrect.y * g_scale_y;
+             
+             // Calculate Final Scale
+             float draw_sx = scalex_adjusted * g_scale_x;
+             float draw_sy = scaley_adjusted * g_scale_y;
+             
+             // Set Alpha/Color (Tint)
+             unsigned int color_mod = 0xFFFFFFFF;
+             if (color_r != 255 || color_g != 255 || color_b != 255 || alpha != 255) {
+                 // RGBA Little Endian: A AB B G G R R
+                 // 0xAABBGGRR
+                 color_mod = (alpha << 24) | (color_b << 16) | (color_g << 8) | color_r;
+             }
+             
+             // Filter
+             vita2d_texture_set_filters(vtex, SCE_GXM_TEXTURE_FILTER_POINT, SCE_GXM_TEXTURE_FILTER_POINT);
+             
+             static int debug_blit = 0;
+             if (debug_blit < 50) {
+                 // printf("DEBUG BLIT: RW %d RH %d X %.1f Y %.1f SX %.2f SY %.2f Color %08X Tex %p\n", renderer_width, renderer_height, draw_x, draw_y, draw_sx, draw_sy, color_mod, vtex);
+                 debug_blit++;
+             }
+
+             float tx = 0, ty = 0, tw = gr->width, th = gr->height;
+             if (gr_clip) {
+                 tx = gr_clip->x; ty = gr_clip->y; tw = gr_clip->w; th = gr_clip->h;
+             }
+             
+             // Draw
+             int mirror_x = (flags & 1); 
+             int mirror_y = (flags & 2);
+             
+             // Path 1: Fast Path (No Rotation, No Tint) - NOW SUPPORTS MIRROR
+             if (angle == 0 && color_mod == 0xFFFFFFFF) {
+                  float final_tw = tw;
+                  float final_th = th;
+                  float final_tx = tx;
+                  float final_ty = ty;
+                  float final_draw_x = draw_x;
+                  float final_draw_y = draw_y;
+                  
+                  // Scale variables (defaults)
+                  float final_sx = draw_sx;
+                  float final_sy = draw_sy;
+                  
+                  // Mirroring via Negative Scale (Geomeric Flip)
+                  if (mirror_x) {
+                       final_sx = -draw_sx;
+                       // Compensate Position: Move origin to Top-Right because Negative Scale draws leftwards
+                       // Use positive width*scale for the offset distance
+                       final_draw_x += (tw * draw_sx);
+                  }
+                  if (mirror_y) {
+                       final_sy = -draw_sy;
+                       // Compensate Position: Move origin to Bottom-Left
+                       final_draw_y += (th * draw_sy);
+                  }
+                  
+                  vita2d_draw_texture_part_scale(vtex, 
+                    final_draw_x, final_draw_y, 
+                    final_tx, final_ty, final_tw, final_th,
+                    final_sx, final_sy);
+             } 
+             // Path 3: Rotation + Mirror (Complex)
+             // Fallback to previous pivot logic (corrected)
+             else {
+                 float rads = ((float)angle / 1000.0f) * (3.14159265f / 180.0f);
+                 float final_sx = mirror_x ? -draw_sx : draw_sx;
+                 float final_sy = mirror_y ? -draw_sy : draw_sy;
+
+                 // Logic: 
+                 // P_screen = (scrx * GlobalScale) - (Hotspot - GeoCenter) * FinalScale
+                 float pivot_off_x = ((float)center.x - (tw / 2.0f)) * final_sx;
+                 float pivot_off_y = ((float)center.y - (th / 2.0f)) * final_sy;
+                 
+                 float center_draw_x = (scrx * g_scale_x) - pivot_off_x;
+                 float center_draw_y = (scry * g_scale_y) - pivot_off_y;
+
+                 vita2d_draw_texture_part_tint_scale_rotate(vtex,
+                    color_mod,
+                    center_draw_x,
+                    center_draw_y,
+                    tx, ty, tw, th,
+                    final_sx, final_sy,
+                    rads);
+             }
+        }
+        if (local_scene_started) {
+            vita2d_end_drawing();
+        }
+#else
+        {
+            gr_set_blend( gr->tex, blend_mode, custom_blendmode );
+            SDL_SetTextureAlphaMod( gr->tex, alpha );
+            SDL_SetTextureColorMod( gr->tex, color_r, color_g, color_b );
+
+            //Render
+            SDL_RenderCopyEx( gRenderer, gr->tex, gr_clip, &dstrect, angle / -1000.0, &center, flip );
+        }
+#endif
 #endif
 #ifdef USE_SDL2_GPU
         gr_set_blend( gr->tex, blend_mode, custom_blendmode );

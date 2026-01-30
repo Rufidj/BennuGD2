@@ -38,6 +38,10 @@
 
 #include "libbggfx.h"
 
+#ifdef VITA
+#include <vita2d.h>
+#endif
+
 #ifdef _WIN32
 #include <initguid.h>
 #include "ddraw.h"
@@ -46,12 +50,13 @@
 #ifdef USE_SDL2_GPU
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
-#elif __ANDROID__
+#elif defined(__ANDROID__) || defined(VITA)
 #include <GLES2/gl2.h>
 #else
 #include <GL/gl.h>
 #endif
 #endif
+
 
 #ifdef __ANDROID__
 #include "jni.h"
@@ -81,6 +86,10 @@ int64_t scale_resolution_aspectratio = 0;
 int renderer_width = 0;
 int renderer_height = 0;
 
+// VITA: Store logical resolution to avoid SDL overriding it
+int vita_virtual_width = 0;
+int vita_virtual_height = 0;
+
 //The window we'll be rendering to
 SDL_Window * gWindow = NULL;
 
@@ -95,6 +104,12 @@ SDL_RendererInfo gRendererInfo = { 0 };
 SDL_PixelFormat * gPixelFormat = NULL;
 SDL_Surface * gIcon = NULL;
 int64_t gMaxTextureSize = 0;
+
+
+
+
+
+
 
 double renderer_scale_factor_width = 1.0,
        renderer_scale_factor_height = 1.0,
@@ -168,13 +183,9 @@ static void show_renderer_info( SDL_RendererInfo * ri ) {
 /* --------------------------------------------------------------------------- */
 
 SDL_PixelFormat * get_system_pixel_format( void ) {
-#ifdef USE_SDL2
-    #define PIXFMT  SDL_PIXELFORMAT_ARGB8888
-#endif
-#ifdef USE_SDL2_GPU
-    #define PIXFMT  SDL_PIXELFORMAT_RGBA8888
-#endif
-    if ( !gPixelFormat ) gPixelFormat = SDL_AllocFormat( PIXFMT );
+    if ( !gPixelFormat ) {
+        gPixelFormat = SDL_AllocFormat( SDL_PIXELFORMAT_RGBA8888 );
+    }
     return gPixelFormat;
 }
 
@@ -233,23 +244,33 @@ int gr_set_mode( int width, int height, int flags ) {
 
     if ( !scale_resolution ) scale_resolution = ( int ) current.w * 10000L + ( int ) current.h ;
 
+    #ifndef VITA
     if ( scale_resolution != -1 ) {
         renderer_width  = ( int ) scale_resolution / 10000L ;
         renderer_height = ( int ) scale_resolution % 10000L ;
     }
+    #endif
 
     SDL_SetHint( SDL_HINT_GRAB_KEYBOARD, "1" );
 
-#ifdef USE_SDL2
+#if !defined(USE_SDL2_GPU) || defined(USE_SDL2)
+    // SDL2 Standard Renderer Logic
     SDL_SetHint( SDL_HINT_RENDER_VSYNC, waitvsync ? "1" : "0" );
+    // Enable batching for performance on all platforms
+    SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
+
     if ( !gWindow ) {
         //Create window
         int sdl_flags = SDL_WINDOW_SHOWN;
         if ( frameless ) sdl_flags |= SDL_WINDOW_BORDERLESS;
         if ( fullscreen ) sdl_flags |= SDL_WINDOW_FULLSCREEN;
         if ( grab_input ) sdl_flags |= SDL_WINDOW_INPUT_GRABBED;
+
   #ifdef PS3_PPU
         gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, renderer_width, renderer_height, sdl_flags );
+  #elif defined(VITA)
+        // SoRR: Native Window (960x544)
+        gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 960, 544, sdl_flags | SDL_WINDOW_FULLSCREEN );
   #else
         gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, renderer_width, renderer_height, sdl_flags | SDL_WINDOW_OPENGL );
   #endif
@@ -263,35 +284,61 @@ int gr_set_mode( int width, int height, int flags ) {
         SDL_SetWindowPosition( gWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED );
     }
 
-  #ifndef PS3_PPU
+  #if !defined(PS3_PPU) && !defined(VITA)
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
   #endif
-
-    SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
+  
+  #ifdef VITA
+  // Performance hints for Vita
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Nearest neighbor (fastest)
+  #endif
 
     if ( !gRenderer ) {
         //Create renderer for window
   #ifdef PS3_PPU
         gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE );
+  #elif defined(VITA)
+        // Store logical before init
+        vita_virtual_width = renderer_width;
+        vita_virtual_height = renderer_height;
+
+        // Vita2D Backend Initialization
+        vita2d_init();
+        vita2d_set_clear_color(0xFF000000); // BLACK for Release
+        printf("DEBUG: Vita2D Backend Initialized. Res: 960x544. Game Res: %dx%d\n", renderer_width, renderer_height);
+        
+        // Re-enable SDL Window (Required for Input) - Use LOGICAL size to preserve scaling ratio
+        // HIDDEN to prevent auto-resize events to native resolution?
+        gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, renderer_width, renderer_height, SDL_WINDOW_HIDDEN );
+        
+        // CRITICAL: Set Max Texture Size manually as we don't have gRendererInfo
+        gMaxTextureSize = 4096; // Vita supports 4096 (or 2048 safe)
   #else
         gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+        if ( !gRenderer ) {
+            gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_SOFTWARE );
+        }
   #endif
         if( gRenderer == NULL ) {
+            #ifdef VITA
+            // VITA: gRenderer is expected to be NULL, we use vita2d
+            #else
             printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
             return -1;
+            #endif
         }
+
+        #ifndef VITA
         SDL_GetRendererInfo( gRenderer, &gRendererInfo );
-
         gMaxTextureSize = gRendererInfo.max_texture_width;
-
         show_renderer_info( &gRendererInfo );
-//        printf( "max texture size: %d x %d\n", gRendererInfo.max_texture_width, gRendererInfo.max_texture_height );
+        #endif
     }
-#endif
+#endif 
+
 #ifdef USE_SDL2_GPU
+    // SDL_gpu Logic
     if ( !gRenderer ) {
-
-
 #ifdef __ANDROID__
         __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "CreateRenderer render %dx%d", renderer_width, renderer_height );
 #endif
@@ -300,13 +347,22 @@ int gr_set_mode( int width, int height, int flags ) {
         if ( frameless ) sdl_flags |= SDL_WINDOW_BORDERLESS;
         if ( fullscreen ) sdl_flags |= SDL_WINDOW_FULLSCREEN;
         if ( grab_input ) sdl_flags |= SDL_WINDOW_INPUT_GRABBED;
-/*
-        GPU_InitFlagEnum GPU_flags = GPU_GetPreInitFlags() & ~( GPU_INIT_ENABLE_VSYNC | GPU_INIT_DISABLE_VSYNC );
-        if ( !waitvsync ) GPU_flags |= GPU_INIT_DISABLE_VSYNC;
-        GPU_SetPreInitFlags( GPU_flags );
-*/
+
+#ifdef VITA
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+        GPU_SetDebugLevel(GPU_DEBUG_LEVEL_MAX);
+        gRenderer = GPU_Init( 960, 544, GPU_DEFAULT_INIT_FLAGS | SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN );
+#else
         gRenderer = GPU_Init( renderer_width, renderer_height, sdl_flags | SDL_WINDOW_OPENGL );
-        if( gRenderer == NULL ) return -1;
+#endif
+
+        if( gRenderer == NULL ) {
+            printf("DEBUG: GPU_Init failed!\n");
+            return -1;
+        } 
+        
         gWindow = SDL_GetWindowFromID( gRenderer->context->windowID );
         gr_set_caption( apptitle );
 
@@ -315,33 +371,25 @@ int gr_set_mode( int width, int height, int flags ) {
         gMaxTextureSize = ( int64_t ) params;
 
     } else {
-#ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "ResizeWindowResolution render %dx%d fs %ld %d", renderer_width, renderer_height, fullscreen, fullscreen_last );
-#endif
-        if ( /* !fullscreen && GPU_GetFullscreen() */ fullscreen_last != fullscreen ) GPU_SetWindowResolution( 1, 1 ); // Force Update when go to window mode (dirty fix)
-
+        if ( fullscreen_last != fullscreen ) GPU_SetWindowResolution( 1, 1 ); 
         GPU_SetFullscreen( fullscreen ? GPU_TRUE : GPU_FALSE, GPU_FALSE );
         GPU_SetWindowResolution( renderer_width, renderer_height );
-
         GPU_SetViewport( gRenderer, GPU_MakeRect(0, 0, renderer_width, renderer_height) );
         GPU_SetVirtualResolution( gRenderer, renderer_width, renderer_height );
 
+        // Standard Clear Logic (removed test red hack to behave normally now)
         GPU_Clear( gRenderer );
-
+        
         gWindow = SDL_GetWindowFromID( gRenderer->context->windowID );
-
         SDL_SetWindowBordered( gWindow, frameless ? SDL_FALSE : SDL_TRUE );
         SDL_SetWindowGrab( gWindow, grab_input ? SDL_TRUE : SDL_FALSE );
     }
 
     if ( waitvsync ) {
-        if ( SDL_GL_SetSwapInterval( -1 ) == -1 ) {
-            SDL_GL_SetSwapInterval( 1 );
-        }
+        if ( SDL_GL_SetSwapInterval( -1 ) == -1 ) SDL_GL_SetSwapInterval( 1 );
     } else {
         SDL_GL_SetSwapInterval( 0 );
     }
-
 #endif
 
     if ( fullscreen ) {
@@ -412,13 +460,37 @@ int gr_set_mode( int width, int height, int flags ) {
         renderer_scale_factor_width = ( double ) renderer_scaled_width / ( double ) width;
         renderer_scale_factor_height = ( double ) renderer_scaled_height / ( double ) height;
 
+#ifdef VITA
+        // Force full screen scaling for Vita
+        GPU_SetViewport( gRenderer, GPU_MakeRect( 0, 0, 960, 544 ) );
+        GPU_SetVirtualResolution( gRenderer, width, height );
+#else
         GPU_SetViewport( gRenderer, GPU_MakeRect( renderer_offset_x, renderer_offset_y, renderer_scaled_width, renderer_scaled_height ) );
         GPU_SetVirtualResolution( gRenderer, width, height );
 #endif
+#endif
     }
+
 
 #ifdef __ANDROID__
         __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "video %ldx%ld render %dx%d offset %f,%f scaled %fx%f", scr_width, scr_height, renderer_width, renderer_height, renderer_offset_x, renderer_offset_y, renderer_scaled_width, renderer_scaled_height );
+#endif
+
+#if defined(VITA) || defined(__SWITCH__)
+    // Force scaling on Consoles if resolution doesn't match screen resolution
+    // This is now independent of scale_resolution settings
+    if ( renderer_width != width || renderer_height != height ) {
+#ifdef USE_SDL2_GPU
+        // Use GPU virtual resolution for SDL_gpu scaling
+        GPU_SetVirtualResolution( gRenderer, width, height );
+#else
+        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // Nearest for speed (Critical for Software Renderer!)
+        
+        // Use LogicalSize for robust scaling and letterboxing on Vita
+        // DISABLED as requested by user - Scaling will be handled by game or HW compositor
+        // SDL_RenderSetLogicalSize( gRenderer, width, height );
+#endif
+    }
 #endif
 
     scr_width = width;

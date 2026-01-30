@@ -30,6 +30,18 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef VITA
+int vita_in_scene = 0;
+#endif
+
+#if defined(__vita__) && !defined(VITA)
+#define VITA
+#endif
+
+#ifdef VITA
+#include <vita2d.h>
+#endif
+
 #include "bgddl.h"
 
 #include <SDL.h>
@@ -109,6 +121,11 @@ void gr_wait_frame() {
     int64_t frame_ticks;
 
     GLOQWORD( libbggfx, FRAMES_COUNT ) = ++frames_count;
+    
+    GLOQWORD( libbggfx, FRAMES_COUNT ) = ++frames_count;
+    
+    #ifdef VITA
+    #endif
 
     /* -------------- */
 
@@ -211,13 +228,23 @@ void gr_wait_frame() {
 void gr_draw_frame() {
     if ( jump ) return;
 
+    #ifdef VITA
+    #endif
+
     /* Set Viewport */
 //    SDL_RenderSetViewport( gRenderer, NULL );
 
     /* Clear screen */
 #ifdef USE_SDL2
+    #ifdef VITA
+    vita2d_start_drawing();
+    extern int vita_in_scene;
+    vita_in_scene = 1;
+    vita2d_clear_screen();
+    #else
     SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0x00, 0xFF );
     SDL_RenderClear( gRenderer );
+    #endif
 #endif
 #ifdef USE_SDL2_GPU
     GPU_Clear( gRenderer );
@@ -255,7 +282,12 @@ void gr_draw_frame() {
                  GLOINT64( libbggfx, BACKGROUND_BLEND_MODE ),
                  GLOADDR( libbggfx, BACKGROUND_CUSTOM_BLEND_MODE)
                 );
+
+    } else {
     }
+    
+    #ifdef VITA
+    #endif
 
     /* Update the object list */
     gr_update_objects();
@@ -263,17 +295,28 @@ void gr_draw_frame() {
     /* Dump everything */
     gr_draw_objects();
 
+    #ifdef VITA
+    #endif
+
 //    if ( fade_on || fade_set ) gr_fade_step();
 
     //Update screen
 #ifdef USE_SDL2
+    #ifdef VITA
+    vita2d_end_drawing();
+    vita_in_scene = 0;
+    vita2d_swap_buffers();
+    #else
     SDL_RenderPresent( gRenderer );
+    #endif
     SDL_RenderSetClipRect( gRenderer, NULL );
 #endif
 #ifdef USE_SDL2_GPU
     GPU_Flip( gRenderer );
 #endif
 }
+
+
 
 /* --------------------------------------------------------------------------- */
 
