@@ -9,6 +9,9 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#ifdef VITA
+#include <vita2d.h>
+#endif
 #include <SDL2/SDL.h>
 
 /* External engine instance */
@@ -303,7 +306,18 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *rayHit, int screen_x,
                 int tex_y = (int)(progress * texture->height);
                 if (tex_y >= texture->height) tex_y = texture->height - 1;
                 
-                uint32_t pixel = ray_sample_texture(texture, tex_x, tex_y);
+                uint32_t pixel;
+#ifdef VITA
+                // Direct texture sampling (fast path)
+                if (texture->surface && texture->surface->pixels) {
+                    uint32_t *tex_pixels = (uint32_t *)texture->surface->pixels;
+                    pixel = tex_pixels[tex_y * (texture->surface->pitch / 4) + tex_x];
+                } else {
+                    pixel = ray_sample_texture(texture, tex_x, tex_y);
+                }
+#else
+                pixel = ray_sample_texture(texture, tex_x, tex_y);
+#endif
                 if (pixel == 0) continue;  /* Transparent */
                 
                 pixel = ray_convert_pixel(pixel);
@@ -312,9 +326,22 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *rayHit, int screen_x,
                     pixel = ray_fog_pixel(pixel, rayHit->distance);
                 }
                 
+#ifdef VITA
+                // Direct framebuffer write (ultra-fast path)
+                if (g_engine.vita_pixels) {
+                    for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
+                        g_engine.vita_pixels[sy * g_engine.vita_tex_width + (screen_x + sx)] = pixel;
+                    }
+                } else {
+                    for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
+                        gr_put_pixel(dest, screen_x + sx, sy, pixel);
+                    }
+                }
+#else
                 for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
                     gr_put_pixel(dest, screen_x + sx, sy, pixel);
                 }
+#endif
             }
         }
     }
@@ -333,7 +360,17 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *rayHit, int screen_x,
                 int tex_y = (int)(progress * texture->height);
                 if (tex_y >= texture->height) tex_y = texture->height - 1;
                 
-                uint32_t pixel = ray_sample_texture(texture, tex_x, tex_y);
+                uint32_t pixel;
+#ifdef VITA
+                if (texture->surface && texture->surface->pixels) {
+                    uint32_t *tex_pixels = (uint32_t *)texture->surface->pixels;
+                    pixel = tex_pixels[tex_y * (texture->surface->pitch / 4) + tex_x];
+                } else {
+                    pixel = ray_sample_texture(texture, tex_x, tex_y);
+                }
+#else
+                pixel = ray_sample_texture(texture, tex_x, tex_y);
+#endif
                 if (pixel == 0) continue;
                 
                 pixel = ray_convert_pixel(pixel);
@@ -342,9 +379,21 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *rayHit, int screen_x,
                     pixel = ray_fog_pixel(pixel, rayHit->distance);
                 }
                 
+#ifdef VITA
+                if (g_engine.vita_pixels) {
+                    for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
+                        g_engine.vita_pixels[sy * g_engine.vita_tex_width + (screen_x + sx)] = pixel;
+                    }
+                } else {
+                    for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
+                        gr_put_pixel(dest, screen_x + sx, sy, pixel);
+                    }
+                }
+#else
                 for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
                     gr_put_pixel(dest, screen_x + sx, sy, pixel);
                 }
+#endif
             }
         }
     }
@@ -359,12 +408,21 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *rayHit, int screen_x,
             for (int sy = section_top; sy < section_bottom && sy < g_engine.displayHeight; sy++) {
                 if (sy < 0) continue;
                 
-                /* Calculate texture Y coordinate - Stretched */
                 float progress = (float)(sy - section_top) / (float)(section_bottom - section_top);
                 int tex_y = (int)(progress * texture->height);
                 if (tex_y >= texture->height) tex_y = texture->height - 1;
                 
-                uint32_t pixel = ray_sample_texture(texture, tex_x, tex_y);
+                uint32_t pixel;
+#ifdef VITA
+                if (texture->surface && texture->surface->pixels) {
+                    uint32_t *tex_pixels = (uint32_t *)texture->surface->pixels;
+                    pixel = tex_pixels[tex_y * (texture->surface->pitch / 4) + tex_x];
+                } else {
+                    pixel = ray_sample_texture(texture, tex_x, tex_y);
+                }
+#else
+                pixel = ray_sample_texture(texture, tex_x, tex_y);
+#endif
                 if (pixel == 0) continue;
                 
                 pixel = ray_convert_pixel(pixel);
@@ -373,9 +431,21 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *rayHit, int screen_x,
                     pixel = ray_fog_pixel(pixel, rayHit->distance);
                 }
                 
+#ifdef VITA
+                if (g_engine.vita_pixels) {
+                    for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
+                        g_engine.vita_pixels[sy * g_engine.vita_tex_width + (screen_x + sx)] = pixel;
+                    }
+                } else {
+                    for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
+                        gr_put_pixel(dest, screen_x + sx, sy, pixel);
+                    }
+                }
+#else
                 for (int sx = 0; sx < strip_width && screen_x + sx < g_engine.displayWidth; sx++) {
                     gr_put_pixel(dest, screen_x + sx, sy, pixel);
                 }
+#endif
             }
         }
     }
@@ -517,56 +587,74 @@ void ray_draw_floor_ceiling(GRAPH *dest, int screen_x, float ray_angle,
     if (g_engine.drawCeiling && draw_top && top_tex > 0) {
         GRAPH *texture = bitmap_get(g_engine.fpg_id, top_tex);
         if (texture) {
-            for (int screen_y = 0; screen_y < ceiling_end_y && screen_y < g_engine.displayHeight; screen_y++) {
-                int dy = horizon_y - screen_y;
-                if (dy <= 0) continue;
-                
-                float distance_to_plane = top_z - g_engine.camera.z;
-                
-                /* For normal ceiling, dist is positive. */
-                /* For solid box bottom face (Cam < FloorZ), dist is positive (FloorZ > Cam). */
-                /* If negative/zero, we can't see it (backface or invalid). */
-                if (distance_to_plane <= 0.1f) continue; 
-                
-                float ratio = distance_to_plane / fabsf((float)dy);
-                float perp_distance = g_engine.viewDist * ratio;
-                
-                float angle_diff = ray_angle - g_engine.camera.rot;
-                float euclidean_distance = perp_distance / cosf(angle_diff);
-                
-                /* Clip to sector boundaries */
-                if (euclidean_distance > max_distance) break; // Optimization: too far
-                if (euclidean_distance < min_distance) continue; // Too close (portal gap)
-                
-                float x_end = g_engine.camera.x + euclidean_distance * cosf(ray_angle);
-                float y_end = g_engine.camera.y + euclidean_distance * -sinf(ray_angle);
-                
-                /* VERTICAL CLIPPING */
-                int strip_idx = screen_x / strip_width;
-                if (ceiling_clip && strip_idx < g_engine.rayCount) {
-                    if (screen_y >= ceiling_clip[strip_idx]) continue;
+            float distance_to_plane = top_z - g_engine.camera.z;
+            
+            // MATH OPTIMIZATION: Calculate ray direction once per column
+            float cos_ray = cosf(ray_angle);
+            float sin_ray = -sinf(ray_angle); // Y in world is inverted
+            float cos_diff = cosf(ray_angle - g_engine.camera.rot);
+            
+            // Plane distance corrected for fisheye
+            float plane_dist_fov = distance_to_plane * g_engine.viewDist / cos_diff;
+
+            if (distance_to_plane > 0.1f) {
+                for (int screen_y = 0; screen_y < ceiling_end_y && screen_y < g_engine.displayHeight; screen_y++) {
+                    int dy = horizon_y - screen_y;
+                    if (dy <= 0) continue;
+                    
+                    /* VERTICAL CLIPPING */
+                    int strip_idx = screen_x / strip_width;
+                    if (ceiling_clip && strip_idx < g_engine.rayCount) {
+                        if (screen_y >= ceiling_clip[strip_idx]) continue;
+                    }
+                    
+                    // Optimized distance calculation
+                    float euclidean_distance = plane_dist_fov / (float)dy;
+                    
+                    /* Z-BUFFER CHECK */
+                    if (z_buffer && strip_idx < g_engine.rayCount) {
+                        if (euclidean_distance >= z_buffer[strip_idx]) continue;
+                    }
+                    
+                    float x_end = g_engine.camera.x + euclidean_distance * cos_ray;
+                    float y_end = g_engine.camera.y + euclidean_distance * sin_ray;
+                    
+                    int tex_x = ((int)x_end) % RAY_TEXTURE_SIZE;
+                    int tex_y = ((int)y_end) % RAY_TEXTURE_SIZE;
+                    if (tex_x < 0) tex_x += RAY_TEXTURE_SIZE;
+                    if (tex_y < 0) tex_y += RAY_TEXTURE_SIZE;
+                    
+                    /* Scale texture */
+                    tex_x = (tex_x * texture->width) / RAY_TEXTURE_SIZE;
+                    tex_y = (tex_y * texture->height) / RAY_TEXTURE_SIZE;
+                    
+                    uint32_t pixel;
+#ifdef VITA
+                    if (texture->surface && texture->surface->pixels) {
+                        uint32_t *tex_pixels = (uint32_t *)texture->surface->pixels;
+                        pixel = tex_pixels[tex_y * (texture->surface->pitch / 4) + tex_x];
+                    } else {
+                        pixel = ray_sample_texture(texture, tex_x, tex_y);
+                    }
+#else
+                    pixel = ray_sample_texture(texture, tex_x, tex_y);
+#endif
+                    pixel = ray_convert_pixel(pixel);
+                    if (g_engine.fogOn) pixel = ray_fog_pixel(pixel, euclidean_distance);
+                    
+#ifdef VITA
+                    if (g_engine.vita_pixels) {
+                        for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
+                            g_engine.vita_pixels[screen_y * g_engine.vita_tex_width + (screen_x+sx)] = pixel;
+                    } else {
+                        for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
+                            gr_put_pixel(dest, screen_x+sx, screen_y, pixel);
+                    }
+#else
+                    for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
+                        gr_put_pixel(dest, screen_x+sx, screen_y, pixel);
+#endif
                 }
-                
-                /* Z-BUFFER CHECK */
-                if (z_buffer && strip_idx < g_engine.rayCount) {
-                    if (euclidean_distance >= z_buffer[strip_idx]) continue;
-                }
-                
-                int tex_x = ((int)x_end) % RAY_TEXTURE_SIZE;
-                int tex_y = ((int)y_end) % RAY_TEXTURE_SIZE;
-                if (tex_x < 0) tex_x += RAY_TEXTURE_SIZE;
-                if (tex_y < 0) tex_y += RAY_TEXTURE_SIZE;
-                
-                /* Scale texture */
-                tex_x = (tex_x * texture->width) / RAY_TEXTURE_SIZE;
-                tex_y = (tex_y * texture->height) / RAY_TEXTURE_SIZE;
-                
-                uint32_t pixel = ray_sample_texture(texture, tex_x, tex_y);
-                pixel = ray_convert_pixel(pixel);
-                if (g_engine.fogOn) pixel = ray_fog_pixel(pixel, euclidean_distance);
-                
-                for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
-                    gr_put_pixel(dest, screen_x+sx, screen_y, pixel);
             }
         }
     }
@@ -577,53 +665,75 @@ void ray_draw_floor_ceiling(GRAPH *dest, int screen_x, float ray_angle,
     if (g_engine.drawTexturedFloor && draw_bottom && bottom_tex > 0) {
         GRAPH *texture = bitmap_get(g_engine.fpg_id, bottom_tex);
         if (texture) {
-            for (int screen_y = floor_start_y; screen_y < g_engine.displayHeight; screen_y++) {
-                int dy = screen_y - horizon_y;
-                if (dy <= 0) continue;
-                
-                float distance_to_plane = g_engine.camera.z - bottom_z;
-                
-                /* For normal floor, dist is positive (Cam > Floor). */
-                /* For solid box top face (Cam > CeilZ), dist is positive (Cam > CeilZ). */
-                if (distance_to_plane <= 0.1f) continue;
-                
-                float ratio = distance_to_plane / (float)dy;
-                float perp_distance = g_engine.viewDist * ratio;
-                
-                float angle_diff = ray_angle - g_engine.camera.rot;
-                float euclidean_distance = perp_distance / cosf(angle_diff);
-                
-                if (euclidean_distance > max_distance) continue;
-                if (euclidean_distance < min_distance) break; // Optimization: closer pixels will be closer
-                
-                float x_end = g_engine.camera.x + euclidean_distance * cosf(ray_angle);
-                float y_end = g_engine.camera.y + euclidean_distance * -sinf(ray_angle);
-                
-                /* VERTICAL CLIPPING */
-                int strip_idx = screen_x / strip_width;
-                if (floor_clip && strip_idx < g_engine.rayCount) {
-                    if (screen_y <= floor_clip[strip_idx]) continue;
+            float distance_to_plane = g_engine.camera.z - bottom_z;
+            
+            // MATH OPTIMIZATION: Calculate ray direction once per column
+            float cos_ray = cosf(ray_angle);
+            float sin_ray = -sinf(ray_angle); 
+            float cos_diff = cosf(ray_angle - g_engine.camera.rot);
+            
+            // Plane distance corrected for fisheye
+            float plane_dist_fov = distance_to_plane * g_engine.viewDist / cos_diff;
+
+            // If CamZ > FloorZ (looking down at floor), distance is positive.
+            // If CamZ < CeilingZ (looking up at top face of solid child), distance is positive.
+            if (distance_to_plane > 0.1f) {
+                for (int screen_y = floor_start_y; screen_y < g_engine.displayHeight; screen_y++) {
+                    int dy = screen_y - horizon_y;
+                    if (dy <= 0) continue;
+                    
+                    /* VERTICAL CLIPPING */
+                    int strip_idx = screen_x / strip_width;
+                    if (floor_clip && strip_idx < g_engine.rayCount) {
+                        if (screen_y <= floor_clip[strip_idx]) continue;
+                    }
+                    
+                    // Optimized distance calculation
+                    float euclidean_distance = plane_dist_fov / (float)dy;
+                    
+                    /* Z-BUFFER CHECK */
+                    if (z_buffer && strip_idx < g_engine.rayCount) {
+                        if (euclidean_distance >= z_buffer[strip_idx]) continue;
+                    }
+                    
+                    float x_end = g_engine.camera.x + euclidean_distance * cos_ray;
+                    float y_end = g_engine.camera.y + euclidean_distance * sin_ray;
+                    
+                    int tex_x = ((int)x_end) % RAY_TEXTURE_SIZE;
+                    int tex_y = ((int)y_end) % RAY_TEXTURE_SIZE;
+                    if (tex_x < 0) tex_x += RAY_TEXTURE_SIZE;
+                    if (tex_y < 0) tex_y += RAY_TEXTURE_SIZE;
+                    
+                    tex_x = (tex_x * texture->width) / RAY_TEXTURE_SIZE;
+                    tex_y = (tex_y * texture->height) / RAY_TEXTURE_SIZE;
+                    
+                    uint32_t pixel;
+#ifdef VITA
+                    if (texture->surface && texture->surface->pixels) {
+                        uint32_t *tex_pixels = (uint32_t *)texture->surface->pixels;
+                        pixel = tex_pixels[tex_y * (texture->surface->pitch / 4) + tex_x];
+                    } else {
+                        pixel = ray_sample_texture(texture, tex_x, tex_y);
+                    }
+#else
+                    pixel = ray_sample_texture(texture, tex_x, tex_y);
+#endif
+                    pixel = ray_convert_pixel(pixel);
+                    if (g_engine.fogOn) pixel = ray_fog_pixel(pixel, euclidean_distance);
+                    
+#ifdef VITA
+                    if (g_engine.vita_pixels) {
+                        for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
+                            g_engine.vita_pixels[screen_y * g_engine.vita_tex_width + (screen_x+sx)] = pixel;
+                    } else {
+                        for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
+                            gr_put_pixel(dest, screen_x+sx, screen_y, pixel);
+                    }
+#else
+                    for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
+                        gr_put_pixel(dest, screen_x+sx, screen_y, pixel);
+#endif
                 }
-                
-                /* Z-BUFFER CHECK */
-                if (z_buffer && strip_idx < g_engine.rayCount) {
-                    if (euclidean_distance >= z_buffer[strip_idx]) continue;
-                }
-                
-                int tex_x = ((int)x_end) % RAY_TEXTURE_SIZE;
-                int tex_y = ((int)y_end) % RAY_TEXTURE_SIZE;
-                if (tex_x < 0) tex_x += RAY_TEXTURE_SIZE;
-                if (tex_y < 0) tex_y += RAY_TEXTURE_SIZE;
-                
-                tex_x = (tex_x * texture->width) / RAY_TEXTURE_SIZE;
-                tex_y = (tex_y * texture->height) / RAY_TEXTURE_SIZE;
-                
-                uint32_t pixel = ray_sample_texture(texture, tex_x, tex_y);
-                pixel = ray_convert_pixel(pixel);
-                if (g_engine.fogOn) pixel = ray_fog_pixel(pixel, euclidean_distance);
-                
-                for (int sx=0; sx<strip_width && screen_x+sx < g_engine.displayWidth; sx++)
-                    gr_put_pixel(dest, screen_x+sx, screen_y, pixel);
             }
         }
     }
@@ -758,12 +868,11 @@ static int ray_hit_sorter(const void *a, const void *b)
     if (ha->distance > hb->distance) return 1;
     return 0;
 }
-
 void ray_render_frame(GRAPH *dest)
 {
     if (!dest || !g_engine.initialized) return;
     
-    printf("FRAME START\n"); fflush(stdout);
+    // printf("FRAME START\n"); fflush(stdout);
     
     /* DEBUG: Print camera and sector info */
     static int debug_counter = 0;
@@ -800,29 +909,41 @@ void ray_render_frame(GRAPH *dest)
         }
     }
     
-    /* Allocate buffers */
-    // Using simple stack allocation for small arrays if possible, but rayCount is dynamic
-    // optimization: reuse static buffers if possible, but for now stick to malloc
-    RAY_RayHit *all_rayhits = (RAY_RayHit*)malloc(g_engine.rayCount * RAY_MAX_RAYHITS * sizeof(RAY_RayHit));
-    int *rayhit_counts = (int*)calloc(g_engine.rayCount, sizeof(int));
-    float *z_buffer = (float*)malloc(g_engine.rayCount * sizeof(float));
-    int *ceiling_clip = (int*)malloc(g_engine.rayCount * sizeof(int));
-    int *floor_clip = (int*)malloc(g_engine.rayCount * sizeof(int));
-    
-    if (!all_rayhits || !rayhit_counts || !z_buffer || !ceiling_clip || !floor_clip) {
-        if (all_rayhits) free(all_rayhits);
-        if (rayhit_counts) free(rayhit_counts);
-        if (z_buffer) free(z_buffer);
-        if (ceiling_clip) free(ceiling_clip);
-        if (floor_clip) free(floor_clip);
-        return;
+    /* Initialize clipping and Z-buffer */
+    float *z_buffer;
+    int *ceiling_clip;
+    int *floor_clip;
+    RAY_RayHit *all_rayhits;
+    int *rayhit_counts;
+
+#ifdef VITA
+    // Use persistent buffers instead of malloc/free
+    z_buffer = g_engine.z_buffer_p;
+    ceiling_clip = g_engine.ceiling_clip_p;
+    floor_clip = g_engine.floor_clip_p;
+    all_rayhits = (RAY_RayHit *)g_engine.all_rayhits_p;
+    rayhit_counts = g_engine.rayhit_counts_p;
+
+    // Fast screen clear - DIRECT TO GPU
+    if (g_engine.vita_pixels) {
+        // Clear with background color (Black with ARGB format)
+        // memset is highly optimized on Vita
+        memset(g_engine.vita_pixels, 0, g_engine.displayHeight * g_engine.vita_tex_width * sizeof(uint32_t));
     }
-    
-    /* Initialize z-buffer and clipping arrays */
+#else
+    z_buffer = (float *)malloc(g_engine.rayCount * sizeof(float));
+    ceiling_clip = (int *)malloc(g_engine.rayCount * sizeof(int));
+    floor_clip = (int *)malloc(g_engine.rayCount * sizeof(int));
+    all_rayhits = (RAY_RayHit *)malloc(g_engine.rayCount * RAY_MAX_RAYHITS * sizeof(RAY_RayHit));
+    rayhit_counts = (int *)calloc(g_engine.rayCount, sizeof(int));
+#endif
+
+    // Reset clip and Z buffers
     for (int i = 0; i < g_engine.rayCount; i++) {
         z_buffer[i] = FLT_MAX;
-        ceiling_clip[i] = g_engine.displayHeight - 1;  /* Can render down to bottom initially */
-        floor_clip[i] = 0;                              /* Can render up to top initially */
+        ceiling_clip[i] = g_engine.displayHeight - 1;
+        floor_clip[i] = 0;
+        rayhit_counts[i] = 0;
     }
     
     /* RAYCAST PHASE */
@@ -1093,10 +1214,20 @@ void ray_render_frame(GRAPH *dest)
     /* Render sprites */
     ray_draw_sprites(dest, z_buffer);
     
+#ifndef VITA
     /* Cleanup */
     free(all_rayhits);
     free(rayhit_counts);
     free(z_buffer);
     free(ceiling_clip);
     free(floor_clip);
+#endif
+
+#ifdef VITA
+    // Final Step: Draw the optimized GPU texture to the screen
+    if (g_engine.vita_texture) {
+        // Draw at full screen
+        vita2d_draw_texture(g_engine.vita_texture, 0, 0);
+    }
+#endif
 }

@@ -318,6 +318,20 @@ typedef struct {
     uint8_t *pvs_matrix;                /* Matrix: pvs[source_id * num_sectors + target_id] */
     int pvs_ready;                      /* 1 if PVS is baked and valid */
 
+#ifdef VITA
+    /* Vita-specific optimized rendering buffer */
+    void *vita_texture;                 /* vita2d_texture* for direct GPU access */
+    uint32_t *vita_pixels;              /* Cached pointer to texture memory */
+    int vita_tex_width;                 /* Texture width (for pitch calculation) */
+
+    /* Persistent buffers to avoid malloc/free every frame */
+    float *z_buffer_p;                  /* Persistent Z-buffer */
+    int *ceiling_clip_p;                /* Persistent ceiling clip */
+    int *floor_clip_p;                  /* Persistent floor clip */
+    void *all_rayhits_p;                /* Persistent rayhits array */
+    int *rayhit_counts_p;               /* Persistent rayhit counts */
+#endif
+
     /* Inicializado */
     int initialized;
 } RAY_Engine;

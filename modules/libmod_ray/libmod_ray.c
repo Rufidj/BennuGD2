@@ -10,6 +10,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef VITA
+#include <vita2d.h>
+#endif
+
 /* ============================================================================
    ESTADO GLOBAL DEL MOTOR
    ============================================================================ */
@@ -139,6 +143,32 @@ int64_t libmod_ray_init(INSTANCE *my, int64_t *params) {
     g_engine.billboard_directions = 12;
     
     g_engine.fpg_id = 0;
+    
+#ifdef VITA
+    // Create dedicated vita2d texture for raycasting (ultra-optimized)
+    g_engine.vita_texture = vita2d_create_empty_texture(screen_w, screen_h);
+    if (g_engine.vita_texture) {
+        // Cache the texture memory pointer for direct writes (zero overhead)
+        g_engine.vita_pixels = (uint32_t *)vita2d_texture_get_datap(g_engine.vita_texture);
+        g_engine.vita_tex_width = vita2d_texture_get_width(g_engine.vita_texture);
+        
+        // Allocate persistent buffers once
+        int num_strips = screen_w / strip_width;
+        g_engine.z_buffer_p = (float *)calloc(num_strips, sizeof(float));
+        g_engine.ceiling_clip_p = (int *)malloc(num_strips * sizeof(int));
+        g_engine.floor_clip_p = (int *)malloc(num_strips * sizeof(int));
+        g_engine.rayhit_counts_p = (int *)calloc(num_strips, sizeof(int));
+        
+        // Size: num_strips * 256 hits * sizeof(RAY_RayHit)
+        // This is about 4MB for 320x240, allocated ONCE.
+        g_engine.all_rayhits_p = malloc(num_strips * 256 * 64); // Safe estimate of struct size
+        
+        printf("RAY: Vita GPU buffers initialized - Allocation overhead eliminated\n");
+    } else {
+        g_engine.vita_pixels = NULL;
+    }
+#endif
+    
     g_engine.initialized = 1;
     
     printf("RAY: Motor inicializado (v9 - Flat Sectors) - %dx%d, FOV=%d, stripWidth=%d, rayCount=%d\n",
