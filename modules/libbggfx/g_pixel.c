@@ -30,6 +30,10 @@
 
 #include "libbggfx.h"
 
+#ifdef USE_VITA2D
+#include <vita2d.h>
+#endif
+
 /* --------------------------------------------------------------------------- */
 /*
  *  FUNCTION : gr_get_pixel
@@ -141,7 +145,15 @@ void gr_put_pixel( GRAPH * gr, int64_t x, int64_t y, int64_t color ) {
     if ( x >= ( int64_t ) gr->tex->w || y >= ( int64_t ) gr->tex->h ) return;
 #endif
 
-#ifdef USE_SDL2
+#ifdef VITA
+    // Vita: Optimized direct surface write
+    if ( !gr->surface ) return;
+    if ( x >= ( int64_t ) gr->width || y >= ( int64_t ) gr->height ) return;
+    
+    uint32_t *pixels = (uint32_t *)gr->surface->pixels;
+    pixels[y * (gr->surface->pitch / 4) + x] = (uint32_t)color;
+    gr->dirty = 1;
+#elif defined(USE_SDL2)
     SDL_Color c;
     SDL_SetRenderTarget( gRenderer, gr->tex );
     SDL_GetRGBA( color, gPixelFormat, &c.r, &c.g, &c.b, &c.a ) ;
