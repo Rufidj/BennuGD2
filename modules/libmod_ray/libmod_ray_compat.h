@@ -49,62 +49,46 @@ static inline int ray_wall_is_portal(RAY_Wall *wall) {
 static inline int ray_sector_is_solid(RAY_Sector *sector) {
     if (!sector) return 0;
     
-    // BUILD_ENGINE: No solid sectors - all sectors are navigable spaces
-    // The concept of "solid" was part of the artificial hierarchy
+    // RESTORED: A sector is "solid" (rendered as a block) if:
+    // 1. It has NO portals (it's isolated geometry)
+    // 2. It has NO children (it's a leaf node)
+    // 3. Parent check removed to handle inconsistent map data
+    if (sector->num_portals == 0 && sector->num_children == 0) return 1;
+    
     return 0;
 }
 
 /**
  * Get sector's parent (if nested)
- * 
- * BUILD_ENGINE: Not needed - sectors are flat, connected by portals
- * Always return -1 (no parent)
  */
 static inline int ray_sector_get_parent(RAY_Sector *sector) {
     if (!sector) return -1;
-    
-    // BUILD_ENGINE: No hierarchy - all sectors are peers
-    return -1;
+    return sector->parent_sector_id;
 }
 
 /**
  * Check if sector has children
- * 
- * BUILD_ENGINE: Not needed - use portals to find connected sectors
- * Always return 0 (no children)
  */
 static inline int ray_sector_has_children(RAY_Sector *sector) {
     if (!sector) return 0;
-    
-    // BUILD_ENGINE: No hierarchy - check portals instead
-    return 0;
+    return (sector->num_children > 0);
 }
 
 /**
  * Get number of child sectors
- * 
- * BUILD_ENGINE: Count walls with portals instead
- * Always return 0 (no children in hierarchy sense)
  */
 static inline int ray_sector_get_num_children(RAY_Sector *sector) {
     if (!sector) return 0;
-    
-    // BUILD_ENGINE: No children - use portals
-    return 0;
+    return sector->num_children;
 }
 
 /**
  * Get child sector ID by index
- * 
- * BUILD_ENGINE: Iterate walls with portals instead
- * Always return -1 (no children)
  */
 static inline int ray_sector_get_child(RAY_Sector *sector, int index) {
-    (void)index; // Unused
     if (!sector) return -1;
-    
-    // BUILD_ENGINE: No children - use wall portals
-    return -1;
+    if (index < 0 || index >= sector->num_children) return -1;
+    return sector->child_sector_ids[index];
 }
 
 #endif /* __LIBMOD_RAY_COMPAT_H */
