@@ -11,48 +11,29 @@ jobs:
     permissions:
       contents: write
 
-    strategy:
-      matrix:
-        env: [linux, linux32]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up environment for ${{ matrix.env }}
+      - name: Set up environment
         run: |
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
-          if [ "${{ matrix.env }}" == "linux32" ]; then
-            sudo dpkg --add-architecture i386
-            # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          sudo apt update
-            sudo apt install -y gcc-multilib g++-multilib binutils git cmake build-essential zlib1g-dev:i386 libsdl2-dev:i386 libglu1-mesa-dev:i386 libsdl2-image-dev:i386 libsdl2-mixer-dev:i386 libtheora-dev:i386 libogg-dev:i386 libvorbis-dev:i386
-          else
-            sudo apt install -y binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
-          fi
+          sudo apt install -y binutils git cmake build-essential zlib1g-dev libsdl2-dev libglu1-mesa-dev libsdl2-image-dev libsdl2-mixer-dev libtheora-dev libogg-dev libvorbis-dev
 
       - name: Update submodules and Build
         run: |
           git submodule update --init --recursive
           cd vendor
-          ./build-sdl-gpu.sh ${{ matrix.env }}
+          ./build-sdl-gpu.sh linux
           cd ..
-          ./build.sh ${{ matrix.env }}
+          ./build.sh linux
           ./build.sh packages
 
       - name: Upload BennuGD2 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BennuGD2-${{ matrix.env }}
+          name: BennuGD2-linux
           path: packages/bgd2-*.tgz
 
   build-windows:
@@ -66,9 +47,6 @@ jobs:
 
       - name: Set up environment
         run: |
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
           sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev
@@ -138,90 +116,6 @@ jobs:
           name: BennuGD2-windows
           path: packages/bgd2-x86_64-w64-mingw32-*.rar
 
-  build-windows-32bit:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up environment
-        run: |
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          sudo apt update
-          sudo apt install -y mingw-w64 build-essential cmake autoconf libtool pkg-config rar libz-mingw-w64-dev
-
-      - name: Build dependencies for 32-bit
-        run: |
-          cd vendor
-          cd SDL2-2.28.4
-          sed -i 's,/usr/local,/usr,g' Makefile
-          sudo make cross
-          cd ..
-          cd SDL2_mixer-2.6.3
-          sed -i 's,/usr/local,/usr,g' Makefile
-          sudo make cross
-          cd ..
-          cd SDL2_image-2.6.3
-          sed -i 's,/usr/local,/usr,g' Makefile
-          sudo make cross
-          cd ..
-          wget https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz
-          tar -xvzf libogg-1.3.5.tar.gz
-          cd libogg-1.3.5
-          ./configure --host=i686-w64-mingw32 --prefix=/usr/i686-w64-mingw32
-          make && sudo make install
-          cd ..
-          wget https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz
-          tar -xvzf libvorbis-1.3.7.tar.gz
-          cd libvorbis-1.3.7
-          ./configure --host=i686-w64-mingw32 --prefix=/usr/i686-w64-mingw32r
-          make && sudo make install
-          cd ..
-          wget http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.gz
-          tar -xvzf libtheora-1.1.1.tar.gz
-          cd libtheora-1.1.1
-          ./configure --host=i686-w64-mingw32 --prefix=/usr/i686-w64-mingw32 --disable-shared --disable-examples
-          make && sudo make install
-          cd ../..
-
-      - name: Update submodules and Build for 32-bit
-        run: |
-          git submodule update --init --recursive
-          cd vendor
-          ./build-sdl-gpu.sh windows32
-          cd ..
-          ./build.sh windows32
-          echo "#### Building package ####"
-          mkdir -p packages 2>/dev/null
-          rm -f packages/*
-          if [[ -d build/i686-w64-mingw32/bin ]]; then \
-            rar a -ep1 packages/bgd2-i686-w64-mingw32-$(date +"%Y-%m-%d").rar \
-                        build/i686-w64-mingw32/bin/*.exe \
-                        build/i686-w64-mingw32/bin/*.dll \
-                        dependencies/i686-w64-mingw32/libSDL2_gpu.dll \
-                        dependencies/i686-w64-mingw32/libgcc_s_dw2-1.dll \
-                        /usr/i686-w64-mingw32/bin/libogg*.dll \
-                        /usr/i686-w64-mingw32/bin/libvorbis*.dll \
-                        /usr/i686-w64-mingw32/bin/SDL2.dll \
-                        /usr/i686-w64-mingw32/bin/SDL2_image.dll \
-                        /usr/i686-w64-mingw32/bin/SDL2_mixer.dll \
-                        $(find /usr/i686-w64-mingw32 -name 'zlib1.dll') \
-                        /usr/i686-w64-mingw32/lib/libwinpthread-*.dll \
-                        WhatsNew.txt; \
-          fi
-
-      - name: Upload BennuGD2 artifacts for 32-bit
-        uses: actions/upload-artifact@v4
-        with:
-          name: BennuGD2-windows32
-          path: packages/bgd2-i686-w64-mingw32-*.rar
-
   build-macosx:
     runs-on: ubuntu-latest
     permissions:
@@ -233,11 +127,6 @@ jobs:
 
       - name: Set up osxcross
         run: |
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
-          # Remove broken Microsoft repos blocking apt update
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.sources || true
           sudo apt update
           sudo apt install -y wget git cmake clang pkg-config tar xz-utils gobjc gobjc++ libobjc-9-dev openssl
@@ -279,7 +168,7 @@ jobs:
           path: packages/x86_64-apple-darwin14-*.tgz
 
   create-release:
-    needs: [build, build-windows, build-windows-32bit, build-macosx]
+    needs: [build, build-windows, build-macosx]
     runs-on: ubuntu-latest
     if: success()
 
