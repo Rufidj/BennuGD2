@@ -12,6 +12,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 extern RAY_Engine g_engine;
 extern uint32_t ray_sample_texture(GRAPH *texture, int tex_x, int tex_y);
@@ -2456,8 +2457,6 @@ void ray_render_frame_build(GRAPH *dest) {
   static int sectors_rendered_total = 0;
   static int sectors_culled_pvs_total = 0;
   static double total_frame_time = 0.0;
-
-#include <time.h>
   struct timespec start_time, end_time;
   clock_gettime(CLOCK_MONOTONIC, &start_time);
 
