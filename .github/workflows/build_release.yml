@@ -85,6 +85,20 @@ jobs:
           make && sudo make install
           cd ../..
 
+      - name: Build GLEW for mingw
+        run: |
+          wget https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz
+          tar -xzf glew-2.2.0.tgz
+          cd glew-2.2.0
+          make SYSTEM=linux-mingw64 \
+               CC=x86_64-w64-mingw32-gcc \
+               AR=x86_64-w64-mingw32-ar \
+               STRIP=x86_64-w64-mingw32-strip \
+               GLEW_DEST=/usr/x86_64-w64-mingw32
+          sudo make SYSTEM=linux-mingw64 \
+               GLEW_DEST=/usr/x86_64-w64-mingw32 install
+          cd ..
+
       - name: Update submodules and Build
         run: |
           git submodule update --init --recursive
@@ -105,6 +119,7 @@ jobs:
                         /usr/x86_64-w64-mingw32/bin/SDL2.dll \
                         /usr/x86_64-w64-mingw32/bin/SDL2_image.dll \
                         /usr/x86_64-w64-mingw32/bin/SDL2_mixer.dll \
+                        /usr/x86_64-w64-mingw32/bin/glew32.dll \
                         $(find /usr/x86_64-w64-mingw32 -name 'zlib1.dll') \
                         /usr/x86_64-w64-mingw32/lib/libwinpthread-*.dll \
                         WhatsNew.txt; \
