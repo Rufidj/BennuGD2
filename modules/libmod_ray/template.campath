@@ -1,0 +1,210 @@
+{
+    "created": "2026-01-10T14:26:10",
+    "description": "",
+    "interpolation": 1,
+    "keyframes": [
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": -774,
+                "y": 852,
+                "z": 64
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": 0
+            },
+            "speedMultiplier": 1,
+            "time": 0
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": 828,
+                "y": 666,
+                "z": 112
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": 0
+            },
+            "speedMultiplier": 1,
+            "time": 1
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": 714,
+                "y": -918,
+                "z": 112
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": 0
+            },
+            "speedMultiplier": 1,
+            "time": 2
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": 552,
+                "y": -594,
+                "z": 64
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": 0
+            },
+            "speedMultiplier": 1,
+            "time": 3
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": 534,
+                "y": -204,
+                "z": 64
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": 0
+            },
+            "speedMultiplier": 1,
+            "time": 3
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": -864,
+                "y": -216,
+                "z": 590
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": -54
+            },
+            "speedMultiplier": 1,
+            "time": 4
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": -864,
+                "y": 456,
+                "z": 500
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": -40
+            },
+            "speedMultiplier": 1,
+            "time": 5
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": -150,
+                "y": 582,
+                "z": 400
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": -41
+            },
+            "speedMultiplier": 1,
+            "time": 6
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": 0,
+                "y": 582,
+                "z": 400
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": -41
+            },
+            "speedMultiplier": 1,
+            "time": 6
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": -192,
+                "y": -24,
+                "z": 400
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": -41
+            },
+            "speedMultiplier": 1,
+            "time": 6
+        },
+        {
+            "duration": 0,
+            "easeIn": "linear",
+            "easeOut": "linear",
+            "fov": 90,
+            "position": {
+                "x": -150,
+                "y": -876,
+                "z": 64
+            },
+            "rotation": {
+                "pitch": 0,
+                "roll": 0,
+                "yaw": 0
+            },
+            "speedMultiplier": 1,
+            "time": 9
+        }
+    ],
+    "loop": false,
+    "modified": "2026-01-10T14:32:35",
+    "name": "Nueva Secuencia",
+    "totalDuration": 9,
+    "version": "1.0"
+}
