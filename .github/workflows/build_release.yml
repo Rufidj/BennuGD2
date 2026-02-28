@@ -110,6 +110,7 @@ jobs:
           mkdir -p packages 2>/dev/null
           rm -f packages/*
           if [[ -d build/x86_64-w64-mingw32/bin ]]; then \
+            GLEW_DLL=$(find /usr/x86_64-w64-mingw32 /usr/local/x86_64-w64-mingw32 -name 'glew32.dll' 2>/dev/null | head -1); \
             rar a -ep1 packages/bgd2-x86_64-w64-mingw32-$(date +"%Y-%m-%d").rar \
                         build/x86_64-w64-mingw32/bin/*.exe \
                         build/x86_64-w64-mingw32/bin/*.dll \
@@ -119,7 +120,7 @@ jobs:
                         /usr/x86_64-w64-mingw32/bin/SDL2.dll \
                         /usr/x86_64-w64-mingw32/bin/SDL2_image.dll \
                         /usr/x86_64-w64-mingw32/bin/SDL2_mixer.dll \
-                        /usr/x86_64-w64-mingw32/bin/glew32.dll \
+                        ${GLEW_DLL:+$GLEW_DLL} \
                         $(find /usr/x86_64-w64-mingw32 -name 'zlib1.dll') \
                         /usr/x86_64-w64-mingw32/lib/libwinpthread-*.dll \
                         WhatsNew.txt; \
