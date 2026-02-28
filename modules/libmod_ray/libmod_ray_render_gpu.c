@@ -40,9 +40,15 @@ static void render_sprite_gpu(GPU_Target *target, RAY_Sprite *sprite);
  */
 
 #define MAX_PORTAL_DEPTH 16
-#define MAX_SECTOR_VERTS 64
+#define MAX_SECTOR_VERTS 256
 #define NEAR_PLANE 0.1f
 #define FAR_PLANE 10000.0f
+
+/* Global fog (determined per-frame from camera sector) */
+static float s_fog_r = 0.5f, s_fog_g = 0.5f, s_fog_b = 0.5f;
+static float s_fog_density = 0.0f;
+static float s_fog_start = 100.0f;
+static float s_fog_end = 1000.0f;
 
 /* (Moved lower down to be after camera variables) */
 
@@ -151,6 +157,16 @@ static int s_half_w, s_half_h, s_screen_w, s_screen_h;
 static int s_horizon;
 
 /* ============================================================================
+   ISLAND SECTOR CACHE (pre-built each frame for sprite occlusion)
+   ============================================================================
+ */
+#define MAX_ISLAND_SECTORS 256
+static RAY_Sector *s_island_sectors[MAX_ISLAND_SECTORS];
+static float s_island_floor[MAX_ISLAND_SECTORS];
+static float s_island_ceil[MAX_ISLAND_SECTORS];
+static int s_num_islands = 0;
+
+/* ============================================================================
    NORMAL MAPPING SHADER
    ============================================================================
  */
@@ -174,6 +190,10 @@ static int s_u_time = -1;
 static int s_u_sectorFlags = -1;
 static int s_u_liquidIntensity = -1;
 static int s_u_liquidSpeed = -1;
+static int s_u_fogColor = -1;
+static int s_u_fogDensity = -1;
+static int s_u_fogStart = -1;
+static int s_u_fogEnd = -1;
 
 static const char *vertex_shader_source =
     "#version 120\n"
@@ -213,6 +233,10 @@ static const char *fragment_shader_source =
     "uniform int u_sectorFlags;\n"
     "uniform float u_liquidIntensity;\n"
     "uniform float u_liquidSpeed;\n"
+    "uniform vec3 u_fogColor;\n"
+    "uniform float u_fogDensity;\n"
+    "uniform float u_fogStart;\n"
+    "uniform float u_fogEnd;\n"
     "void main() {\n"
     "    vec2 finalUV = uv;\n"
     "    float fFlags = float(u_sectorFlags) + 0.1;\n"
@@ -251,8 +275,47 @@ static const char *fragment_shader_source =
     "    if (u_time < 0.001) texColor.rgb *= 0.1; // Visual Debug: if time "
     "stalls, darken\n"
     "    if (texColor.a < 0.01) discard;\n"
+    "\n"
+    "    // Volumetric Fog - Silent Hill style\n"
+    "    vec3 finalRGB = texColor.rgb;\n"
+    "    if (u_fogDensity > 0.001) {\n"
+    "        // Reconstruct world distance from depth Z\n"
+    "        float t = (100.0 - fragPos.z) / 200.0;\n"
+    "        float worldDist = exp(mix(log(0.1), log(10000.0), clamp(t, 0.0, "
+    "1.0)));\n"
+    "        \n"
+    "        // Exponential squared fog (like real atmospheric scattering)\n"
+    "        float fogAmount = u_fogDensity / 100.0;\n"
+    "        float expFog = 1.0 - exp(-pow(worldDist * fogAmount * 0.003, "
+    "2.0));\n"
+    "        \n"
+    "        // Procedural noise for volumetric swirling effect\n"
+    "        float wx = (fragPos.x - u_halfW) * worldDist / u_focal;\n"
+    "        float wy = worldDist;\n"
+    "        float noiseScale = 0.008;\n"
+    "        float t1 = u_time * 0.15;\n"
+    "        float n1 = sin(wx * noiseScale + t1) * cos(wy * noiseScale * 0.7 "
+    "+ t1 * 0.8);\n"
+    "        float n2 = sin(wx * noiseScale * 2.3 + t1 * 1.3 + 1.7) * cos(wy * "
+    "noiseScale * 1.9 - t1 * 0.6);\n"
+    "        float n3 = sin(wx * noiseScale * 4.7 - t1 * 0.9 + 3.1) * cos(wy * "
+    "noiseScale * 3.8 + t1 * 1.1);\n"
+    "        float noise = (n1 + n2 * 0.5 + n3 * 0.25) / 1.75;\n"
+    "        \n"
+    "        // Modulate fog with noise for volumetric patches\n"
+    "        float volumetric = expFog * (1.0 + noise * 0.4 * expFog);\n"
+    "        volumetric = clamp(volumetric, 0.0, 1.0);\n"
+    "        \n"
+    "        // Distance-based fade in (no fog before fogStart)\n"
+    "        float startFade = clamp((worldDist - u_fogStart) / max(u_fogStart "
+    "* 0.5, 10.0), 0.0, 1.0);\n"
+    "        volumetric *= startFade;\n"
+    "        \n"
+    "        finalRGB = mix(finalRGB, u_fogColor, volumetric);\n"
+    "    }\n"
+    "\n"
     "    if (u_numLights <= 0) {\n"
-    "        gl_FragColor = texColor;\n"
+    "        gl_FragColor = vec4(finalRGB, texColor.a);\n"
     "        return;\n"
     "    }\n"
     "    float t_z = (100.0 - fragPos.z) / 200.0;\n"
@@ -278,7 +341,8 @@ static const char *fragment_shader_source =
     "        finalLight += u_lightColor[i] * (0.5 + 0.5 * diff) * attenuation "
     "* 2.0;\n"
     "    }\n"
-    "    gl_FragColor = vec4(texColor.rgb * finalLight, texColor.a);\n"
+    "    vec3 litColor = finalRGB * finalLight;\n"
+    "    gl_FragColor = vec4(litColor, texColor.a);\n"
     "}\n";
 
 static void init_normal_shader(void) {
@@ -317,13 +381,19 @@ static void init_normal_shader(void) {
   s_u_liquidIntensity =
       GPU_GetUniformLocation(s_normal_shader, "u_liquidIntensity");
   s_u_liquidSpeed = GPU_GetUniformLocation(s_normal_shader, "u_liquidSpeed");
+  s_u_fogColor = GPU_GetUniformLocation(s_normal_shader, "u_fogColor");
+  s_u_fogDensity = GPU_GetUniformLocation(s_normal_shader, "u_fogDensity");
+  s_u_fogStart = GPU_GetUniformLocation(s_normal_shader, "u_fogStart");
+  s_u_fogEnd = GPU_GetUniformLocation(s_normal_shader, "u_fogEnd");
 }
 
 static void activate_normal_shader(GPU_Image *normalMap, float tx, float ty,
                                    float tz, float bx, float by, float bz,
                                    float nx, float ny, float nz,
                                    int sectorFlags, float liquidIntensity,
-                                   float liquidSpeed) {
+                                   float liquidSpeed, float fogR, float fogG,
+                                   float fogB, float fogDensity, float fogStart,
+                                   float fogEnd) {
   init_normal_shader();
   if (s_normal_shader == 0)
     return;
@@ -376,6 +446,11 @@ static void activate_normal_shader(GPU_Image *normalMap, float tx, float ty,
   GPU_SetUniformi(s_u_sectorFlags, sectorFlags);
   GPU_SetUniformf(s_u_liquidIntensity, liquidIntensity);
   GPU_SetUniformf(s_u_liquidSpeed, liquidSpeed);
+  float fogCol[3] = {fogR, fogG, fogB};
+  GPU_SetUniformfv(s_u_fogColor, 3, 1, fogCol);
+  GPU_SetUniformf(s_u_fogDensity, fogDensity);
+  GPU_SetUniformf(s_u_fogStart, fogStart);
+  GPU_SetUniformf(s_u_fogEnd, fogEnd);
 
   /* Transform TBN Matrix to View Space */
   /* World vectors (nx, ny, tx, ty, bx, by) -> View space (X=Right, Z=Forward)
@@ -470,7 +545,8 @@ static void render_sector_plane(GPU_Target *target, RAY_Sector *sector,
 
   activate_normal_shader(normal_tex, 1.0f, 0.0f, 0.0f, bx_p, by_p, bz_p, nx_p,
                          ny_p, nz_p, activeFlags, sector->liquid_intensity,
-                         sector->liquid_speed);
+                         sector->liquid_speed, s_fog_r, s_fog_g, s_fog_b,
+                         s_fog_density, s_fog_start, s_fog_end);
 
   if (depth > 0) {
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -483,7 +559,7 @@ static void render_sector_plane(GPU_Target *target, RAY_Sector *sector,
   unsigned short i_local[SCAN_LIMIT * 6];
   int v_idx = 0, i_idx = 0;
 
-  float intercepts[MAX_SECTOR_VERTS * 2];
+  float intercepts[MAX_SECTOR_VERTS * 4];
   float horizon_f = (float)s_horizon;
 
   for (int y = (int)clip.y1; y <= (int)clip.y2; y++) {
@@ -499,6 +575,8 @@ static void render_sector_plane(GPU_Target *target, RAY_Sector *sector,
     int hits = 0;
     if (hits < MAX_SECTOR_VERTS * 4 - 2) {
       if (xf && num_xf > 0 && is_island) {
+        /* ISLANDS ONLY: Use wall intersections to clip floor/ceiling
+           to the sector polygon shape. */
         for (int i = 0; i < num_xf; i++) {
           float z0 = xf[i].tz0, z1 = xf[i].tz1;
           if ((z0 <= rz && z1 >= rz) || (z1 <= rz && z0 >= rz)) {
@@ -514,7 +592,8 @@ static void render_sector_plane(GPU_Target *target, RAY_Sector *sector,
           }
         }
       } else {
-        /* Environmental filler: Start with full clip and subtract cutouts */
+        /* Regular sectors: fill full clip width, subtract cutouts.
+           The walls render on top and visually bound the floor. */
         intercepts[hits++] = clip.x1;
         intercepts[hits++] = clip.x2;
 
@@ -640,7 +719,7 @@ static void render_island_lid(GPU_Target *target, RAY_Sector *sector,
                               float plane_z, GPU_Image *tex,
                               GPU_Image *normal_tex, XFormWall *xf,
                               int num_walls, ClipRect clip) {
-  if (!tex || num_walls < 3 || num_walls > 64)
+  if (!tex || num_walls < 3 || num_walls > MAX_SECTOR_VERTS)
     return;
 
   float h = plane_z - s_cam_z;
@@ -666,7 +745,8 @@ static void render_island_lid(GPU_Target *target, RAY_Sector *sector,
 
   activate_normal_shader(normal_tex, 1.0f, 0.0f, 0.0f, bx, by, bz, nx, ny, nz,
                          activeFlags, sector->liquid_intensity,
-                         sector->liquid_speed);
+                         sector->liquid_speed, s_fog_r, s_fog_g, s_fog_b,
+                         s_fog_density, s_fog_start, s_fog_end);
 
   /* Calculate bounding box of the sector for fixed texture mapping (0..1) */
   float min_x = sector->walls[0].x1, max_x = sector->walls[0].x1;
@@ -689,8 +769,9 @@ static void render_island_lid(GPU_Target *target, RAY_Sector *sector,
     dy = 1.0f;
 
   /* Project each wall start-vertex at the given plane height */
-  float sx[64], sy[64], sz_arr[64], wu[64], wv[64];
-  int valid[64];
+  float sx[MAX_SECTOR_VERTS], sy[MAX_SECTOR_VERTS], sz_arr[MAX_SECTOR_VERTS],
+      wu[MAX_SECTOR_VERTS], wv[MAX_SECTOR_VERTS];
+  int valid[MAX_SECTOR_VERTS];
   int num_valid = 0;
 
   for (int i = 0; i < num_walls; i++) {
@@ -715,13 +796,17 @@ static void render_island_lid(GPU_Target *target, RAY_Sector *sector,
     wv[i] = (sector->walls[i].y1 - min_y) / dy;
   }
 
-  if (num_valid < 3)
+  if (num_valid < 3) {
+    deactivate_normal_shader();
     return;
+  }
 
   /* Tessellate each fan triangle (subdivide 4x4=16) to reduce parallax/affine
      warping. By using many small triangles, the linear interpolation error of
      the GPU is minimized, resulting in a stable, non-deformed texture. */
-  float t_vb[64 * 16 * 3 * 5];
+  /* Use actual wall count instead of MAX to avoid stack overflow in recursion
+   */
+  float *t_vb = (float *)alloca(num_walls * 16 * 3 * 5 * sizeof(float));
   int t_nv = 0;
 
   for (int i = 1; i < num_walls - 1; i++) {
@@ -797,8 +882,10 @@ static void render_island_lid(GPU_Target *target, RAY_Sector *sector,
     }
   }
 
-  if (t_nv < 3)
+  if (t_nv < 3) {
+    deactivate_normal_shader();
     return;
+  }
 
   GPU_SetWrapMode(tex, GPU_WRAP_NONE, GPU_WRAP_NONE);
   GPU_SetImageFilter(tex, GPU_FILTER_LINEAR);
@@ -1289,7 +1376,8 @@ static void render_sector_gpu(GPU_Target *target, int sector_id, ClipRect clip,
                 activate_normal_shader(
                     upper_normal_tex, wall_tx_u, wall_ty_u, 0.0f, 0.0f, 0.0f,
                     1.0f, wall_nx_u, wall_ny_u, 0.0f, wallActiveFlags,
-                    sector->liquid_intensity, sector->liquid_speed);
+                    sector->liquid_intensity, sector->liquid_speed, s_fog_r,
+                    s_fog_g, s_fog_b, s_fog_density, s_fog_start, s_fog_end);
 
                 GPU_TriangleBatch(upper_tex, target, nvu, vu, niu, iu,
                                   GPU_BATCH_XYZ_ST);
@@ -1377,7 +1465,8 @@ static void render_sector_gpu(GPU_Target *target, int sector_id, ClipRect clip,
                 activate_normal_shader(
                     lower_normal_tex, wall_tx_l, wall_ty_l, 0.0f, 0.0f, 0.0f,
                     1.0f, wall_nx_l, wall_ny_l, 0.0f, wallActiveFlags,
-                    sector->liquid_intensity, sector->liquid_speed);
+                    sector->liquid_intensity, sector->liquid_speed, s_fog_r,
+                    s_fog_g, s_fog_b, s_fog_density, s_fog_start, s_fog_end);
 
                 GPU_TriangleBatch(lower_tex, target, nvl, vl, nil, il,
                                   GPU_BATCH_XYZ_ST);
@@ -1522,10 +1611,11 @@ static void render_sector_gpu(GPU_Target *target, int sector_id, ClipRect clip,
             activeFlags |= (sector->flags & 7);                                \
           else if (force_no_fluid)                                             \
             activeFlags = 0; /* No effects on rim */                           \
-          activate_normal_shader(_norm, wall_tx_m, wall_ty_m, 0.0f, 0.0f,      \
-                                 0.0f, 1.0f, wall_nx_m, wall_ny_m, 0.0f,       \
-                                 activeFlags, sector->liquid_intensity,        \
-                                 sector->liquid_speed);                        \
+          activate_normal_shader(                                              \
+              _norm, wall_tx_m, wall_ty_m, 0.0f, 0.0f, 0.0f, 1.0f, wall_nx_m,  \
+              wall_ny_m, 0.0f, activeFlags, sector->liquid_intensity,          \
+              sector->liquid_speed, s_fog_r, s_fog_g, s_fog_b, s_fog_density,  \
+              s_fog_start, s_fog_end);                                         \
           int _nvCount = 0;                                                    \
           float _h_bot = (z_bot_abs) - s_cam_z;                                \
           float _h_top = (z_top_abs) - s_cam_z;                                \
@@ -1607,6 +1697,41 @@ static void render_sector_gpu(GPU_Target *target, int sector_id, ClipRect clip,
       RENDER_SOLID_SEGMENT(rim_tex, rim_norm, fz, orig_floor, 1);
     }
 
+    /* ---- POOL/PIT RIM: fill gap between sector and parent heights ----
+       When is_island=1, fz/cz are NOT extended to parent heights, so the
+       existing rim checks above are always false. Use parent_floor_z and
+       parent_ceil_z (function parameters) to fill the visual gap. */
+    if (depth > 0 && is_island) {
+      /* Pool edge: sector ceiling below parent floor */
+      if (parent_floor_z > orig_ceil + 0.1f) {
+        int pit_tex = wall->texture_id_middle;
+        int pit_norm = wall->texture_id_middle_normal;
+        if (pit_tex <= 0) {
+          pit_tex = wall->texture_id_upper;
+          pit_norm = wall->texture_id_upper_normal;
+        }
+        if (pit_tex <= 0) {
+          pit_tex = wall->texture_id_lower;
+          pit_norm = wall->texture_id_lower_normal;
+        }
+        RENDER_SOLID_SEGMENT(pit_tex, pit_norm, orig_ceil, parent_floor_z, 1);
+      }
+      /* Elevation edge: sector floor above parent ceiling */
+      if (parent_ceil_z < orig_floor - 0.1f) {
+        int elev_tex = wall->texture_id_middle;
+        int elev_norm = wall->texture_id_middle_normal;
+        if (elev_tex <= 0) {
+          elev_tex = wall->texture_id_lower;
+          elev_norm = wall->texture_id_lower_normal;
+        }
+        if (elev_tex <= 0) {
+          elev_tex = wall->texture_id_upper;
+          elev_norm = wall->texture_id_upper_normal;
+        }
+        RENDER_SOLID_SEGMENT(elev_tex, elev_norm, parent_ceil_z, orig_floor, 1);
+      }
+    }
+
 #undef RENDER_SOLID_SEGMENT
   } /* end wall loop */
 
@@ -1646,17 +1771,52 @@ static void render_sector_gpu(GPU_Target *target, int sector_id, ClipRect clip,
     /* Disable backface culling — winding reverses when viewed from below */
     glDisable(GL_CULL_FACE);
 
-    if (render_floor && floor_tex) {
-      GPU_Image *floor_normal_tex = get_gpu_texture(0, sector->floor_normal_id);
-      render_island_lid(target, sector, sector->floor_z, floor_tex,
-                        floor_normal_tex, xf_walls, sector->num_walls, clip);
+    /* Check if sector polygon is convex.
+       Fan tessellation only works for convex polygons.
+       For concave sectors (C-shape, rings), render_sector_plane
+       already handles them correctly via scanline clipping. */
+    int is_convex = 1;
+    if (sector->num_walls >= 3) {
+      int sign = 0;
+      for (int w = 0; w < sector->num_walls; w++) {
+        int w1 = (w + 1) % sector->num_walls;
+        int w2 = (w + 2) % sector->num_walls;
+        float ax = sector->walls[w1].x1 - sector->walls[w].x1;
+        float ay = sector->walls[w1].y1 - sector->walls[w].y1;
+        float bx = sector->walls[w2].x1 - sector->walls[w1].x1;
+        float by = sector->walls[w2].y1 - sector->walls[w1].y1;
+        float cross = ax * by - ay * bx;
+        if (cross > 0.01f) {
+          if (sign < 0) {
+            is_convex = 0;
+            break;
+          }
+          sign = 1;
+        } else if (cross < -0.01f) {
+          if (sign > 0) {
+            is_convex = 0;
+            break;
+          }
+          sign = -1;
+        }
+      }
     }
-    if (render_ceil && ceil_tex) {
-      GPU_Image *ceil_normal_tex =
-          get_gpu_texture(0, sector->ceiling_normal_id);
-      render_island_lid(target, sector, sector->ceiling_z, ceil_tex,
-                        ceil_normal_tex, xf_walls, sector->num_walls, clip);
+
+    if (is_convex) {
+      if (render_floor && floor_tex) {
+        GPU_Image *floor_normal_tex =
+            get_gpu_texture(0, sector->floor_normal_id);
+        render_island_lid(target, sector, sector->floor_z, floor_tex,
+                          floor_normal_tex, xf_walls, sector->num_walls, clip);
+      }
+      if (render_ceil && ceil_tex) {
+        GPU_Image *ceil_normal_tex =
+            get_gpu_texture(0, sector->ceiling_normal_id);
+        render_island_lid(target, sector, sector->ceiling_z, ceil_tex,
+                          ceil_normal_tex, xf_walls, sector->num_walls, clip);
+      }
     }
+    /* Concave sectors are already rendered by render_sector_plane above */
   }
 
   /* ---- CHILD SECTORS (Room-over-Room / Nested) ---- */
@@ -1667,20 +1827,11 @@ static void render_sector_gpu(GPU_Target *target, int sector_id, ClipRect clip,
       if (!c_sect)
         continue;
 
-      /* Classify child: HOLE (pit/pool) vs ISLAND (box/column)
-         - HOLE: child ceiling <= parent floor (pit downward)
-                 or child floor >= parent ceiling (elevation upward)
-         - ISLAND: child is a solid box floating inside parent */
-      int child_is_island = 1; /* default: island */
-
-      /* If child's ceiling is at or below parent's floor → it's a PIT (hole) */
-      if (c_sect->ceiling_z <= sector->floor_z + 0.1f) {
-        child_is_island = 0;
-      }
-      /* If child's floor is at or above parent's ceiling → elevation (hole) */
-      if (c_sect->floor_z >= sector->ceiling_z - 0.1f) {
-        child_is_island = 0;
-      }
+      /* All child sectors use wall-intersection clipping (island=1).
+         This limits floor/ceiling to the sector's polygon for both
+         islands (solid boxes) and pits/pools (depressions).
+         Full-clip mode caused pools to fill the entire screen. */
+      int child_is_island = 1;
 
       render_sector_gpu(target, child_id, clip, depth + 1, child_is_island,
                         sector->floor_z, sector->ceiling_z, transparent_pass);
@@ -2148,8 +2299,57 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
   }
 }
 
+/* ============================================================================
+   SOFTWARE SPRITE OCCLUSION: Check if a sprite is hidden behind island walls.
+   Casts a 2D ray from camera to sprite and tests against all island sector
+   walls. Returns 1 if occluded, 0 if visible.
+   ============================================================================
+ */
+static int sprite_occluded_by_islands(float sprite_x, float sprite_y,
+                                      float sprite_z) {
+  float ray_dx = sprite_x - s_cam_x;
+  float ray_dy = sprite_y - s_cam_y;
+  float sprite_dist_sq = ray_dx * ray_dx + ray_dy * ray_dy;
+  if (sprite_dist_sq < 1.0f)
+    return 0; /* Too close to camera */
+
+  /* Quick check against pre-cached island sectors */
+  for (int i = 0; i < s_num_islands; i++) {
+    /* Check if the sprite's Z is within the island's vertical range */
+    if (sprite_z > s_island_ceil[i] || sprite_z < s_island_floor[i])
+      continue;
+
+    /* Test ray against each wall of this island sector */
+    RAY_Sector *sector = s_island_sectors[i];
+    for (int w = 0; w < sector->num_walls; w++) {
+      RAY_Wall *wall = &sector->walls[w];
+      float wx = wall->x2 - wall->x1;
+      float wy = wall->y2 - wall->y1;
+
+      float det = ray_dx * wy - ray_dy * wx;
+      if (fabsf(det) < 0.001f)
+        continue;
+
+      float dx = wall->x1 - s_cam_x;
+      float dy = wall->y1 - s_cam_y;
+
+      float t = (dx * wy - dy * wx) / det;
+      float u = (dx * ray_dy - dy * ray_dx) / det;
+
+      if (t > 0.01f && t < 0.99f && u >= 0.0f && u <= 1.0f) {
+        return 1; /* Occluded */
+      }
+    }
+  }
+  return 0;
+}
+
 static void render_sprite_gpu(GPU_Target *target, RAY_Sprite *sprite) {
   if (sprite->hidden || sprite->cleanup)
+    return;
+
+  /* Software occlusion: skip sprites hidden behind island walls */
+  if (sprite_occluded_by_islands(sprite->x, sprite->y, sprite->z))
     return;
 
   if (sprite->model) {
@@ -2241,7 +2441,8 @@ void ray_render_frame_gpu(void *dest_graph_ptr) {
     return;
 
   int current_sector = g_engine.camera.current_sector_id;
-  if (current_sector < 0 || current_sector >= g_engine.num_sectors)
+  RAY_Sector *cam_sector = find_sector_by_id(current_sector);
+  if (!cam_sector)
     return;
 
   s_screen_w = g_engine.displayWidth;
@@ -2256,6 +2457,14 @@ void ray_render_frame_gpu(void *dest_graph_ptr) {
   s_cos_ang = cosf(ang);
   s_sin_ang = sinf(ang);
   s_horizon = s_half_h + (int)g_engine.camera.pitch;
+
+  /* Set global fog from camera's current sector */
+  s_fog_r = cam_sector->fog_color_r;
+  s_fog_g = cam_sector->fog_color_g;
+  s_fog_b = cam_sector->fog_color_b;
+  s_fog_density = cam_sector->fog_density;
+  s_fog_start = cam_sector->fog_start;
+  s_fog_end = cam_sector->fog_end;
 
   /* DIAGNOSTIC: Check if we have a real depth buffer */
   static int depth_checked = 0;
@@ -2290,24 +2499,23 @@ void ray_render_frame_gpu(void *dest_graph_ptr) {
       /* Calculate texture horizontal offset based on camera rotation.
          Angle 0.0 means center of texture.
          Rotate 360 degrees = full texture wrap. */
+
+      /* Calculate texture horizontal offset based on camera rotation. */
       float angle = g_engine.camera.rot;
-      /* Normalize to 0..2PI */
       angle = fmodf(angle, 2.0f * M_PI);
       if (angle < 0)
         angle += 2.0f * M_PI;
 
-      /* Horizontal coverage:
-         Screen width maps to FOV radians.
-         Full texture maps to 2*PI radians. */
-      float fov_ratio = g_engine.fovRadians / (2.0f * M_PI);
+      /* DOOM STYLE: Larger coverage to avoid fast repetition */
       float u_center = angle / (2.0f * M_PI);
+      float fov_ratio = g_engine.fovRadians / (2.0f * M_PI);
+
       float u0 = u_center - fov_ratio * 0.5f;
       float u1 = u_center + fov_ratio * 0.5f;
 
-      /* For pitch, offset vertically.
-         A simple approximation for old-school look:
-         Sky is centered at horizon. */
-      float v_offset = (float)g_engine.camera.pitch / (float)s_screen_h;
+      /* Vertical: Doom skies are centered at horizon and move 1:1 with pitch or
+       * slower */
+      float v_offset = (float)g_engine.camera.pitch / (float)s_screen_h * 0.8f;
       float v0 = 0.0f - v_offset;
       float v1 = 1.0f - v_offset;
 
@@ -2378,9 +2586,35 @@ void ray_render_scene_gpu(GPU_Target *target, int current_sector) {
 
   /* Find root parent for correct nested context */
   int render_root = current_sector;
-  while (render_root >= 0 && render_root < g_engine.num_sectors &&
-         g_engine.sectors[render_root].parent_sector_id != -1) {
-    render_root = g_engine.sectors[render_root].parent_sector_id;
+  RAY_Sector *rr_sec = find_sector_by_id(render_root);
+  while (rr_sec && rr_sec->parent_sector_id != -1) {
+    render_root = rr_sec->parent_sector_id;
+    rr_sec = find_sector_by_id(render_root);
+  }
+
+  /* Pre-build island cache for sprite occlusion (once per frame).
+     A sector is a solid island occluder only if it is a box completely
+     INSIDE its parent: floor above parent floor AND ceiling below parent
+     ceiling. Elevated-floor sectors (ramps, steps) where ceiling==parent
+     ceiling are NOT solid occluders. */
+  s_num_islands = 0;
+  for (int si = 0;
+       si < g_engine.num_sectors && s_num_islands < MAX_ISLAND_SECTORS; si++) {
+    RAY_Sector *sec = &g_engine.sectors[si];
+    if (sec->parent_sector_id == -1)
+      continue;
+    RAY_Sector *par = find_sector_by_id(sec->parent_sector_id);
+    if (!par)
+      continue;
+    /* Must be strictly inside the parent vertically on BOTH ends */
+    if (sec->floor_z <= par->floor_z + 0.1f)
+      continue; /* floor not above parent floor → not a box */
+    if (sec->ceiling_z >= par->ceiling_z - 0.1f)
+      continue; /* ceiling not below parent ceiling → not a box */
+    s_island_sectors[s_num_islands] = sec;
+    s_island_floor[s_num_islands] = sec->floor_z;
+    s_island_ceil[s_num_islands] = sec->ceiling_z;
+    s_num_islands++;
   }
 
   /* Pass 0: Opaque geometry */
@@ -2428,8 +2662,8 @@ void ray_render_scene_gpu(GPU_Target *target, int current_sector) {
   /* Pass 1: Transparent liquids (Drawn after sprites so they can be seen
    * through) */
   visited_clear();
-  render_sector_gpu(target, current_sector, full_clip, 0, 0, -99999.0f,
-                    99999.0f, 1);
+  render_sector_gpu(target, render_root, full_clip, 0, 0, -99999.0f, 99999.0f,
+                    1);
 
   GPU_FlushBlitBuffer();
   GPU_SetDepthTest(target, 0);

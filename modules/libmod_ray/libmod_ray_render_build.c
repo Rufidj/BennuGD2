@@ -779,20 +779,23 @@ draw_wall_segment_linear(GRAPH *dest, int x1, int x2, int y1_ceil, int y2_ceil,
           }
 
           if ((pixel & 0xff000000) != 0) {
-            if (g_engine.fogOn)
-              pixel = ray_fog_pixel(pixel, z);
+            // Z-Buffer check - ensures walls don't overdraw closer geometry
+            if (z < g_zbuffer[pixel_idx]) {
+              if (g_engine.fogOn)
+                pixel = ray_fog_pixel(pixel, z);
 
-            if (sector->flags & 7) {
-              uint32_t bg = FAST_GET_PIXEL(dest, x, y);
-              pixel = ((pixel & 0x00FEFEFE) >> 1) + ((bg & 0x00FEFEFE) >> 1);
-            }
+              if (sector->flags & 7) {
+                uint32_t bg = FAST_GET_PIXEL(dest, x, y);
+                pixel = ((pixel & 0x00FEFEFE) >> 1) + ((bg & 0x00FEFEFE) >> 1);
+              }
 
-            if (screen_ptr) {
-              *screen_ptr = pixel;
-            } else {
-              FAST_PUT_PIXEL(dest, x, y, pixel);
+              if (screen_ptr) {
+                *screen_ptr = pixel;
+              } else {
+                FAST_PUT_PIXEL(dest, x, y, pixel);
+              }
+              g_zbuffer[pixel_idx] = z;
             }
-            g_zbuffer[pixel_idx] = z;
           }
           curr_v_fp += v_step_fp;
           if (screen_ptr)
@@ -1715,16 +1718,6 @@ void render_sector(GRAPH *dest, int sector_id, int min_x, int max_x, int depth,
     float fz = sector->floor_z;
     float cz = sector->ceiling_z;
 
-    // For holes (non-island children), extend walls to parent height to fill
-    // "rim" gaps
-    if (!is_island && sector->parent_sector_id != -1) {
-      RAY_Sector *parent = &g_engine.sectors[sector->parent_sector_id];
-      if (parent->floor_z > cz)
-        cz = parent->floor_z;
-      if (parent->ceiling_z < fz)
-        fz = parent->ceiling_z;
-    }
-
     float floor_h = fz - g_engine.camera.z;
     float ceil_h = cz - g_engine.camera.z;
 
@@ -1855,8 +1848,18 @@ void render_sector(GRAPH *dest, int sector_id, int min_x, int max_x, int depth,
           new_bot = dmost[x];
 
         // Update global clipping arrays
-        umost[x] = (int16_t)new_top;
-        dmost[x] = (int16_t)new_bot;
+        // SAFETY: If the portal window is inverted (bottom above top),
+        // the portal has no visible opening at this column (e.g. next
+        // sector's floor is above current ceiling). Close the window
+        // completely to avoid corrupting the clipping arrays.
+        if (new_bot < new_top) {
+          // Close the window - no visible portal at this column
+          umost[x] = (int16_t)new_top;
+          dmost[x] = (int16_t)new_top;
+        } else {
+          umost[x] = (int16_t)new_top;
+          dmost[x] = (int16_t)new_bot;
+        }
 
         // Advance interpolators
         c_y1t += d_y1t;
@@ -2118,6 +2121,27 @@ void render_sector(GRAPH *dest, int sector_id, int min_x, int max_x, int depth,
                                z1, z2, texture, u1, u2, wall, sector, min_x,
                                max_x, draw_flags,
                                u_off); // USE draw_flags HERE (was 3)
+
+      // BUILD ENGINE STYLE: Update clipping arrays after drawing solid wall.
+      // Each wall "claims" its vertical screen space so that subsequent walls
+      // don't draw floor/ceiling beyond the sector boundary. This naturally
+      // clips floor/ceiling to the sector's polygon shape.
+      if (!is_island) {
+        float span = (float)(sx2 - sx1);
+        if (span < 1.0f)
+          span = 1.0f;
+        float dy_top = (float)(y2_top - y1_top) / span;
+        float dy_bot = (float)(y2_bot - y1_bot) / span;
+        for (int cx = draw_x1; cx <= draw_x2; cx++) {
+          float t = (float)(cx - sx1);
+          int yt = y1_top + (int)(dy_top * t);
+          int yb = y1_bot + (int)(dy_bot * t);
+          if (yt > umost[cx])
+            umost[cx] = (int16_t)yt;
+          if (yb < dmost[cx])
+            dmost[cx] = (int16_t)yb;
+        }
+      }
     } else {
       // Portal - draw ONLY floor and ceiling
       draw_wall_segment_linear(dest, sx1, sx2, y1_top, y2_top, y1_bot, y2_bot,

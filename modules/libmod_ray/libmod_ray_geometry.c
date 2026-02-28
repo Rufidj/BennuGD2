@@ -264,11 +264,11 @@ RAY_Sector *ray_find_sector_at_position(RAY_Engine *engine, float x, float y,
     RAY_Sector *s = &engine->sectors[idx];
 
     /* A sector is a valid container if Z is within its bounds.
-       For solid sectors (islands/platforms), this is strictly required.
-       For non-solid sectors, it's also required to handle vertical overlaps
-       (Room-over-Room).
+       For solid sectors (islands/platforms), we allow a small margin above
+       the ceiling to keep the player "on top" of the platform.
     */
-    if (z >= s->floor_z && z < s->ceiling_z) {
+    float tolerance = ray_sector_is_solid(s) ? 2.0f : 0.0f;
+    if (z >= s->floor_z && z < s->ceiling_z + tolerance) {
       return s;
     }
 

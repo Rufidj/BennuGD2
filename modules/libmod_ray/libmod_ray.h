@@ -22,17 +22,17 @@
 
 #define RAY_WORLD_UNIT 128      /* Unidad base del mundo */
 #define RAY_TEXTURE_SIZE 128    /* Tamaño de texturas */
-#define RAY_MAX_SPRITES 1000    /* Máximo de sprites */
-#define RAY_MAX_SPAWN_FLAGS 100 /* Máximo de spawn flags */
-#define RAY_MAX_SECTORS 500     /* Máximo de sectores */
-#define RAY_MAX_PORTALS 1000    /* Máximo de portales */
-#define RAY_MAX_LIGHTS 32       /* Máximo de luces puntuales */
+#define RAY_MAX_SPRITES 2000    /* Máximo de sprites */
+#define RAY_MAX_SPAWN_FLAGS 500 /* Máximo de spawn flags */
+#define RAY_MAX_SECTORS 5000    /* Máximo de sectores */
+#define RAY_MAX_PORTALS 10000   /* Máximo de portales */
+#define RAY_MAX_LIGHTS 64       /* Máximo de luces puntuales */
 #define RAY_MAX_VERTICES_PER_SECTOR                                            \
-  64 /* Máximo vértices por sector (aumentado para mapas complejos) */
+  256 /* Máximo vértices por sector (aumentado para mapas complejos) */
 #define RAY_MAX_WALLS_PER_SECTOR                                               \
-  64 /* Máximo paredes por sector (aumentado para soportar hijos) */
+  256 /* Máximo paredes por sector (aumentado para soportar hijos) */
 #define RAY_MAX_RAYHITS                                                        \
-  256 /* Máximo hits de raycasting (aumentado para profundidad) */
+  1024 /* Máximo hits de raycasting (aumentado para profundidad) */
 #define RAY_TWO_PI (M_PI * 2.0f)
 
 /* Epsilon para comparaciones de coordenadas */
@@ -156,6 +156,12 @@ typedef struct {
   int flags;              /* Sector flags (Liquid types, etc.) */
   float liquid_intensity; /* Intensity of the distortion effect (0.0 to 1.0+) */
   float liquid_speed;     /* Speed of the distortion/ripples (0.0 to 10.0+) */
+
+  /* v28+: Volumetric Fog per sector */
+  float fog_color_r, fog_color_g, fog_color_b; /* Fog color (0.0 - 1.0) */
+  float fog_density;                           /* 0 = no fog, 100 = full */
+  float fog_start;                             /* Distance where fog begins */
+  float fog_end; /* Distance where fog is fully opaque */
 } RAY_Sector;
 
 /* ============================================================================
@@ -225,7 +231,51 @@ typedef struct {
   int glb_anim_index;
   float glb_anim_time;
   float glb_anim_speed;
+
+  /* Physics body (NULL = no physics, static sprite) */
+  struct RAY_PhysicsBody *physics;
 } RAY_Sprite;
+
+/* ============================================================================
+   PHYSICS BODY - Rigid body simulation properties
+   ============================================================================
+ */
+typedef struct RAY_PhysicsBody {
+  /* Linear motion */
+  float vx, vy, vz; /* Velocity (units/sec) */
+  float ax, ay, az; /* Accumulated forces/acceleration */
+
+  /* Angular motion */
+  float ang_vx, ang_vy, ang_vz; /* Angular velocity (rad/sec) */
+  float rot_x, rot_y;           /* Current tilt angles (pitch/roll) */
+
+  /* Material properties */
+  float mass;            /* Mass in kg (0 = infinite/static) */
+  float inv_mass;        /* Precomputed 1/mass (0 if static) */
+  float friction;        /* Surface friction [0..1] */
+  float restitution;     /* Bounciness [0..1] */
+  float gravity_scale;   /* Gravity multiplier (1.0 = normal) */
+  float linear_damping;  /* Air resistance for movement [0..1] */
+  float angular_damping; /* Air resistance for rotation [0..1] */
+
+  /* Collision shape */
+  float col_radius; /* Bounding sphere/cylinder radius */
+  float col_height; /* Vertical extent */
+
+  /* Flags */
+  int is_static;       /* 1 = immovable */
+  int is_kinematic;    /* 1 = moved by code, not physics */
+  int is_trigger;      /* 1 = overlap detection only */
+  int lock_rot_x;      /* 1 = prevent tipping on X */
+  int lock_rot_y;      /* 1 = prevent tipping on Y */
+  int lock_rot_z;      /* 1 = prevent spinning on Z */
+  int on_ground;       /* 1 = resting on a surface */
+  int collision_layer; /* Bitmask for collision filtering */
+  int collision_mask;  /* Which layers this body collides with */
+
+  /* Sector awareness */
+  int current_sector_id; /* Which sector this body is in */
+} RAY_PhysicsBody;
 
 /* ============================================================================
    SPAWN FLAGS - Posiciones de spawn para sprites
@@ -347,6 +397,9 @@ typedef struct {
 
   /* FPG de texturas */
   int fpg_id;
+
+  /* Física */
+  float default_step_height; /* Altura máxima de escalón (climbing) */
 
   /* Skybox */
   int skyTextureID; /* ID de textura para el cielo */
@@ -474,6 +527,47 @@ extern int64_t libmod_ray_add_light(INSTANCE *my, int64_t *params);
 extern int64_t libmod_ray_clear_lights(INSTANCE *my, int64_t *params);
 
 /* ============================================================================
+   PHYSICS ENGINE
+   ============================================================================
+ */
+
+/* Core physics functions (C API) */
+extern void ray_physics_init(void);
+extern void ray_physics_step(float dt);
+extern RAY_PhysicsBody *ray_physics_create_body(float mass, float radius,
+                                                float height);
+extern void ray_physics_destroy_body(RAY_PhysicsBody *body);
+extern void ray_physics_apply_force(RAY_PhysicsBody *body, float fx, float fy,
+                                    float fz);
+extern void ray_physics_apply_impulse(RAY_PhysicsBody *body, float ix, float iy,
+                                      float iz);
+extern void ray_physics_set_velocity(RAY_PhysicsBody *body, float vx, float vy,
+                                     float vz);
+
+/* BennuGD2 bindings */
+extern int64_t libmod_ray_physics_enable(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_mass(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_friction(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_restitution(INSTANCE *my,
+                                                  int64_t *params);
+extern int64_t libmod_ray_physics_set_gravity_scale(INSTANCE *my,
+                                                    int64_t *params);
+extern int64_t libmod_ray_physics_set_damping(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_static(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_kinematic(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_trigger(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_set_lock_rotation(INSTANCE *my,
+                                                    int64_t *params);
+extern int64_t libmod_ray_physics_set_collision_layer(INSTANCE *my,
+                                                      int64_t *params);
+extern int64_t libmod_ray_physics_apply_force_bgd(INSTANCE *my,
+                                                  int64_t *params);
+extern int64_t libmod_ray_physics_apply_impulse_bgd(INSTANCE *my,
+                                                    int64_t *params);
+extern int64_t libmod_ray_physics_get_velocity(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_physics_step_bgd(INSTANCE *my, int64_t *params);
+
+/* ============================================================================
    FUNCIONES INTERNAS - Geometría
    ============================================================================
  */
@@ -481,6 +575,7 @@ extern int64_t libmod_ray_clear_lights(INSTANCE *my, int64_t *params);
 /* Geometría de polígonos */
 int ray_point_in_polygon(float px, float py, const RAY_Point *vertices,
                          int num_vertices);
+int ray_point_in_sector_local(RAY_Sector *sector, float px, float py);
 int ray_polygon_is_convex(const RAY_Point *vertices, int num_vertices);
 int ray_line_segment_intersect(float x1, float y1, float x2, float y2, float x3,
                                float y3, float x4, float y4, float *ix,
@@ -574,10 +669,6 @@ void ray_draw_wall_strip(GRAPH *dest, RAY_RayHit *hit, int screen_x,
                          int *clip_top, int *clip_bottom);
 uint32_t ray_sample_texture(GRAPH *texture, int tex_x, int tex_y);
 uint32_t ray_sample_texture_bilinear(GRAPH *texture, float u, float v);
-void render_sector_column_recursive(GRAPH *dest, int screen_x, float ray_angle,
-                                    int sector_id, int clip_top,
-                                    int clip_bottom, float *z_buffer,
-                                    int depth);
 void ray_cast_ray(RAY_Engine *engine, int sector_id, float x, float y,
                   float angle, int strip_idx, RAY_RayHit *hits, int *num_hits);
 uint32_t ray_fog_pixel(uint32_t pixel, float distance);

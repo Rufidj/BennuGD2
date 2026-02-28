@@ -36,7 +36,7 @@ static int g_use_gpu = 1;                     // Default: Software
 
 extern void ray_detect_portals(RAY_Engine *engine);
 extern int ray_check_collision(RAY_Engine *engine, float x, float y, float z,
-                               float new_x, float new_y);
+                               float new_x, float new_y, float step_h);
 
 /* ============================================================================
    INICIALIZACIÓN Y FINALIZACIÓN
@@ -152,6 +152,8 @@ int64_t libmod_ray_init(INSTANCE *my, int64_t *params) {
 
   g_engine.fpg_id = 0;
   g_engine.last_ticks = 0;
+  g_engine.default_step_height =
+      32.0f; /* Altura de escalón estándar (0.25 unidades mundo) */
   g_engine.initialized = 1;
 
   printf("RAY: Motor inicializado (v9 - Flat Sectors) - %dx%d, FOV=%d, "
@@ -513,6 +515,36 @@ int64_t libmod_ray_get_camera_pitch(INSTANCE *my, int64_t *params) {
   return (int64_t) * (int32_t *)&val;
 }
 
+int64_t libmod_ray_get_sprite_x(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+  int id = (int)params[0];
+  if (id < 0 || id >= g_engine.num_sprites)
+    return 0;
+  float val = g_engine.sprites[id].x;
+  return (int64_t) * (int32_t *)&val;
+}
+
+int64_t libmod_ray_get_sprite_y(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+  int id = (int)params[0];
+  if (id < 0 || id >= g_engine.num_sprites)
+    return 0;
+  float val = g_engine.sprites[id].y;
+  return (int64_t) * (int32_t *)&val;
+}
+
+int64_t libmod_ray_get_sprite_z(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+  int id = (int)params[0];
+  if (id < 0 || id >= g_engine.num_sprites)
+    return 0;
+  float val = g_engine.sprites[id].z;
+  return (int64_t) * (int32_t *)&val;
+}
+
 /* ============================================================================
    CÁMARA - SETTER
    ============================================================================
@@ -565,7 +597,8 @@ int64_t libmod_ray_move_forward(INSTANCE *my, int64_t *params) {
                                        speed; // Fixed: Matches renderer (+sin)
 
   if (!ray_check_collision(&g_engine, g_engine.camera.x, g_engine.camera.y,
-                           g_engine.camera.z, newX, newY)) {
+                           g_engine.camera.z, newX, newY,
+                           g_engine.default_step_height)) {
     g_engine.camera.x = newX;
     g_engine.camera.y = newY;
 
@@ -575,11 +608,18 @@ int64_t libmod_ray_move_forward(INSTANCE *my, int64_t *params) {
     if (sector) {
       g_engine.camera.current_sector_id = sector->sector_id;
 
-      // Auto-step up for solid sectors (only if it's a small step, not a wall)
-      float step_height = sector->ceiling_z - g_engine.camera.z;
-      if (ray_sector_is_solid(sector) && step_height > 0 &&
-          step_height < 32.0f) {
-        g_engine.camera.z = sector->ceiling_z + 1.0f;
+      if (ray_sector_is_solid(sector)) {
+        float step_h = sector->ceiling_z - g_engine.camera.z;
+        if (step_h > 0 && step_h < g_engine.default_step_height) {
+          g_engine.camera.z = sector->ceiling_z + 1.0f;
+        }
+      } else {
+        // Follow floor height changes (ramps/steps) while preserving eye height
+        float eye_height = g_engine.camera.z - sector->floor_z;
+        if (eye_height < 0) {
+          // Camera is below the new floor - snap up
+          g_engine.camera.z = sector->floor_z + 32.0f;
+        }
       }
     }
   }
@@ -593,11 +633,11 @@ int64_t libmod_ray_move_backward(INSTANCE *my, int64_t *params) {
 
   float speed = *(float *)&params[0];
   float newX = g_engine.camera.x - cosf(g_engine.camera.rot) * speed;
-  float newY = g_engine.camera.y - sinf(g_engine.camera.rot) *
-                                       speed; // Fixed: Matches renderer (-sin)
+  float newY = g_engine.camera.y - sinf(g_engine.camera.rot) * speed;
 
   if (!ray_check_collision(&g_engine, g_engine.camera.x, g_engine.camera.y,
-                           g_engine.camera.z, newX, newY)) {
+                           g_engine.camera.z, newX, newY,
+                           g_engine.default_step_height)) {
     g_engine.camera.x = newX;
     g_engine.camera.y = newY;
 
@@ -607,11 +647,18 @@ int64_t libmod_ray_move_backward(INSTANCE *my, int64_t *params) {
     if (sector) {
       g_engine.camera.current_sector_id = sector->sector_id;
 
-      // Auto-step up for solid sectors (only if it's a small step, not a wall)
-      float step_height = sector->ceiling_z - g_engine.camera.z;
-      if (ray_sector_is_solid(sector) && step_height > 0 &&
-          step_height < 32.0f) {
-        g_engine.camera.z = sector->ceiling_z + 1.0f;
+      if (ray_sector_is_solid(sector)) {
+        float step_h = sector->ceiling_z - g_engine.camera.z;
+        if (step_h > 0 && step_h < g_engine.default_step_height) {
+          g_engine.camera.z = sector->ceiling_z + 1.0f;
+        }
+      } else {
+        // Follow floor height changes (ramps/steps) while preserving eye height
+        float eye_height = g_engine.camera.z - sector->floor_z;
+        if (eye_height < 0) {
+          // Camera is below the new floor - snap up
+          g_engine.camera.z = sector->floor_z + 32.0f;
+        }
       }
     }
   }
@@ -629,7 +676,8 @@ int64_t libmod_ray_strafe_left(INSTANCE *my, int64_t *params) {
   float newY = g_engine.camera.y + sinf(g_engine.camera.rot - M_PI / 2) * speed;
 
   if (!ray_check_collision(&g_engine, g_engine.camera.x, g_engine.camera.y,
-                           g_engine.camera.z, newX, newY)) {
+                           g_engine.camera.z, newX, newY,
+                           g_engine.default_step_height)) {
     g_engine.camera.x = newX;
     g_engine.camera.y = newY;
 
@@ -639,11 +687,18 @@ int64_t libmod_ray_strafe_left(INSTANCE *my, int64_t *params) {
     if (sector) {
       g_engine.camera.current_sector_id = sector->sector_id;
 
-      // Auto-step up for solid sectors (only if it's a small step, not a wall)
-      float step_height = sector->ceiling_z - g_engine.camera.z;
-      if (ray_sector_is_solid(sector) && step_height > 0 &&
-          step_height < 32.0f) {
-        g_engine.camera.z = sector->ceiling_z + 1.0f;
+      if (ray_sector_is_solid(sector)) {
+        float step_h = sector->ceiling_z - g_engine.camera.z;
+        if (step_h > 0 && step_h < g_engine.default_step_height) {
+          g_engine.camera.z = sector->ceiling_z + 1.0f;
+        }
+      } else {
+        // Follow floor height changes (ramps/steps) while preserving eye height
+        float eye_height = g_engine.camera.z - sector->floor_z;
+        if (eye_height < 0) {
+          // Camera is below the new floor - snap up
+          g_engine.camera.z = sector->floor_z + 32.0f;
+        }
       }
     }
   }
@@ -661,7 +716,8 @@ int64_t libmod_ray_strafe_right(INSTANCE *my, int64_t *params) {
   float newY = g_engine.camera.y + sinf(g_engine.camera.rot + M_PI / 2) * speed;
 
   if (!ray_check_collision(&g_engine, g_engine.camera.x, g_engine.camera.y,
-                           g_engine.camera.z, newX, newY)) {
+                           g_engine.camera.z, newX, newY,
+                           g_engine.default_step_height)) {
     g_engine.camera.x = newX;
     g_engine.camera.y = newY;
 
@@ -671,11 +727,18 @@ int64_t libmod_ray_strafe_right(INSTANCE *my, int64_t *params) {
     if (sector) {
       g_engine.camera.current_sector_id = sector->sector_id;
 
-      // Auto-step up for solid sectors (only if it's a small step, not a wall)
-      float step_height = sector->ceiling_z - g_engine.camera.z;
-      if (ray_sector_is_solid(sector) && step_height > 0 &&
-          step_height < 32.0f) {
-        g_engine.camera.z = sector->ceiling_z + 1.0f;
+      if (ray_sector_is_solid(sector)) {
+        float step_h = sector->ceiling_z - g_engine.camera.z;
+        if (step_h > 0 && step_h < g_engine.default_step_height) {
+          g_engine.camera.z = sector->ceiling_z + 1.0f;
+        }
+      } else {
+        // Follow floor height changes (ramps/steps) while preserving eye height
+        float eye_height = g_engine.camera.z - sector->floor_z;
+        if (eye_height < 0) {
+          // Camera is below the new floor - snap up
+          g_engine.camera.z = sector->floor_z + 32.0f;
+        }
       }
     }
   }
@@ -869,7 +932,8 @@ int64_t libmod_ray_check_collision(INSTANCE *my, int64_t *params) {
   float new_x = *(float *)&params[2];
   float new_y = *(float *)&params[3];
 
-  return ray_check_collision(&g_engine, x, y, g_engine.camera.z, new_x, new_y);
+  return ray_check_collision(&g_engine, x, y, g_engine.camera.z, new_x, new_y,
+                             g_engine.default_step_height);
 }
 
 int64_t libmod_ray_check_collision_z(INSTANCE *my, int64_t *params) {
@@ -882,7 +946,8 @@ int64_t libmod_ray_check_collision_z(INSTANCE *my, int64_t *params) {
   float new_x = *(float *)&params[3];
   float new_y = *(float *)&params[4];
 
-  return ray_check_collision(&g_engine, x, y, z, new_x, new_y);
+  return ray_check_collision(&g_engine, x, y, z, new_x, new_y,
+                             g_engine.default_step_height);
 }
 
 int64_t libmod_ray_set_minimap(INSTANCE *my, int64_t *params) {
@@ -1705,6 +1770,157 @@ int64_t libmod_ray_camera_free(INSTANCE *my, int64_t *params) {
   int id = (int)params[0];
   ray_camera_free_path(id);
   return 1;
+}
+
+/* ============================================================================
+   FÍSICA Y MOVIMIENTO AVANZADO
+   ============================================================================
+ */
+
+int64_t libmod_ray_set_step_height(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+  g_engine.default_step_height = *(float *)&params[0];
+  return 1;
+}
+
+int64_t libmod_ray_get_floor_height_z(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+
+  float x = *(float *)&params[0];
+  float y = *(float *)&params[1];
+  float z = *(float *)&params[2];
+
+  RAY_Sector *sector = ray_find_sector_at_position(&g_engine, x, y, z);
+  if (sector) {
+    float val = sector->floor_z;
+    return (int64_t) * (int32_t *)&val;
+  }
+
+  return 0;
+}
+
+int64_t libmod_ray_move_sprite(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+
+  int sprite_id = (int)params[0];
+  float dist = *(float *)&params[1];
+  float step_h = *(float *)&params[2];
+
+  if (sprite_id < 0 || sprite_id >= g_engine.num_sprites)
+    return 0;
+
+  RAY_Sprite *s = &g_engine.sprites[sprite_id];
+  if (s->cleanup)
+    return 0;
+
+  // Si step_h es 0 o negativo, usar el valor por defecto del motor
+  if (step_h <= 0)
+    step_h = g_engine.default_step_height;
+
+  float newX = s->x + cosf(s->rot) * dist;
+  float newY = s->y + sinf(s->rot) * dist;
+
+  // Guardar altura original para cálculos de climbing
+  float oldZ = s->z;
+
+  // Temporalmente cambiar step_height global para usar el check_collision
+  // existente (O podríamos añadir un parámetro a ray_check_collision, pero esto
+  // es más rápido sin cambiar muchas firmas)
+  float old_engine_step = g_engine.default_step_height;
+  g_engine.default_step_height = step_h;
+
+  int blocked =
+      ray_check_collision(&g_engine, s->x, s->y, s->z, newX, newY, step_h);
+
+  g_engine.default_step_height = old_engine_step;
+
+  if (!blocked) {
+    s->x = newX;
+    s->y = newY;
+
+    // Actualizar Z automáticamente (climbing)
+    RAY_Sector *sector =
+        ray_find_sector_at_position(&g_engine, newX, newY, s->z);
+    if (sector) {
+      // Si entramos en un sector sólido (bloque), subimos a su techo
+      if (ray_sector_is_solid(sector)) {
+        float floor_top = sector->ceiling_z;
+        if (floor_top > s->z && floor_top <= s->z + step_h) {
+          s->z = floor_top + 0.1f; // Pequeño margen para no estar "dentro"
+        }
+      } else {
+        // Sector normal, ajustar a su suelo
+        s->z = sector->floor_z;
+      }
+    }
+    return 1; // Movido
+  }
+
+  return 0; // Bloqueado
+}
+
+int64_t libmod_ray_check_collision_h(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return 0;
+
+  float x = *(float *)&params[0];
+  float y = *(float *)&params[1];
+  float z = *(float *)&params[2];
+  float new_x = *(float *)&params[3];
+  float new_y = *(float *)&params[4];
+  float step_h = *(float *)&params[5];
+
+  return ray_check_collision(&g_engine, x, y, z, new_x, new_y, step_h);
+}
+
+int64_t libmod_ray_check_sprite_collision(INSTANCE *my, int64_t *params) {
+  if (!g_engine.initialized)
+    return -1;
+
+  int self_id = (int)params[0];
+  float new_x = *(float *)&params[1];
+  float new_y = *(float *)&params[2];
+  float radius = *(float *)&params[3];
+
+  if (radius <= 0.0f)
+    radius = 32.0f;
+
+  for (int i = 0; i < g_engine.num_sprites; i++) {
+    if (i == self_id)
+      continue;
+    RAY_Sprite *other = &g_engine.sprites[i];
+    if (other->hidden || other->cleanup)
+      continue;
+
+    float other_radius =
+        (other->col_w > 0) ? other->col_w / 2.0f : other->w / 2.0f;
+    float min_dist = radius + other_radius;
+
+    float dx = new_x - other->x;
+    float dy = new_y - other->y;
+    float dist_sq = dx * dx + dy * dy;
+
+    if (dist_sq < min_dist * min_dist) {
+      float self_z = 0;
+      if (self_id >= 0 && self_id < g_engine.num_sprites) {
+        self_z = g_engine.sprites[self_id].z;
+      }
+      float self_h = (self_id >= 0 && self_id < g_engine.num_sprites)
+                         ? (g_engine.sprites[self_id].col_h > 0
+                                ? g_engine.sprites[self_id].col_h
+                                : g_engine.sprites[self_id].h)
+                         : 64.0f;
+      float other_h = (other->col_h > 0) ? other->col_h : other->h;
+
+      if (self_z < other->z + other_h && self_z + self_h > other->z) {
+        return i;
+      }
+    }
+  }
+  return -1;
 }
 
 void __bgdexport(libmod_ray, module_initialize)() {}
