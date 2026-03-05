@@ -137,6 +137,12 @@ DLSYSFUNCS __bgdexport(libmod_ray, functions_exports)[] = {
     /* Sprite-to-Sprite Collision */
     FUNC("RAY_CHECK_SPRITE_COLLISION", "IFFF", TYPE_INT,
          libmod_ray_check_sprite_collision),
+    /* Distance Functions */
+    FUNC("RAY_GET_DIST", "II", TYPE_FLOAT, libmod_ray_get_dist),
+    FUNC("RAY_GET_CAMERA_DIST", "I", TYPE_FLOAT, libmod_ray_get_camera_dist),
+    FUNC("RAY_GET_POINT_DIST", "FFFFFF", TYPE_FLOAT, libmod_ray_get_point_dist),
+    FUNC("RAY_GET_ANGLE", "II", TYPE_FLOAT, libmod_ray_get_angle),
+    FUNC("RAY_GET_CAMERA_ANGLE", "I", TYPE_FLOAT, libmod_ray_get_camera_angle),
     FUNC(NULL, NULL, 0, NULL)};
 
 #endif

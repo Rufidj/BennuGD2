@@ -1,6 +1,7 @@
 #include "libmod_ray.h"
 #include "libmod_ray_md3.h"
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 extern RAY_Engine g_engine;
@@ -39,10 +40,18 @@ static void setup_edge_md3(EdgeMD3 *edge, RAY_Point *p1, RAY_Point *p2,
   }
 }
 
+extern float g_wall_col_depth[];
+extern uint8_t *g_wall_coverage;
+
 static void rasterize_scanline_md3(GRAPH *dest, int y, EdgeMD3 *left,
                                    EdgeMD3 *right, int textureID) {
+  if (left->x > right->x) {
+    EdgeMD3 *tmp = left;
+    left = right;
+    right = tmp;
+  }
   int x1 = (int)ceilf(left->x), x2 = (int)ceilf(right->x);
-  int iw = g_engine.internalWidth;
+  int iw = g_engine.displayWidth;
   if (x1 < 0)
     x1 = 0;
   if (x2 > iw)
@@ -50,8 +59,8 @@ static void rasterize_scanline_md3(GRAPH *dest, int y, EdgeMD3 *left,
   if (x1 >= x2)
     return;
   float span = right->x - left->x;
-  if (span < 1.0f)
-    span = 1.0f;
+  if (span < 0.0001f)
+    span = 0.0001f;
   float i_span = 1.0f / span;
   float tiz = (right->inv_z - left->inv_z) * i_span,
         tuz = (right->u_over_z - left->u_over_z) * i_span,
@@ -63,18 +72,54 @@ static void rasterize_scanline_md3(GRAPH *dest, int y, EdgeMD3 *left,
                                     ? bitmap_get(0, textureID)
                                     : bitmap_get(g_engine.fpg_id, textureID))
                              : NULL;
+  static int md3_debug_frame = 0;
+  int do_debug = (md3_debug_frame++ % 3000 == 0);
   for (int x = x1; x < x2; x++) {
     int idx = y * iw + x;
     float z = 1.0f / (iz > 0.000001f ? iz : 0.000001f);
+    // Coverage-based occlusion: if this pixel was already drawn by a
+    // wall/floor/ceiling, only draw the MD3 if it's actually closer
+    if (g_wall_coverage && g_wall_coverage[idx]) {
+      // Pixel is covered by BSP geometry — use z-buffer for correct ordering
+      if (z >= g_zbuffer[idx]) {
+        iz += tiz;
+        uz += tuz;
+        vz += tvz;
+        continue;
+      }
+    }
+    // Also check per-column wall depth as secondary guard
+    if (z >= g_wall_col_depth[x]) {
+      iz += tiz;
+      uz += tuz;
+      vz += tvz;
+      continue;
+    }
     if (z < g_zbuffer[idx] - 0.1f) {
+      if (do_debug) {
+        printf("MD3 DRAW: x=%d y=%d md3_z=%.2f zbuf=%.2f coverage=%d "
+               "wall_col=%.2f\n",
+               x, y, z, g_zbuffer[idx],
+               g_wall_coverage ? g_wall_coverage[idx] : -1,
+               g_wall_col_depth[x]);
+      }
       uint32_t color = 0xAA00AA;
       if (tex) {
-        int tx = (int)(uz * z * (float)tex->width) % tex->width;
+        float u = uz * z;
+        float v = vz * z;
+        // Wrapping
+        u -= floorf(u);
+        v -= floorf(v);
+        int tx = (int)(u * (float)tex->width);
+        int ty = (int)(v * (float)tex->height);
         if (tx < 0)
-          tx += tex->width;
-        int ty = (int)(vz * z * (float)tex->height) % tex->height;
+          tx = 0;
+        if (tx >= tex->width)
+          tx = tex->width - 1;
         if (ty < 0)
-          ty += tex->height;
+          ty = 0;
+        if (ty >= tex->height)
+          ty = tex->height - 1;
         color = gr_get_pixel(tex, tx, ty);
       }
       if ((color & 0xFF000000) != 0 || (color & 0xFFFFFF) != 0) {
@@ -137,12 +182,24 @@ static void draw_triangle_md3(GRAPH *dest, RAY_Point p1, RAY_Point p2,
     vm = vb;
     vb = v;
   }
-  if (bot->y == top->y)
+  if (bot->y <= top->y)
     return;
   EdgeMD3 e1, e2, e3;
   setup_edge_md3(&e1, top, bot, *zt, *zb, ut, vt, ub, vb);
   setup_edge_md3(&e2, top, mid, *zt, *zm, ut, vt, um, vm);
   setup_edge_md3(&e3, mid, bot, *zm, *zb, um, vm, ub, vb);
+
+  // Sub-pixel correction for vertical edges
+  float pre_y = ceilf(top->y) - top->y;
+  e1.x += e1.dx * pre_y;
+  e1.inv_z += e1.d_inv_z * pre_y;
+  e1.u_over_z += e1.du_over_z * pre_y;
+  e1.v_over_z += e1.dv_over_z * pre_y;
+  e2.x += e2.dx * pre_y;
+  e2.inv_z += e2.d_inv_z * pre_y;
+  e2.u_over_z += e2.du_over_z * pre_y;
+  e2.v_over_z += e2.dv_over_z * pre_y;
+
   for (int y = (int)ceilf(top->y); y < (int)ceilf(mid->y); y++) {
     rasterize_scanline_md3(dest, y, &e1, &e2, textureID);
     e1.x += e1.dx;
@@ -154,6 +211,13 @@ static void draw_triangle_md3(GRAPH *dest, RAY_Point p1, RAY_Point p2,
     e2.u_over_z += e2.du_over_z;
     e2.v_over_z += e2.dv_over_z;
   }
+
+  float pre_y_mid = ceilf(mid->y) - mid->y;
+  e3.x += e3.dx * pre_y_mid;
+  e3.inv_z += e3.d_inv_z * pre_y_mid;
+  e3.u_over_z += e3.du_over_z * pre_y_mid;
+  e3.v_over_z += e3.dv_over_z * pre_y_mid;
+
   for (int y = (int)ceilf(mid->y); y < (int)ceilf(bot->y); y++) {
     rasterize_scanline_md3(dest, y, &e1, &e3, textureID);
     e1.x += e1.dx;
@@ -173,11 +237,11 @@ void ray_render_md3(GRAPH *dest, RAY_Sprite *sprite) {
   RAY_MD3_Model *model = (RAY_MD3_Model *)sprite->model;
   float cs_cam = cosf(g_engine.camera.rot), sn_cam = sinf(g_engine.camera.rot);
   float cs_mod = cosf(sprite->rot), sn_mod = sinf(sprite->rot);
-  int iw = g_engine.internalWidth, ih = g_engine.internalHeight;
-  /* ANCHORED FOCAL LENGTH: Syced with Build Engine Walls */
-  float focal = (float)iw * 0.5f;
-  float hx = (float)iw * 0.5f;
-  float hy = (float)ih * 0.5f + g_engine.camera.pitch;
+  int iw = g_engine.displayWidth, ih = g_engine.displayHeight;
+  /* ANCHORED FOCAL LENGTH: Synced with Build Engine Walls */
+  float focal = (float)g_engine.displayWidth * 0.5f;
+  float hx = (float)g_engine.displayWidth * 0.5f;
+  float hy = (float)g_engine.displayHeight * 0.5f + g_engine.camera.pitch;
   float scale = sprite->model_scale > 0 ? sprite->model_scale : 1.0f;
   float interp = sprite->interpolation;
 

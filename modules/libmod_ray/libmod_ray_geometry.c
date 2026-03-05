@@ -468,3 +468,107 @@ int ray_portal_is_visible(RAY_Portal *portal, RAY_Camera *camera) {
   /* Check if within FOV (assuming 90 degree FOV) */
   return fabsf(angle_diff) < M_PI / 2.0f;
 }
+
+/* ============================================================================
+   DISTANCE CALCULATIONS (v29+)
+   ============================================================================
+ */
+
+/* Get Euclidean distance between two sprites (3D) */
+int64_t libmod_ray_get_dist(INSTANCE *my, int64_t *params) {
+  extern RAY_Engine g_engine;
+  if (!g_engine.initialized)
+    return 0;
+
+  int id1 = (int)params[0];
+  int id2 = (int)params[1];
+
+  if (id1 < 0 || id1 >= g_engine.num_sprites || id2 < 0 ||
+      id2 >= g_engine.num_sprites)
+    return 0;
+
+  float dx = g_engine.sprites[id1].x - g_engine.sprites[id2].x;
+  float dy = g_engine.sprites[id1].y - g_engine.sprites[id2].y;
+  float dz = g_engine.sprites[id1].z - g_engine.sprites[id2].z;
+
+  float dist = sqrtf(dx * dx + dy * dy + dz * dz);
+  return (int64_t) * (int32_t *)&dist;
+}
+
+/* Get Euclidean distance between camera and a sprite (3D) */
+int64_t libmod_ray_get_camera_dist(INSTANCE *my, int64_t *params) {
+  extern RAY_Engine g_engine;
+  if (!g_engine.initialized)
+    return 0;
+
+  int id = (int)params[0];
+
+  if (id < 0 || id >= g_engine.num_sprites)
+    return 0;
+
+  float dx = g_engine.sprites[id].x - g_engine.camera.x;
+  float dy = g_engine.sprites[id].y - g_engine.camera.y;
+  float dz = g_engine.sprites[id].z - g_engine.camera.z;
+
+  float dist = sqrtf(dx * dx + dy * dy + dz * dz);
+  return (int64_t) * (int32_t *)&dist;
+}
+
+/* Get Euclidean distance between two arbitrary 3D points */
+int64_t libmod_ray_get_point_dist(INSTANCE *my, int64_t *params) {
+  extern RAY_Engine g_engine;
+  if (!g_engine.initialized)
+    return 0;
+
+  float x1 = *(float *)&params[0];
+  float y1 = *(float *)&params[1];
+  float z1 = *(float *)&params[2];
+  float x2 = *(float *)&params[3];
+  float y2 = *(float *)&params[4];
+  float z2 = *(float *)&params[5];
+
+  float dx = x1 - x2;
+  float dy = y1 - y2;
+  float dz = z1 - z2;
+
+  float dist = sqrtf(dx * dx + dy * dy + dz * dz);
+  return (int64_t) * (int32_t *)&dist;
+}
+
+/* Get angle between two sprites (in radians, only X-Y plane) */
+int64_t libmod_ray_get_angle(INSTANCE *my, int64_t *params) {
+  extern RAY_Engine g_engine;
+  if (!g_engine.initialized)
+    return 0;
+
+  int id1 = (int)params[0];
+  int id2 = (int)params[1];
+
+  if (id1 < 0 || id1 >= g_engine.num_sprites || id2 < 0 ||
+      id2 >= g_engine.num_sprites)
+    return 0;
+
+  float dx = g_engine.sprites[id2].x - g_engine.sprites[id1].x;
+  float dy = g_engine.sprites[id2].y - g_engine.sprites[id1].y;
+
+  float angle = atan2f(dy, dx);
+  return (int64_t) * (int32_t *)&angle;
+}
+
+/* Get angle from camera to a sprite (in radians) */
+int64_t libmod_ray_get_camera_angle(INSTANCE *my, int64_t *params) {
+  extern RAY_Engine g_engine;
+  if (!g_engine.initialized)
+    return 0;
+
+  int id = (int)params[0];
+
+  if (id < 0 || id >= g_engine.num_sprites)
+    return 0;
+
+  float dx = g_engine.sprites[id].x - g_engine.camera.x;
+  float dy = g_engine.sprites[id].y - g_engine.camera.y;
+
+  float angle = atan2f(dy, dx);
+  return (int64_t) * (int32_t *)&angle;
+}

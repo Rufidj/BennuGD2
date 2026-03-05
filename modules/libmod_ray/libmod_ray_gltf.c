@@ -7,6 +7,68 @@
 /* SDL2 for image loading from memory */
 #include "SDL.h"
 
+static void compute_node_world_matrix(cgltf_node *node, mat4 parent_world) {
+  mat4 local;
+  if (node->has_matrix) {
+    memcpy(local, node->matrix, sizeof(mat4));
+  } else {
+    float t[3] = {0, 0, 0};
+    float q[4] = {0, 0, 0, 1};
+    float s[3] = {1, 1, 1};
+    if (node->has_translation)
+      memcpy(t, node->translation, sizeof(t));
+    if (node->has_rotation)
+      memcpy(q, node->rotation, sizeof(q));
+    if (node->has_scale)
+      memcpy(s, node->scale, sizeof(s));
+    mat4_from_trs(local, t, q, s);
+  }
+
+  mat4 world;
+  mat4_mul(world, parent_world, local);
+
+  /* Cache world transform in the node's matrix field */
+  memcpy(node->matrix, world, sizeof(mat4));
+  node->has_matrix = 1;
+
+  for (cgltf_size i = 0; i < node->children_count; ++i) {
+    compute_node_world_matrix(node->children[i], world);
+  }
+}
+
+void ray_gltf_update_matrices(RAY_GLTF_Model *model) {
+  if (!model || !model->data)
+    return;
+  cgltf_data *data = model->data;
+
+  /* 1. Compute World Matrices for all nodes */
+  mat4 ident;
+  mat4_identity(ident);
+
+  /* Process root nodes */
+  for (cgltf_size i = 0; i < data->nodes_count; ++i) {
+    if (!data->nodes[i].parent) {
+      compute_node_world_matrix(&data->nodes[i], ident);
+    }
+  }
+
+  /* 2. Compute Skin Joint Matrices */
+  for (cgltf_size s = 0; s < data->skins_count; ++s) {
+    cgltf_skin *skin = &data->skins[s];
+    float *matrices = model->skin_matrices[s];
+
+    for (cgltf_size j = 0; j < skin->joints_count; ++j) {
+      cgltf_node *joint_node = skin->joints[j];
+      mat4 inv_bind;
+      cgltf_accessor_read_float(skin->inverse_bind_matrices, j, inv_bind, 16);
+
+      mat4 joint_matrix;
+      mat4_mul(joint_matrix, joint_node->matrix, inv_bind);
+      memcpy(&matrices[j * 16], joint_matrix, sizeof(mat4));
+    }
+  }
+}
+
 RAY_GLTF_Model *ray_gltf_load(const char *filename) {
   cgltf_options options = {0};
   cgltf_data *data = NULL;
@@ -26,6 +88,7 @@ RAY_GLTF_Model *ray_gltf_load(const char *filename) {
   }
 
   RAY_GLTF_Model *model = (RAY_GLTF_Model *)malloc(sizeof(RAY_GLTF_Model));
+  memset(model, 0, sizeof(RAY_GLTF_Model));
   model->magic = GLTF_MAGIC;
   model->data = data;
   model->textureID = 0;
@@ -48,12 +111,9 @@ RAY_GLTF_Model *ray_gltf_load(const char *filename) {
         if (model->textures[i]) {
           GPU_SetImageFilter(model->textures[i], GPU_FILTER_LINEAR);
           GPU_GenerateMipmaps(model->textures[i]);
-          printf("RAY_GLTF: Loaded internal texture %d (%s)\n", (int)i,
-                 image->name ? image->name : "unnamed");
         }
       }
     } else if (image->uri && strncmp(image->uri, "data:", 5) != 0) {
-      /* Extract path from filename to load external texture */
       char path[256];
       strncpy(path, filename, 255);
       char *last_slash = strrchr(path, '/');
@@ -62,23 +122,30 @@ RAY_GLTF_Model *ray_gltf_load(const char *filename) {
       else
         path[0] = '\0';
       strncat(path, image->uri, 255);
-
       model->textures[i] = GPU_LoadImage(path);
       if (model->textures[i]) {
         GPU_SetImageFilter(model->textures[i], GPU_FILTER_LINEAR);
         GPU_GenerateMipmaps(model->textures[i]);
-        printf("RAY_GLTF: Loaded external texture %d from %s\n", (int)i, path);
       }
     }
   }
 
-  printf("RAY_GLTF: Loaded %s (Meshes: %d, Nodes: %d, Textures: %d)\n",
-         filename, (int)data->meshes_count, (int)data->nodes_count,
+  /* Allocate skin matrices */
+  model->skins_count = (int)data->skins_count;
+  if (model->skins_count > 0) {
+    model->skin_matrices =
+        (float **)calloc(model->skins_count, sizeof(float *));
+    for (int s = 0; s < model->skins_count; s++) {
+      model->skin_matrices[s] =
+          (float *)malloc(data->skins[s].joints_count * 16 * sizeof(float));
+    }
+  }
+
+  printf("RAY_GLTF: Loaded %s (Meshes: %d, Skins: %d, Textures: %d)\n",
+         filename, (int)data->meshes_count, model->skins_count,
          model->textures_count);
   return model;
 }
-
-#include <math.h>
 
 void ray_gltf_apply_animation(RAY_GLTF_Model *model, int anim_index,
                               float time) {
@@ -97,11 +164,9 @@ void ray_gltf_apply_animation(RAY_GLTF_Model *model, int anim_index,
 
     cgltf_accessor *input = sampler->input;
     cgltf_accessor *output = sampler->output;
-
     if (input->count < 1)
       continue;
 
-    /* Get duration from last keyframe */
     float duration = 0;
     cgltf_accessor_read_float(input, input->count - 1, &duration, 1);
     if (duration <= 0)
@@ -111,8 +176,6 @@ void ray_gltf_apply_animation(RAY_GLTF_Model *model, int anim_index,
     if (t < 0)
       t += duration;
 
-    /* Find keyframe pair using binary search */
-    cgltf_size k = 0;
     cgltf_size low = 0, high = input->count - 1;
     while (low + 1 < high) {
       cgltf_size mid = low + (high - low) / 2;
@@ -123,47 +186,35 @@ void ray_gltf_apply_animation(RAY_GLTF_Model *model, int anim_index,
       else
         high = mid;
     }
-    k = low;
 
     float t0, t1;
-    cgltf_accessor_read_float(input, k, &t0, 1);
-
-    /* Handle single keyframe or end of track */
-    if (k + 1 < input->count) {
-      cgltf_accessor_read_float(input, k + 1, &t1, 1);
-    } else {
-      t1 = t0;
-    }
+    cgltf_accessor_read_float(input, low, &t0, 1);
+    t1 = t0;
+    if (low + 1 < input->count)
+      cgltf_accessor_read_float(input, low + 1, &t1, 1);
 
     float alpha = 0;
-    if (t1 > t0) {
+    if (t1 > t0)
       alpha = (t - t0) / (t1 - t0);
-    }
 
     if (channel->target_path == cgltf_animation_path_type_translation) {
       float v0[3], v1[3];
-      cgltf_accessor_read_float(output, k, v0, 3);
-      if (k + 1 < output->count)
-        cgltf_accessor_read_float(output, k + 1, v1, 3);
+      cgltf_accessor_read_float(output, low, v0, 3);
+      if (low + 1 < output->count)
+        cgltf_accessor_read_float(output, low + 1, v1, 3);
       else
-        for (int j = 0; j < 3; j++)
-          v1[j] = v0[j];
-
+        memcpy(v1, v0, sizeof(v0));
       node->has_translation = 1;
-      node->has_matrix = 0;
       for (int j = 0; j < 3; ++j)
         node->translation[j] = v0[j] + alpha * (v1[j] - v0[j]);
     } else if (channel->target_path == cgltf_animation_path_type_rotation) {
       float v0[4], v1[4];
-      cgltf_accessor_read_float(output, k, v0, 4);
-      if (k + 1 < output->count)
-        cgltf_accessor_read_float(output, k + 1, v1, 4);
+      cgltf_accessor_read_float(output, low, v0, 4);
+      if (low + 1 < output->count)
+        cgltf_accessor_read_float(output, low + 1, v1, 4);
       else
-        for (int j = 0; j < 4; j++)
-          v1[j] = v0[j];
-
+        memcpy(v1, v0, sizeof(v0));
       node->has_rotation = 1;
-      node->has_matrix = 0;
       float dot = v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2] + v0[3] * v1[3];
       float sign = (dot < 0.0f) ? -1.0f : 1.0f;
       for (int j = 0; j < 4; ++j)
@@ -172,30 +223,27 @@ void ray_gltf_apply_animation(RAY_GLTF_Model *model, int anim_index,
                         node->rotation[1] * node->rotation[1] +
                         node->rotation[2] * node->rotation[2] +
                         node->rotation[3] * node->rotation[3]);
-      if (len > 0.0001f)
-        for (int j = 0; j < 4; ++j)
+      if (len > 0)
+        for (int j = 0; j < 4; j++)
           node->rotation[j] /= len;
     } else if (channel->target_path == cgltf_animation_path_type_scale) {
       float v0[3], v1[3];
-      cgltf_accessor_read_float(output, k, v0, 3);
-      if (k + 1 < output->count)
-        cgltf_accessor_read_float(output, k + 1, v1, 3);
+      cgltf_accessor_read_float(output, low, v0, 3);
+      if (low + 1 < output->count)
+        cgltf_accessor_read_float(output, low + 1, v1, 3);
       else
-        for (int j = 0; j < 3; j++)
-          v1[j] = v0[j];
-
+        memcpy(v1, v0, sizeof(v0));
       node->has_scale = 1;
-      node->has_matrix = 0;
       for (int j = 0; j < 3; ++j)
         node->scale[j] = v0[j] + alpha * (v1[j] - v0[j]);
     }
+    node->has_matrix = 0; // Clear cached world matrix
   }
 }
 
 void ray_gltf_free(RAY_GLTF_Model *model) {
   if (!model)
     return;
-
   if (model->textures) {
     for (int i = 0; i < model->textures_count; ++i) {
       if (model->textures[i])
@@ -203,7 +251,12 @@ void ray_gltf_free(RAY_GLTF_Model *model) {
     }
     free(model->textures);
   }
-
+  if (model->skin_matrices) {
+    for (int i = 0; i < model->skins_count; i++)
+      if (model->skin_matrices[i])
+        free(model->skin_matrices[i]);
+    free(model->skin_matrices);
+  }
   if (model->data)
     cgltf_free(model->data);
   free(model);

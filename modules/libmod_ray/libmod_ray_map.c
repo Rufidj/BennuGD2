@@ -196,11 +196,16 @@ int ray_load_map_v9(FILE *file, RAY_MapHeader_v9 *header) {
     return 0;
 
   int map_version = header->version;
-  if (map_version < 9 || map_version > 29) {
-    printf("RAY: ERROR - Map version %d not supported by this engine (9-29 "
-           "only)\n",
+  if (map_version < 9) {
+    printf("RAY: ERROR - Map version %d is too old (minimum: 9)\n",
            map_version);
     return 0;
+  }
+  if (map_version > 32) {
+    /* Newer format: try to load anyway, extra fields will be skipped */
+    printf("RAY: WARNING - Map version %d is newer than this engine ("
+           "max tested: 32). Attempting to load...\n",
+           map_version);
   }
   printf("RAY: Loading Map v%d (%d sectors)...\n", map_version,
          header->num_sectors);
@@ -628,10 +633,9 @@ int ray_load_map(const char *filename) {
   // Support for v27 (Fluid Speed)
   if (header.version > 9 && header.version < 22) {
     printf("RAY: Warning - Map version %u is old.\n", header.version);
-  } else if (header.version > 28) {
+  } else if (header.version > 32) {
     printf("RAY: Warning - Map version %u is newer than expected (max "
-           "supported: 28). "
-           "Attempts to load might fail.\n",
+           "tested: 32). Attempting to load...\n",
            header.version);
   }
 

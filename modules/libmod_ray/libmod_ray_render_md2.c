@@ -42,7 +42,7 @@ static void setup_edge_md2(EdgeMD2 *edge, RAY_Point *p1, RAY_Point *p2,
 static void rasterize_scanline_md2(GRAPH *dest, int y, EdgeMD2 *left,
                                    EdgeMD2 *right, int textureID) {
   int x1 = (int)ceilf(left->x), x2 = (int)ceilf(right->x);
-  int iw = g_engine.internalWidth;
+  int iw = g_engine.displayWidth;
   if (x1 < 0)
     x1 = 0;
   if (x2 > iw)
@@ -173,11 +173,11 @@ void ray_render_md2(GRAPH *dest, RAY_Sprite *sprite) {
   RAY_MD2_Model *model = (RAY_MD2_Model *)sprite->model;
   float cs_cam = cosf(g_engine.camera.rot), sn_cam = sinf(g_engine.camera.rot);
   float cs_mod = cosf(sprite->rot), sn_mod = sinf(sprite->rot);
-  int iw = g_engine.internalWidth, ih = g_engine.internalHeight;
-  /* ANCHORED FOCAL LENGTH: Syced with Build Engine Walls */
-  float focal = (float)iw * 0.5f;
-  float hx = (float)iw * 0.5f;
-  float hy = (float)ih * 0.5f + g_engine.camera.pitch;
+  int iw = g_engine.displayWidth, ih = g_engine.displayHeight;
+  /* ANCHORED FOCAL LENGTH: Synced with Build Engine Walls */
+  float focal = (float)g_engine.displayWidth * 0.5f;
+  float hx = (float)g_engine.displayWidth * 0.5f;
+  float hy = (float)g_engine.displayHeight * 0.5f + g_engine.camera.pitch;
   float m_scale = sprite->model_scale > 0 ? sprite->model_scale : 1.0f;
   float interp = sprite->interpolation;
 

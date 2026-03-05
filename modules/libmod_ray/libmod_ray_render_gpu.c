@@ -2057,12 +2057,14 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
   RAY_GLTF_Model *model = (RAY_GLTF_Model *)sprite->model;
   cgltf_data *data = model->data;
 
-  /* Aplicar animación glTF si el modelo tiene animaciones y se ha definido un
-   * índice válido */
+  /* Aplicar animación glTF si el modelo tiene animaciones */
   if (data->animations_count > 0 && sprite->glb_anim_index >= 0) {
     ray_gltf_apply_animation(model, sprite->glb_anim_index,
                              sprite->glb_anim_time);
   }
+
+  /* Actualizar jerarquía de nodos y matrices de huesos */
+  ray_gltf_update_matrices(model);
 
   float cos_model = cosf(sprite->rot);
   float sin_model = sinf(sprite->rot);
@@ -2074,45 +2076,53 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
     if (!node->mesh)
       continue;
 
+    /* Find skin for this mesh/node */
+    cgltf_skin *skin = node->skin;
+    float *joint_matrices = NULL;
+    if (skin) {
+      for (cgltf_size s = 0; s < data->skins_count; s++) {
+        if (&data->skins[s] == skin) {
+          joint_matrices = model->skin_matrices[s];
+          break;
+        }
+      }
+    }
+
     for (cgltf_size j = 0; j < node->mesh->primitives_count; ++j) {
       cgltf_primitive *prim = &node->mesh->primitives[j];
       cgltf_accessor *pos_acc = NULL;
       cgltf_accessor *uv_acc = NULL;
+      cgltf_accessor *joints_acc = NULL;
+      cgltf_accessor *weights_acc = NULL;
 
       for (cgltf_size k = 0; k < prim->attributes_count; ++k) {
         if (prim->attributes[k].type == cgltf_attribute_type_position)
           pos_acc = prim->attributes[k].data;
         if (prim->attributes[k].type == cgltf_attribute_type_texcoord)
           uv_acc = prim->attributes[k].data;
+        if (prim->attributes[k].type == cgltf_attribute_type_joints)
+          joints_acc = prim->attributes[k].data;
+        if (prim->attributes[k].type == cgltf_attribute_type_weights)
+          weights_acc = prim->attributes[k].data;
       }
 
       if (!pos_acc || !prim->indices)
-        continue; // Must have positions and indices
-
-      cgltf_float node_mtx[16];
-      cgltf_node_transform_world(node, node_mtx);
-
-      if (!prim->indices)
         continue;
-      int ni_total = (int)prim->indices->count;
 
-      /* Split rendering into safe batches to avoid 16-bit vertex index limits
-       */
+      int ni_total = (int)prim->indices->count;
       const int batch_indices = 30000;
       for (int i_start = 0; i_start < ni_total; i_start += batch_indices) {
         int i_count = ni_total - i_start;
         if (i_count > batch_indices)
           i_count = batch_indices;
-        i_count = (i_count / 3) * 3; // Must be multiple of 3
+        i_count = (i_count / 3) * 3;
 
-        /* Allocate 2x to accommodate extra tris from near-plane clipping */
         float *batch_vb = (float *)malloc(i_count * 2 * 5 * sizeof(float));
         if (!batch_vb)
           break;
 
         int v_added = 0;
         for (int k = 0; k < i_count; k += 3) {
-          /* First pass: compute camera-space coords + UVs for all 3 verts */
           float cam_tx[3], cam_tz[3], cam_dz[3], cam_u[3], cam_v[3];
           for (int tri_v = 0; tri_v < 3; tri_v++) {
             int idx = (int)cgltf_accessor_read_index(prim->indices,
@@ -2120,12 +2130,30 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
             float p[3];
             cgltf_accessor_read_float(pos_acc, idx, p, 3);
 
-            float nnx = p[0] * node_mtx[0] + p[1] * node_mtx[4] +
-                        p[2] * node_mtx[8] + node_mtx[12];
-            float nny = p[0] * node_mtx[1] + p[1] * node_mtx[5] +
-                        p[2] * node_mtx[9] + node_mtx[13];
-            float nnz = p[0] * node_mtx[2] + p[1] * node_mtx[6] +
-                        p[2] * node_mtx[10] + node_mtx[14];
+            float nnx, nny, nnz;
+            if (joint_matrices && joints_acc && weights_acc) {
+              /* CPU Skinning */
+              float j_idx[4], w[4];
+              cgltf_accessor_read_float(joints_acc, idx, j_idx, 4);
+              cgltf_accessor_read_float(weights_acc, idx, w, 4);
+
+              nnx = nny = nnz = 0;
+              for (int b = 0; b < 4; b++) {
+                if (w[b] <= 0)
+                  continue;
+                float *m = &joint_matrices[(int)j_idx[b] * 16];
+                nnx += (p[0] * m[0] + p[1] * m[4] + p[2] * m[8] + m[12]) * w[b];
+                nny += (p[0] * m[1] + p[1] * m[5] + p[2] * m[9] + m[13]) * w[b];
+                nnz +=
+                    (p[0] * m[2] + p[1] * m[6] + p[2] * m[10] + m[14]) * w[b];
+              }
+            } else {
+              /* Normal Node Transform */
+              float *m = node->matrix;
+              nnx = p[0] * m[0] + p[1] * m[4] + p[2] * m[8] + m[12];
+              nny = p[0] * m[1] + p[1] * m[5] + p[2] * m[9] + m[13];
+              nnz = p[0] * m[2] + p[1] * m[6] + p[2] * m[10] + m[14];
+            }
 
             float fwd = -nnz * scale_factor;
             float right = nnx * scale_factor;
@@ -2144,14 +2172,13 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
               float uv[2];
               cgltf_accessor_read_float(uv_acc, idx, uv, 2);
               cam_u[tri_v] = uv[0];
-              cam_v[tri_v] = 1.0f - uv[1];
+              /* Removed 1.0 - uv[1] flip for SDL_gpu compatibility with GLTF */
+              cam_v[tri_v] = uv[1];
             } else {
-              cam_u[tri_v] = 0.0f;
-              cam_v[tri_v] = 0.0f;
+              cam_u[tri_v] = cam_v[tri_v] = 0.0f;
             }
           }
 
-          /* Count vertices behind near plane */
           int behind[3], num_behind = 0;
           for (int v = 0; v < 3; v++) {
             behind[v] = (cam_tz[v] <= NEAR_PLANE) ? 1 : 0;
@@ -2159,9 +2186,8 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
           }
 
           if (num_behind == 3)
-            continue; /* Fully behind camera */
+            continue;
 
-/* Helper macro: project a camera-space vertex to screen */
 #define PROJECT_VERT(out, idx5, ttx, ttz, tdz, tu, tv)                         \
   do {                                                                         \
     float sc = s_focal / ttz;                                                  \
@@ -2173,13 +2199,11 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
   } while (0)
 
           if (num_behind == 0) {
-            /* All visible — emit as-is */
             for (int v = 0; v < 3; v++)
               PROJECT_VERT(batch_vb, (v_added + v) * 5, cam_tx[v], cam_tz[v],
                            cam_dz[v], cam_u[v], cam_v[v]);
             v_added += 3;
           } else if (num_behind == 1) {
-            /* 1 behind: clip to a quad (2 triangles) */
             int b = -1;
             for (int v = 0; v < 3; v++)
               if (behind[v]) {
@@ -2187,36 +2211,31 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
                 break;
               }
             int a = (b + 1) % 3, c = (b + 2) % 3;
-            /* Clip edge b->a */
             float t_ba = (NEAR_PLANE - cam_tz[b]) / (cam_tz[a] - cam_tz[b]);
-            float clip_tx_ba = cam_tx[b] + t_ba * (cam_tx[a] - cam_tx[b]);
-            float clip_dz_ba = cam_dz[b] + t_ba * (cam_dz[a] - cam_dz[b]);
-            float clip_u_ba = cam_u[b] + t_ba * (cam_u[a] - cam_u[b]);
-            float clip_v_ba = cam_v[b] + t_ba * (cam_v[a] - cam_v[b]);
-            /* Clip edge b->c */
+            float c_tx_ba = cam_tx[b] + t_ba * (cam_tx[a] - cam_tx[b]);
+            float c_dz_ba = cam_dz[b] + t_ba * (cam_dz[a] - cam_dz[b]);
+            float c_u_ba = cam_u[b] + t_ba * (cam_u[a] - cam_u[b]);
+            float c_v_ba = cam_v[b] + t_ba * (cam_v[a] - cam_v[b]);
             float t_bc = (NEAR_PLANE - cam_tz[b]) / (cam_tz[c] - cam_tz[b]);
-            float clip_tx_bc = cam_tx[b] + t_bc * (cam_tx[c] - cam_tx[b]);
-            float clip_dz_bc = cam_dz[b] + t_bc * (cam_dz[c] - cam_dz[b]);
-            float clip_u_bc = cam_u[b] + t_bc * (cam_u[c] - cam_u[b]);
-            float clip_v_bc = cam_v[b] + t_bc * (cam_v[c] - cam_v[b]);
-            /* Triangle 1: a, clip_ba, clip_bc */
+            float c_tx_bc = cam_tx[b] + t_bc * (cam_tx[c] - cam_tx[b]);
+            float c_dz_bc = cam_dz[b] + t_bc * (cam_dz[c] - cam_dz[b]);
+            float c_u_bc = cam_u[b] + t_bc * (cam_u[c] - cam_u[b]);
+            float c_v_bc = cam_v[b] + t_bc * (cam_v[c] - cam_v[b]);
             PROJECT_VERT(batch_vb, (v_added + 0) * 5, cam_tx[a], cam_tz[a],
                          cam_dz[a], cam_u[a], cam_v[a]);
-            PROJECT_VERT(batch_vb, (v_added + 1) * 5, clip_tx_ba, NEAR_PLANE,
-                         clip_dz_ba, clip_u_ba, clip_v_ba);
-            PROJECT_VERT(batch_vb, (v_added + 2) * 5, clip_tx_bc, NEAR_PLANE,
-                         clip_dz_bc, clip_u_bc, clip_v_bc);
+            PROJECT_VERT(batch_vb, (v_added + 1) * 5, c_tx_ba, NEAR_PLANE,
+                         c_dz_ba, c_u_ba, c_v_ba);
+            PROJECT_VERT(batch_vb, (v_added + 2) * 5, c_tx_bc, NEAR_PLANE,
+                         c_dz_bc, c_u_bc, c_v_bc);
             v_added += 3;
-            /* Triangle 2: a, clip_bc, c */
             PROJECT_VERT(batch_vb, (v_added + 0) * 5, cam_tx[a], cam_tz[a],
                          cam_dz[a], cam_u[a], cam_v[a]);
-            PROJECT_VERT(batch_vb, (v_added + 1) * 5, clip_tx_bc, NEAR_PLANE,
-                         clip_dz_bc, clip_u_bc, clip_v_bc);
+            PROJECT_VERT(batch_vb, (v_added + 1) * 5, c_tx_bc, NEAR_PLANE,
+                         c_dz_bc, c_u_bc, c_v_bc);
             PROJECT_VERT(batch_vb, (v_added + 2) * 5, cam_tx[c], cam_tz[c],
                          cam_dz[c], cam_u[c], cam_v[c]);
             v_added += 3;
           } else {
-            /* 2 behind: clip to single smaller triangle */
             int f = -1;
             for (int v = 0; v < 3; v++)
               if (!behind[v]) {
@@ -2226,20 +2245,20 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
             int b1 = (f + 1) % 3, b2 = (f + 2) % 3;
             float t1 = (NEAR_PLANE - cam_tz[f]) / (cam_tz[b1] - cam_tz[f]);
             float t2 = (NEAR_PLANE - cam_tz[f]) / (cam_tz[b2] - cam_tz[f]);
-            float c_tx1 = cam_tx[f] + t1 * (cam_tx[b1] - cam_tx[f]);
-            float c_dz1 = cam_dz[f] + t1 * (cam_dz[b1] - cam_dz[f]);
-            float c_u1 = cam_u[f] + t1 * (cam_u[b1] - cam_u[f]);
-            float c_v1 = cam_v[f] + t1 * (cam_v[b1] - cam_v[f]);
-            float c_tx2 = cam_tx[f] + t2 * (cam_tx[b2] - cam_tx[f]);
-            float c_dz2 = cam_dz[f] + t2 * (cam_dz[b2] - cam_dz[f]);
-            float c_u2 = cam_u[f] + t2 * (cam_u[b2] - cam_u[f]);
-            float c_v2 = cam_v[f] + t2 * (cam_v[b2] - cam_v[f]);
+            float c1_tx = cam_tx[f] + t1 * (cam_tx[b1] - cam_tx[f]);
+            float c1_dz = cam_dz[f] + t1 * (cam_dz[b1] - cam_dz[f]);
+            float c1_u = cam_u[f] + t1 * (cam_u[b1] - cam_u[f]);
+            float c1_v = cam_v[f] + t1 * (cam_v[b1] - cam_v[f]);
+            float c2_tx = cam_tx[f] + t2 * (cam_tx[b2] - cam_tx[f]);
+            float c2_dz = cam_dz[f] + t2 * (cam_dz[b2] - cam_dz[f]);
+            float c2_u = cam_u[f] + t2 * (cam_u[b2] - cam_u[f]);
+            float c2_v = cam_v[f] + t2 * (cam_v[b2] - cam_v[f]);
             PROJECT_VERT(batch_vb, (v_added + 0) * 5, cam_tx[f], cam_tz[f],
                          cam_dz[f], cam_u[f], cam_v[f]);
-            PROJECT_VERT(batch_vb, (v_added + 1) * 5, c_tx1, NEAR_PLANE, c_dz1,
-                         c_u1, c_v1);
-            PROJECT_VERT(batch_vb, (v_added + 2) * 5, c_tx2, NEAR_PLANE, c_dz2,
-                         c_u2, c_v2);
+            PROJECT_VERT(batch_vb, (v_added + 1) * 5, c1_tx, NEAR_PLANE, c1_dz,
+                         c1_u, c1_v);
+            PROJECT_VERT(batch_vb, (v_added + 2) * 5, c2_tx, NEAR_PLANE, c2_dz,
+                         c2_u, c2_v);
             v_added += 3;
           }
 #undef PROJECT_VERT
@@ -2252,36 +2271,30 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
 
         GPU_Image *img = NULL;
         if (prim->material) {
-          cgltf_texture *tex =
+          cgltf_texture *tex_ptr =
               prim->material->pbr_metallic_roughness.base_color_texture.texture;
-          if (tex && tex->image) {
-            for (int m = 0; m < model->textures_count; m++) {
-              if (&model->data->images[m] == tex->image) {
-                img = model->textures[m];
+          if (tex_ptr && tex_ptr->image) {
+            for (cgltf_size m = 0; m < model->data->images_count; m++) {
+              if (&model->data->images[m] == tex_ptr->image) {
+                if ((int)m < model->textures_count)
+                  img = model->textures[m];
                 break;
               }
             }
           }
         }
-
         if (!img && model->textures_count > 0)
           img = model->textures[0];
         if (!img)
           img = get_gpu_texture(sprite->fileID, sprite->textureID);
+
         if (img) {
           GPU_SetWrapMode(img, GPU_WRAP_REPEAT, GPU_WRAP_REPEAT);
           GPU_FlushBlitBuffer();
-
-          /* Now that depth_from_tz is correctly inverted for SDL_gpu's ortho,
-             the GPU depth buffer handles triangle ordering properly.
-             Disable blending for opaque model rendering. */
           GPU_SetBlending(img, 0);
           glEnable(GL_DEPTH_TEST);
           glDepthMask(GL_TRUE);
           glDepthFunc(GL_LESS);
-
-          /* Alpha test: discard fully transparent pixels without blending.
-             Fixes holes in textures with alpha cutout areas. */
           glEnable(GL_ALPHA_TEST);
           glAlphaFunc(GL_GREATER, 0.1f);
 
@@ -2300,29 +2313,40 @@ static void ray_render_gltf_gpu(GPU_Target *target, RAY_Sprite *sprite) {
 }
 
 /* ============================================================================
-   SOFTWARE SPRITE OCCLUSION: Check if a sprite is hidden behind island walls.
-   Casts a 2D ray from camera to sprite and tests against all island sector
-   walls. Returns 1 if occluded, 0 if visible.
+   SOFTWARE SPRITE OCCLUSION: Check if a sprite is hidden behind ANY solid wall.
+   Casts a 2D ray from camera to sprite and tests against all solid walls
+   (walls with no portal) in all sectors. Returns 1 if occluded, 0 if visible.
    ============================================================================
  */
 static int sprite_occluded_by_islands(float sprite_x, float sprite_y,
                                       float sprite_z) {
   float ray_dx = sprite_x - s_cam_x;
   float ray_dy = sprite_y - s_cam_y;
-  float sprite_dist_sq = ray_dx * ray_dx + ray_dy * ray_dy;
-  if (sprite_dist_sq < 1.0f)
+  float ray_len_sq = ray_dx * ray_dx + ray_dy * ray_dy;
+  if (ray_len_sq < 1.0f)
     return 0; /* Too close to camera */
 
-  /* Quick check against pre-cached island sectors */
-  for (int i = 0; i < s_num_islands; i++) {
-    /* Check if the sprite's Z is within the island's vertical range */
-    if (sprite_z > s_island_ceil[i] || sprite_z < s_island_floor[i])
-      continue;
+  /* Check against ALL sectors' solid walls */
+  for (int si = 0; si < g_engine.num_sectors; si++) {
+    RAY_Sector *sector = &g_engine.sectors[si];
 
-    /* Test ray against each wall of this island sector */
-    RAY_Sector *sector = s_island_sectors[i];
+    /* Skip if the sprite's Z falls completely outside this sector's
+       vertical range — the wall can't occlude it */
+    if (sprite_z > sector->ceiling_z || sprite_z < sector->floor_z) {
+      /* Also check if CAMERA is within this sector's Z range —
+         if neither camera nor sprite are within this sector's height,
+         the walls of this sector can still occlude */
+      if (s_cam_z > sector->ceiling_z || s_cam_z < sector->floor_z)
+        continue;
+    }
+
     for (int w = 0; w < sector->num_walls; w++) {
       RAY_Wall *wall = &sector->walls[w];
+
+      /* Only check SOLID walls (no portal) */
+      if (wall->portal_id >= 0)
+        continue;
+
       float wx = wall->x2 - wall->x1;
       float wy = wall->y2 - wall->y1;
 
@@ -2336,8 +2360,12 @@ static int sprite_occluded_by_islands(float sprite_x, float sprite_y,
       float t = (dx * wy - dy * wx) / det;
       float u = (dx * ray_dy - dy * ray_dx) / det;
 
+      /* t is the fraction along camera->sprite ray (0=camera, 1=sprite)
+         u is the fraction along the wall (0..1)
+         Wall occludes if the intersection is between camera and sprite
+         and actually on the wall segment */
       if (t > 0.01f && t < 0.99f && u >= 0.0f && u <= 1.0f) {
-        return 1; /* Occluded */
+        return 1; /* Occluded by a solid wall */
       }
     }
   }

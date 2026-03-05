@@ -522,6 +522,13 @@ extern int64_t libmod_ray_camera_free(INSTANCE *my, int64_t *params);
 extern int64_t libmod_ray_set_fov(INSTANCE *my, int64_t *params);
 extern int64_t libmod_ray_set_texture_quality(INSTANCE *my, int64_t *params);
 
+/* Distances (v29+) */
+extern int64_t libmod_ray_get_dist(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_get_camera_dist(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_get_point_dist(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_get_angle(INSTANCE *my, int64_t *params);
+extern int64_t libmod_ray_get_camera_angle(INSTANCE *my, int64_t *params);
+
 /* Iluminación */
 extern int64_t libmod_ray_add_light(INSTANCE *my, int64_t *params);
 extern int64_t libmod_ray_clear_lights(INSTANCE *my, int64_t *params);
