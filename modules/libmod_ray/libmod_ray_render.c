@@ -726,9 +726,12 @@ void ray_draw_floor_ceiling(GRAPH *dest, int screen_x, float ray_angle,
    ============================================================================
  */
 
-static int ray_sprite_sorter(const void *a, const void *b) {
-  const RAY_Sprite *sa = (const RAY_Sprite *)a;
-  const RAY_Sprite *sb = (const RAY_Sprite *)b;
+/* Index-based sorting to avoid reordering physical array */
+static int ray_sprite_index_sorter(const void *a, const void *b) {
+  int idx_a = *(const int *)a;
+  int idx_b = *(const int *)b;
+  const RAY_Sprite *sa = &g_engine.sprites[idx_a];
+  const RAY_Sprite *sb = &g_engine.sprites[idx_b];
 
   if (sa->distance > sb->distance)
     return -1;
@@ -738,29 +741,40 @@ static int ray_sprite_sorter(const void *a, const void *b) {
 }
 
 void ray_draw_sprites(GRAPH *dest, float *z_buffer) {
-  if (!dest || !z_buffer)
+  if (!dest || !z_buffer || g_engine.num_sprites <= 0)
     return;
 
-  /* Calculate sprite distances */
+  /* Use a stack-allocated or static index array to avoid reordering physically
+   */
+  static int sprite_sort_indices[RAY_MAX_SPRITES];
+  int visible_count = 0;
+
+  /* Calculate sprite distances and prepare index array */
   for (int i = 0; i < g_engine.num_sprites; i++) {
     RAY_Sprite *sprite = &g_engine.sprites[i];
-    if (sprite->hidden || sprite->cleanup)
+    if (!sprite->in_use || sprite->hidden || sprite->cleanup)
       continue;
 
     float dx = sprite->x - g_engine.camera.x;
     float dy = sprite->y - g_engine.camera.y;
     sprite->distance = sqrtf(dx * dx + dy * dy);
+
+    if (sprite->distance > 0) {
+      sprite_sort_indices[visible_count++] = i;
+    }
   }
 
-  /* Sort sprites by distance */
-  qsort(g_engine.sprites, g_engine.num_sprites, sizeof(RAY_Sprite),
-        ray_sprite_sorter);
+  if (visible_count == 0)
+    return;
 
-  /* Render sprites */
-  for (int i = 0; i < g_engine.num_sprites; i++) {
+  /* Sort ONLY the indices */
+  qsort(sprite_sort_indices, visible_count, sizeof(int),
+        ray_sprite_index_sorter);
+
+  /* Render sprites using the sorted indices */
+  for (int v = 0; v < visible_count; v++) {
+    int i = sprite_sort_indices[v];
     RAY_Sprite *sprite = &g_engine.sprites[i];
-    if (sprite->hidden || sprite->cleanup || sprite->distance == 0)
-      continue;
 
     float dx = sprite->x - g_engine.camera.x;
     float dy = sprite->y - g_engine.camera.y;
@@ -855,6 +869,11 @@ void ray_draw_sprites(GRAPH *dest, float *z_buffer) {
       }
     }
   }
+
+  /* POST-RENDER CLEANUP: Compact the sprite array properly if needed,
+     but actually, since we want STABLE IDs, we should NOT compact during run.
+     We just mark slots as reusable.
+  */
 }
 
 /* ============================================================================

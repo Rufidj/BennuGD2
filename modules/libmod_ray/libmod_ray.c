@@ -980,12 +980,26 @@ int64_t libmod_ray_add_sprite(INSTANCE *my, int64_t *params) {
   int h = (int)params[6];
   int flags = (int)params[7];
 
-  if (g_engine.num_sprites >= g_engine.sprites_capacity) {
-    fprintf(stderr, "RAY: Máximo de sprites alcanzado\n");
-    return -1;
+  /* Look for an empty slot first to reuse */
+  int slot = -1;
+  for (int i = 0; i < g_engine.num_sprites; i++) {
+    if (!g_engine.sprites[i].in_use) {
+      slot = i;
+      break;
+    }
   }
 
-  RAY_Sprite *sprite = &g_engine.sprites[g_engine.num_sprites];
+  /* If no empty slot found, check if we can expand num_sprites */
+  if (slot == -1) {
+    if (g_engine.num_sprites >= g_engine.sprites_capacity) {
+      fprintf(stderr, "RAY: Máximo de sprites alcanzado\n");
+      return -1;
+    }
+    slot = g_engine.num_sprites;
+    g_engine.num_sprites++;
+  }
+
+  RAY_Sprite *sprite = &g_engine.sprites[slot];
   memset(sprite, 0, sizeof(RAY_Sprite));
 
   sprite->x = x;
@@ -1003,10 +1017,9 @@ int64_t libmod_ray_add_sprite(INSTANCE *my, int64_t *params) {
   sprite->model_scale = 1.0f;  // Default scale
   sprite->glb_anim_index = -1; // Default: no animation
   sprite->glb_anim_speed = 0.0f;
+  sprite->in_use = 1;
 
-  g_engine.num_sprites++;
-
-  return g_engine.num_sprites - 1;
+  return slot;
 }
 
 int64_t libmod_ray_remove_sprite(INSTANCE *my, int64_t *params) {
@@ -1020,6 +1033,7 @@ int64_t libmod_ray_remove_sprite(INSTANCE *my, int64_t *params) {
   }
 
   g_engine.sprites[sprite_id].cleanup = 1;
+  g_engine.sprites[sprite_id].in_use = 0; // Mark as reusable immediately
 
   return 1;
 }
@@ -1643,14 +1657,14 @@ int64_t libmod_ray_get_collision(INSTANCE *my, int64_t *params) {
     return -1;
 
   RAY_Sprite *s1 = &g_engine.sprites[sprite_id];
-  if (s1->cleanup)
+  if (!s1->in_use || s1->cleanup)
     return -1;
 
   for (int i = 0; i < g_engine.num_sprites; i++) {
     if (i == sprite_id)
       continue;
     RAY_Sprite *s2 = &g_engine.sprites[i];
-    if (s2->cleanup || s2->hidden)
+    if (!s2->in_use || s2->cleanup || s2->hidden)
       continue;
 
     // Check intersection (Simple AABB)
@@ -1813,7 +1827,7 @@ int64_t libmod_ray_move_sprite(INSTANCE *my, int64_t *params) {
     return 0;
 
   RAY_Sprite *s = &g_engine.sprites[sprite_id];
-  if (s->cleanup)
+  if (!s->in_use || s->cleanup)
     return 0;
 
   // Si step_h es 0 o negativo, usar el valor por defecto del motor

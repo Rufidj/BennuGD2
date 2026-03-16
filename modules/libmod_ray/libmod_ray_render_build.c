@@ -2473,9 +2473,7 @@ static void render_solid_sector(GRAPH *dest, int sector_id, int min_x,
           for (int i = 0; i < g_engine.num_sprites; i++) {
             RAY_Sprite *s = &g_engine.sprites[i];
 
-            if (s->hidden)
-              continue;
-            if (s->cleanup)
+            if (!s->in_use || s->hidden || s->cleanup)
               continue;
 
             // Sector visibility check: find which sector this sprite is in

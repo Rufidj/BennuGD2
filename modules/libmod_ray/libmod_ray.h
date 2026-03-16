@@ -209,6 +209,7 @@ typedef struct {
   int frameRate;
   int frame;
   int hidden; /* 1 si está oculto */
+  int in_use; /* 1 if slot is active, 0 if free */
   int jumping;
   float heightJumped;
   int rayhit; /* 1 si fue golpeado por un rayo */

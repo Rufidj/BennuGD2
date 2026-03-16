@@ -2373,7 +2373,7 @@ static int sprite_occluded_by_islands(float sprite_x, float sprite_y,
 }
 
 static void render_sprite_gpu(GPU_Target *target, RAY_Sprite *sprite) {
-  if (sprite->hidden || sprite->cleanup)
+  if (!sprite->in_use || sprite->hidden || sprite->cleanup)
     return;
 
   /* Software occlusion: skip sprites hidden behind island walls */
@@ -2668,10 +2668,16 @@ void ray_render_scene_gpu(GPU_Target *target, int current_sector) {
         (RAY_Sprite **)malloc(g_engine.num_sprites * sizeof(RAY_Sprite *));
     if (sorted_ptrs) {
       for (int i = 0; i < g_engine.num_sprites; i++) {
-        float dx = g_engine.sprites[i].x - s_cam_x;
-        float dy = g_engine.sprites[i].y - s_cam_y;
-        g_engine.sprites[i].distance = sqrtf(dx * dx + dy * dy);
-        sorted_ptrs[i] = &g_engine.sprites[i];
+        RAY_Sprite *s = &g_engine.sprites[i];
+        if (!s->in_use) {
+          s->distance = -1.0f; // Put at end
+          sorted_ptrs[i] = s;
+          continue;
+        }
+        float dx = s->x - s_cam_x;
+        float dy = s->y - s_cam_y;
+        s->distance = sqrtf(dx * dx + dy * dy);
+        sorted_ptrs[i] = s;
       }
 
       /* Sort the pointer list, not the main array! */
