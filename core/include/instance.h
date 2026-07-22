@@ -73,5 +73,7 @@ extern void instance_reset_iterator_by_priority() ;
 
 extern int64_t instance_go( INSTANCE * r ) ;
 extern int64_t instance_go_all() ;
+extern int64_t instance_go_frame( int run_handler_hooks ) ;   /* run ONE frame; !=0 while still running (host embedding).
+                                                                 run_handler_hooks=0 si el host ya posee ventana/eventos. */
 
 #endif
