@@ -149,6 +149,11 @@ int64_t system_paused = 0;
 #define _OS_ID          OS_SWITCH
 #endif
 
+#ifdef __PROSPERO__
+#undef _OS_ID
+#define _OS_ID          OS_PS5
+#endif
+
 #ifdef PS3_PPU
 #undef _OS_ID
 #define _OS_ID          OS_PS3
@@ -254,8 +259,13 @@ void bgdrtm_entry( int argc, char * argv[] ) {
         string_use( args[i] );
     }
 
+#ifdef __PROSPERO__
+    /* getenv confirmed broken on PS5 hardware - no OS_ID override there. */
+    GLOQWORD( OS_ID ) = _OS_ID;
+#else
     if ( ( os_id = getenv( "OS_ID" ) ) ) GLOQWORD( OS_ID ) = atoll( os_id );
     else                                 GLOQWORD( OS_ID ) = _OS_ID;
+#endif
 
 #if defined(TARGET_GP2X_WIZ) || defined(TARGET_CAANOO)
 

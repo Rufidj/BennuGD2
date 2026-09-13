@@ -814,6 +814,12 @@ char * getfullpath( char *rel_path ) {
 #endif
 
 char * whereis( const char *file ) {
+#ifdef __PROSPERO__
+    /* getenv is confirmed broken on PS5 hardware (SIGSEGV) - a ps5link title
+     * has no real process environment to look up anyway, so PATH search
+     * always misses. */
+    return NULL;
+#else
     char * path = getenv( "PATH" ), *pact = path, *p;
     char fullname[ __MAX_PATH ];
 
@@ -836,6 +842,7 @@ char * whereis( const char *file ) {
     }
 
     return NULL;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */

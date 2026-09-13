@@ -132,7 +132,14 @@ static void set_c_range( int first, int last, int type ) {
 }
 
 static void set_c_from( const unsigned char * chars, int type ) {
-    unsigned char * cc = malloc( strlen( chars ) ),
+    /* utf8_to_iso8859_1() always writes a terminating '\0' at out[ox], and ox
+     * can reach outlen (the loop only stops at ox == outlen) - so the output
+     * buffer needs room for outlen bytes plus that terminator, one more than
+     * strlen(chars). Sizing it exactly at strlen(chars) is a 1-byte heap
+     * overflow; glibc's allocator absorbs it silently via chunk padding, but
+     * it aborted immediately on real PS5 hardware (first malloc-heavy path
+     * exercised there), which is how this was found. */
+    unsigned char * cc = malloc( strlen( chars ) + 1 ),
                   * ccp = cc;
     utf8_to_iso8859_1( ( unsigned char * ) chars, strlen(chars), cc, strlen(chars) );
     while ( *cc ) c_type[*cc++] |= type;

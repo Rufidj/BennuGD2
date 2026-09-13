@@ -65,7 +65,7 @@
 
 static char * dcb_exts[] = { ".dcb", ".dat", ".bin", NULL };
 
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
 static int standalone  = 0;  /* 1 only if this is an standalone interpreter   */
 static int embedded    = 0;  /* 1 only if this is a stub with an embedded DCB */
 #endif
@@ -257,10 +257,19 @@ int main( int argc, char *argv[] ) {
     dcb_signature dcb_signature = { 0 };
 
     /* disable stdout buffering */
+#ifndef __PROSPERO__
+    /* stdout/stdin/stderr are DATA symbols exported by libc.prx, not
+     * functions - ps5link's NID catalog and dynwriter only resolve function
+     * imports, so a reference to the `stdout` global here loads a
+     * still-zero GOT slot and setvbuf() dereferences a NULL FILE* (SIGSEGV,
+     * fault address 0, confirmed on hardware in bgdi's first PS5 boot
+     * attempt). No TTY exists on PS5 anyway, so there is nothing to
+     * unbuffer. */
     setvbuf( stdout, NULL, _IONBF, BUFSIZ );
+#endif
 
     /* get executable full pathname  */
-#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined ( __ANDROID__ )
+#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined ( __ANDROID__ ) || defined ( __PROSPERO__ )
     appexefullpath = strdup( argv[0] );
 #else
     appexefullpath = get_executable_full_path( argv[ 0 ] );
@@ -268,7 +277,7 @@ int main( int argc, char *argv[] ) {
 
     appexename = get_executable_name( appexefullpath );
 
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
     if ( ( !strchr( appexefullpath, '\\' ) && !strchr( appexefullpath, '/' ) ) ) {
         struct stat st;
         if ( stat( appexefullpath, &st ) || !S_ISREG( st.st_mode ) ) {
@@ -291,7 +300,7 @@ int main( int argc, char *argv[] ) {
     /* add binary path */
     file_addp( appexepath );
 
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
     standalone = strncmpi( appexename, "bgdi", 4 );
     if ( standalone ) {
         /* Hand-made interpreter: search for DCB at EOF */
@@ -357,12 +366,31 @@ int main( int argc, char *argv[] ) {
 
     /* Initialization (modules needed before dcb_load) */
 
+#ifdef __PROSPERO__
+    FILE *bootlog0 = fopen( "/app0/data/bgdi_boot.log", "wb" );
+    if ( bootlog0 ) { fprintf( bootlog0, "start\n" ); fflush( bootlog0 ); }
+#endif
+
     string_init() ;
+
+#ifdef __PROSPERO__
+    if ( bootlog0 ) { fprintf( bootlog0, "string_init done\n" ); fflush( bootlog0 ); }
+#endif
+
     init_c_type() ;
+
+#ifdef __PROSPERO__
+    if ( bootlog0 ) { fprintf( bootlog0, "init_c_type done\n" ); fflush( bootlog0 ); fclose( bootlog0 ); bootlog0 = NULL; }
+#endif
 
     /* Init application title for windowed modes */
 
-#if defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ )
+#if defined( __PROSPERO__ )
+    /* ps5link titles run with data/ packaged next to the eboot under
+     * /app0 - see this project's other PS5 test titles (e.g. the libc
+     * catalog test's /app0/data/libc_catalog.txt log path). */
+    filename = "/app0/data/game.dcb";
+#elif defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ )
     filename = "game.dcb";
 #endif
 
@@ -372,7 +400,7 @@ int main( int argc, char *argv[] ) {
     appname = remove_app_extension( en );
     free( en );
 
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
     if ( !embedded ) {
 #endif
         /* First try to load directly (we expect myfile.dcb) */
@@ -380,7 +408,7 @@ int main( int argc, char *argv[] ) {
             int dcbloaded = 0;
 
             /* Check if we should try to add an extension */
-#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
             if ( standalone || !file_has_extension( filename ) || filename[strlen(filename)-1] == '.' ) {
 #else
             if ( !file_has_extension( filename ) || filename[strlen(filename)-1] == '.' ) {
@@ -406,7 +434,7 @@ int main( int argc, char *argv[] ) {
                 return -1 ;
             }
         }
-#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ )
+#if !defined ( __SWITCH__ ) && !defined ( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
     } else {
         dcb_load_from( fp, ( const char * ) dcbname, dcb_signature.dcb_offset );
     }
@@ -431,12 +459,26 @@ int main( int argc, char *argv[] ) {
 //#endif
 
     argv[0] = filename;
+
+#ifdef __PROSPERO__
+    /* First-boot proof on real hardware: no module calls the trivial test
+     * DCB can make (it has zero imports) can show anything on screen, so
+     * this is the only way to tell "the interpreter loop ran a real
+     * instance to completion" from "the title never got that far". */
+    FILE *bootlog = fopen( "/app0/data/bgdi_boot.log", "ab" );
+    if ( bootlog ) { fprintf( bootlog, "dcb loaded, NImports=%lld, mainproc=%p\n", (long long) dcb.data.NImports, (void *) mainproc ); fflush( bootlog ); }
+#endif
+
     bgdrtm_entry( argc, argv );
 
     if ( mainproc ) {
         ( void ) instance_new( mainproc, NULL ) ;
         ret = instance_go_all() ;
     }
+
+#ifdef __PROSPERO__
+    if ( bootlog ) { fprintf( bootlog, "instance_go_all() returned %d\n", ret ); fclose( bootlog ); }
+#endif
 
     bgdrtm_exit();
 
