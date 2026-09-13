@@ -366,22 +366,8 @@ int main( int argc, char *argv[] ) {
 
     /* Initialization (modules needed before dcb_load) */
 
-#ifdef __PROSPERO__
-    FILE *bootlog0 = fopen( "/app0/data/bgdi_boot.log", "wb" );
-    if ( bootlog0 ) { fprintf( bootlog0, "start\n" ); fflush( bootlog0 ); }
-#endif
-
     string_init() ;
-
-#ifdef __PROSPERO__
-    if ( bootlog0 ) { fprintf( bootlog0, "string_init done\n" ); fflush( bootlog0 ); }
-#endif
-
     init_c_type() ;
-
-#ifdef __PROSPERO__
-    if ( bootlog0 ) { fprintf( bootlog0, "init_c_type done\n" ); fflush( bootlog0 ); fclose( bootlog0 ); bootlog0 = NULL; }
-#endif
 
     /* Init application title for windowed modes */
 
