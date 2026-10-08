@@ -6,7 +6,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")
 find_package(ZLIB REQUIRED)
 
 if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
-    file(GLOB MODULE_HEADERS "${CMAKE_SOURCE_DIR}/modules/*")
+    # Matches the root CMakeLists.txt's own module glob - unfiltered "modules/*"
+    # picks up anything else that happens to live next to the modules (an
+    # editor, a build scratch dir, a stray log...) and turns each one into a
+    # bogus "-lname" on the final link line below.
+    file(GLOB MODULE_HEADERS "${CMAKE_SOURCE_DIR}/modules/lib*")
 
     find_package(SDL2 REQUIRED)
     find_package(SDL2_mixer REQUIRED)
@@ -19,6 +23,13 @@ if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
 
     foreach(module ${MODULE_HEADERS})
         get_filename_component(lib_name ${module} NAME)
+
+        # PS5: this module's own CMakeLists.txt returns before add_library()
+        # (see modules/libmod_net/CMakeLists.txt) - there's no libmod_net.a
+        # to link here.
+        if(PROSPERO AND lib_name STREQUAL "libmod_net")
+            continue()
+        endif()
 
         string(REGEX REPLACE "^lib" "" lib_name ${lib_name})
 
@@ -50,7 +61,7 @@ if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
 
 endif()
 
-if(NOT PS3_PPU)
+if(NOT PS3_PPU AND NOT PROSPERO)
     set(OTHER_LIBS ${OTHER_LIBS} -lm)
 endif()
 

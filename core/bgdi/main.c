@@ -55,6 +55,10 @@
 #define LOG_TAG "bgdi-native"
 #endif
 
+#if defined(__PROSPERO__) && !defined(USE_REAL_PS5_OPENGL)
+#include "ps5gl.h"
+#endif
+
 #include "bgdi.h"
 #include "bgdrtm.h"
 #include "xstrings.h"
@@ -242,7 +246,23 @@ int file_has_extension(const char *path) {
  *
  */
 
+#if defined(__PROSPERO__) && !defined(USE_REAL_PS5_OPENGL)
+extern void ps5_init_stdio_globals(void);
+#endif
+
 int main( int argc, char *argv[] ) {
+
+#if defined(__PROSPERO__) && !defined(USE_REAL_PS5_OPENGL)
+    /* Must run before anything can call fprintf(stderr,...)/fflush(stdout)/
+     * etc. This custom crt1_ps5.o does not run .init_array, so this can't be
+     * a __attribute__((constructor)) - see stub_libc_gaps.c's own comment
+     * for the hang this fixes. Not needed with USE_REAL_PS5_OPENGL: that
+     * build's native-app-boilerplate CRT (app_crt.cpp) already brings up a
+     * normal, working stdout/stderr - BennuGD2's own fopen-based debug
+     * logging this session confirmed no special stdio setup is needed
+     * there. */
+    ps5_init_stdio_globals();
+#endif
 
 #ifdef __SWITCH__
 //    consoleInit(NULL);
@@ -428,6 +448,28 @@ int main( int argc, char *argv[] ) {
     /* If the dcb is not in debug mode */
 
     if ( dcb.data.NSourceFiles == 0 ) debug = 0;
+
+#if defined(__PROSPERO__) && !defined(USE_REAL_PS5_OPENGL)
+    /* Real AGC/GPU bring-up for PS5GL (this project's own hand-rolled
+     * GL-shaped shim backed directly by AGC, superseded for new work by
+     * blackbearreloaded/ps5-opengl - see memory's
+     * project_ps5_pivot_to_real_opengl.md). Every other PS5 test in this
+     * project's history that touches the GPU calls this explicitly in its
+     * own main() before any GL call - libbggfx's gr_set_mode()/sdl-gpu's
+     * GPU_Init() have no way to trigger it themselves (SDL_Init() is a
+     * no-op here, see ps5gl_sdl_compat.c), so the first SET_MODE() from
+     * script would hang making GL calls against an AGC context that was
+     * never initialized. Not needed with USE_REAL_PS5_OPENGL: that driver's
+     * real SDL2 video backend (ps5-g19) brings up EGL/GL itself inside
+     * SDL_Init()/SDL_CreateWindow(SDL_WINDOW_OPENGL), the same way any
+     * desktop SDL2 GL app works - nothing extra to call here. */
+    ps5gl_init();
+    /* Opens the very first frame. Every later one is opened by
+     * SDL_GL_SwapWindow's end_frame()+begin_frame() pair (see
+     * ps5gl_sdl_compat.c) - without this one, nothing between here and the
+     * first GPU_Flip() would run inside a valid open frame either. */
+    ps5gl_begin_frame();
+#endif
 
     /* Initialization (modules needed after dcb_load) */
 

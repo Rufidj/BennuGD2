@@ -16,7 +16,7 @@ if(LINUX AND NOT PS3_PPU)
     set(APPEND extra_libs dl)
 endif()
 
-if(NOT PS3_PPU)
+if(NOT PS3_PPU AND NOT PROSPERO)
     set(APPEND extra_libs m)
 endif()
 

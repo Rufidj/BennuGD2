@@ -94,5 +94,23 @@
     }
 #endif
 
+/* RESOLXY/RESOLXYZ above hardcode the bare "RESOLUTION" identifier, which
+ * only exists when __LIBBGFGX is defined (see libbggfx.h's own guard
+ * around its RESOLUTION enum member) - i.e. only inside libbggfx's own
+ * .c files. A caller outside libbggfx (e.g. libmod_gfx's m_mathgfx.c/
+ * m_collision.c, whose own local-resolution enum member is named
+ * LOCGFX_RESOLUTION, not RESOLUTION) needs the constant name as its own
+ * parameter instead. */
+#define RESOLXY_NAMED(m,r,resname,x,y)                               \
+    {                                                                \
+        int64_t res = LOCINT64(m, r, resname );                      \
+        if ( res > 0 ) {                                             \
+            ( x ) /= res;                                            \
+            ( y ) /= res;                                            \
+        } else if ( res < 0 ) {                                      \
+            ( x ) *= -res;                                           \
+            ( y ) *= -res;                                           \
+        }                                                            \
+    }
 
 #endif

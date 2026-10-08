@@ -22,7 +22,7 @@ DLCONSTANT  __bgdexport( libmod_iap, constants_def)[] =
 
 #endif
 
-DLSYSFUNCS __bgdexport(libmod_iap, functions_exports)[] = {
+DLSYSFUNCS __bgdexport( libmod_iap, functions_exports )[] = {
     FUNC( "IAP_INITIALIZE"              , ""    , TYPE_INT  , libmod_iap_initialize             ),
     FUNC( "IAP_PURCHASE"                , "S"   , TYPE_INT  , libmod_iap_purchase               ),
     FUNC( "IAP_CONSUME"                 , "S"   , TYPE_INT  , libmod_iap_consume                ),

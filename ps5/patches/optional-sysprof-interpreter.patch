@@ -1,0 +1,68 @@
+diff --git a/core/bgdrtm/interpreter.c b/core/bgdrtm/interpreter.c
+index 6b5c3a2e..1415c336 100644
+--- a/core/bgdrtm/interpreter.c
++++ b/core/bgdrtm/interpreter.c
+@@ -42,6 +42,43 @@
+ #include "offsets.h"
+ #include "xstrings.h"
+ 
++#ifdef __PROSPERO__
++/* ---- native-call profiler (PS5 bring-up). Enabled by the presence of
++   /app0/data/sysprof.on; prints the costliest natives every 5 s. ---- */
++#include <time.h>
++#define SYSPROF_MAX 512
++static struct { SYSPROC *p; double ms; uint64_t calls; } sysprof_tab[SYSPROF_MAX];
++static int sysprof_n = 0, sysprof_state = -1;
++static double sysprof_last_print = 0;
++static double sysprof_now( void ) { struct timespec t; clock_gettime( CLOCK_MONOTONIC, &t ); return ( double ) t.tv_sec * 1000.0 + ( double ) t.tv_nsec / 1e6; }
++static void sysprof_add( SYSPROC *p, double ms ) {
++    int i;
++    for ( i = 0; i < sysprof_n; i++ ) if ( sysprof_tab[i].p == p ) break;
++    if ( i == sysprof_n ) { if ( sysprof_n >= SYSPROF_MAX ) return; sysprof_tab[sysprof_n++].p = p; }
++    sysprof_tab[i].ms += ms; sysprof_tab[i].calls++;
++}
++static void sysprof_report( double now ) {
++    int printed = 0;
++    printf( "SYSPROF top natives in last 5 s:" );
++    for ( int k = 0; k < 14; k++ ) {
++        int best = -1; double bm = 0.5;
++        for ( int i = 0; i < sysprof_n; i++ ) if ( sysprof_tab[i].ms > bm ) { bm = sysprof_tab[i].ms; best = i; }
++        if ( best < 0 ) break;
++        printf( " %s=%.0fms/%llu", sysprof_tab[best].p->name, sysprof_tab[best].ms, ( unsigned long long ) sysprof_tab[best].calls );
++        sysprof_tab[best].ms = 0; printed++;
++    }
++    printf( "\n" );
++    for ( int i = 0; i < sysprof_n; i++ ) { sysprof_tab[i].ms = 0; sysprof_tab[i].calls = 0; }
++    sysprof_last_print = now;
++}
++#define SYSPROF_BEGIN() double sp_t0_ = 0; if ( sysprof_state < 0 ) { FILE *f_ = fopen( "/app0/data/sysprof.on", "rb" ); sysprof_state = f_ ? 1 : 0; if ( f_ ) fclose( f_ ); } \
++    if ( sysprof_state ) sp_t0_ = sysprof_now();
++#define SYSPROF_END(p) if ( sysprof_state ) { double n_ = sysprof_now(); sysprof_add( p, n_ - sp_t0_ ); if ( sysprof_last_print == 0 ) sysprof_last_print = n_; else if ( n_ - sysprof_last_print > 5000 ) sysprof_report( n_ ); }
++#else
++#define SYSPROF_BEGIN()
++#define SYSPROF_END(p)
++#endif
++
+ /* ---------------------------------------------------------------------- */
+ /* Interpreter's main module                                              */
+ /* ---------------------------------------------------------------------- */
+@@ -420,7 +457,9 @@ case case_value: \
+                 SYSPROC * p = sysproc_get( pc[1] );
+                 FATAL_ERROR_CHECK( !p, "ERROR: Runtime error in %s(%" PRId64 ") - Unknown system function\n", r->proc->name, LOCQWORD( r, PROCESS_ID ) )
+                 r->stack_ptr -= p->params;
++                SYSPROF_BEGIN()
+                 *r->stack_ptr = ( *p->func )( r, r->stack_ptr );
++                SYSPROF_END( p )
+                 ++r->stack_ptr;
+                 pc += 2;
+                 break;
+@@ -431,7 +470,9 @@ case case_value: \
+                 SYSPROC * p = sysproc_get( pc[1] );
+                 FATAL_ERROR_CHECK( !p, "ERROR: Runtime error in %s(%" PRId64 ") - Unknown system process\n", r->proc->name, LOCQWORD( r, PROCESS_ID ) )
+                 r->stack_ptr -= p->params;
++                SYSPROF_BEGIN()
+                 ( *p->func )( r, r->stack_ptr );
++                SYSPROF_END( p )
+                 pc += 2;
+                 break;
+             }

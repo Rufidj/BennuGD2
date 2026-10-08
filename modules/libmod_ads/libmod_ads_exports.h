@@ -66,7 +66,7 @@ DLCONSTANT  __bgdexport( libmod_ads, constants_def)[] =
 /* ----------------------------------------------------------------- */
 /* Functions declaration                                             */
 // Tabla de funciones
-DLSYSFUNCS __bgdexport(libmod_ads, functions_exports)[] = {
+DLSYSFUNCS __bgdexport( libmod_ads, functions_exports )[] = {
     FUNC( "ADS_INITIALIZE"              , ""    , TYPE_INT  , libmod_ads_initialize             ),
     // Interstitial
     FUNC( "ADS_LOAD_INTERSTITIAL"       , "S"   , TYPE_INT  , libmod_ads_load_interstitial      ),

@@ -203,11 +203,20 @@ void gr_set_caption( char * title ) {
 
 /* --------------------------------------------------------------------------- */
 
+#ifdef __PROSPERO__
+#define GVID_DBG(msg) do { FILE *_gvid_log = fopen("/app0/data/bgdi_boot.log", "ab"); if (_gvid_log) { fprintf(_gvid_log, "GVID: " msg "\n"); fclose(_gvid_log); } } while(0)
+#else
+#define GVID_DBG(msg)
+#endif
+
+extern int gfx_dev_cfg( const char *key, int def );
 int gr_set_mode( int width, int height, int flags ) {
     char * e;
     SDL_DisplayMode current;
 
+    GVID_DBG("gr_set_mode enter");
     SDL_GetCurrentDisplayMode( 0, &current );
+    GVID_DBG("after SDL_GetCurrentDisplayMode");
 
     if ( !width ) width = current.w;
     if ( !height ) height = current.h;
@@ -219,12 +228,16 @@ int gr_set_mode( int width, int height, int flags ) {
     grab_input = ( flags & MODE_GRAB_INPUT ) ? 1 : 0 ;
     frameless = ( flags & MODE_FRAMELESS ) ? 1 : 0 ;
     waitvsync = ( flags & MODE_WAITVSYNC ) ? 1 : 0 ;
+    GVID_DBG("before GLOQWORD fullscreen");
     fullscreen |= GLOQWORD( libbggfx, fullscreen );
+    GVID_DBG("after GLOQWORD fullscreen");
 
     int64_t current_scale_resolution_aspectratio = scale_resolution_aspectratio;
 
     scale_resolution = GLOQWORD( libbggfx, SCALE_RESOLUTION );
+    GVID_DBG("after GLOQWORD SCALE_RESOLUTION");
     scale_resolution_aspectratio = GLOQWORD( libbggfx, SCALE_RESOLUTION_ASPECTRATIO );
+    GVID_DBG("after GLOQWORD SCALE_RESOLUTION_ASPECTRATIO");
 
     /* Overwrite all params */
 
@@ -232,6 +245,12 @@ int gr_set_mode( int width, int height, int flags ) {
     if ( ( e = getenv( "SCALE_RESOLUTION_ASPECTRATIO" ) ) ) scale_resolution_aspectratio = atol( e );
 
     if ( !scale_resolution ) scale_resolution = ( int ) current.w * 10000L + ( int ) current.h ;
+
+#if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
+    /* ps5-g19 only creates one fixed-size window per build (1920x1080 here);
+     * the game's own resolution is scaled into it below. */
+    scale_resolution = 1920L * 10000L + 1080L;
+#endif
 
     if ( scale_resolution != -1 ) {
         renderer_width  = ( int ) scale_resolution / 10000L ;
@@ -241,6 +260,7 @@ int gr_set_mode( int width, int height, int flags ) {
     SDL_SetHint( SDL_HINT_GRAB_KEYBOARD, "1" );
 
 #ifdef USE_SDL2
+    GVID_DBG("before SDL_SetHint RENDER_VSYNC");
     SDL_SetHint( SDL_HINT_RENDER_VSYNC, waitvsync ? "1" : "0" );
     if ( !gWindow ) {
         //Create window
@@ -251,7 +271,9 @@ int gr_set_mode( int width, int height, int flags ) {
   #ifdef PS3_PPU
         gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, renderer_width, renderer_height, sdl_flags );
   #else
+        GVID_DBG("before SDL_CreateWindow");
         gWindow = SDL_CreateWindow( apptitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, renderer_width, renderer_height, sdl_flags | SDL_WINDOW_OPENGL );
+        GVID_DBG("after SDL_CreateWindow");
   #endif
 
         if( gWindow == NULL ) return -1;
@@ -274,21 +296,28 @@ int gr_set_mode( int width, int height, int flags ) {
   #ifdef PS3_PPU
         gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE );
   #else
+        GVID_DBG("before SDL_CreateRenderer");
         gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+        GVID_DBG("after SDL_CreateRenderer");
   #endif
         if( gRenderer == NULL ) {
             printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
             return -1;
         }
+        GVID_DBG("before SDL_GetRendererInfo");
         SDL_GetRendererInfo( gRenderer, &gRendererInfo );
+        GVID_DBG("after SDL_GetRendererInfo");
 
         gMaxTextureSize = gRendererInfo.max_texture_width;
 
+        GVID_DBG("before show_renderer_info");
         show_renderer_info( &gRendererInfo );
+        GVID_DBG("after show_renderer_info");
 //        printf( "max texture size: %d x %d\n", gRendererInfo.max_texture_width, gRendererInfo.max_texture_height );
     }
 #endif
 #ifdef USE_SDL2_GPU
+    GVID_DBG("USE_SDL2_GPU branch, gRenderer null?");
     if ( !gRenderer ) {
 
 
@@ -305,13 +334,20 @@ int gr_set_mode( int width, int height, int flags ) {
         if ( !waitvsync ) GPU_flags |= GPU_INIT_DISABLE_VSYNC;
         GPU_SetPreInitFlags( GPU_flags );
 */
+        GVID_DBG("before GPU_Init");
         gRenderer = GPU_Init( renderer_width, renderer_height, sdl_flags | SDL_WINDOW_OPENGL );
+        GVID_DBG("after GPU_Init");
         if( gRenderer == NULL ) return -1;
+        GVID_DBG("before SDL_GetWindowFromID");
         gWindow = SDL_GetWindowFromID( gRenderer->context->windowID );
+        GVID_DBG("before gr_set_caption");
         gr_set_caption( apptitle );
+        GVID_DBG("after gr_set_caption");
 
         GLint params = 0;
+        GVID_DBG("before glGetIntegerv");
         glGetIntegerv( GL_MAX_TEXTURE_SIZE, &params );
+        GVID_DBG("after glGetIntegerv");
         gMaxTextureSize = ( int64_t ) params;
 
     } else {
@@ -334,7 +370,9 @@ int gr_set_mode( int width, int height, int flags ) {
         SDL_SetWindowGrab( gWindow, grab_input ? SDL_TRUE : SDL_FALSE );
     }
 
-    if ( waitvsync ) {
+    if ( gfx_dev_cfg( "swap", -9 ) != -9 ) {
+        SDL_GL_SetSwapInterval( gfx_dev_cfg( "swap", 0 ) );   /* test override */
+    } else if ( waitvsync ) {
         if ( SDL_GL_SetSwapInterval( -1 ) == -1 ) {
             SDL_GL_SetSwapInterval( 1 );
         }
@@ -408,6 +446,19 @@ int gr_set_mode( int width, int height, int flags ) {
             renderer_offset_y = ( renderer_height - renderer_scaled_height ) / 2.0;
         }
 
+        if ( gfx_dev_cfg( "intscale", 0 ) ) {
+            double k = renderer_width / ( double ) width;
+            if ( renderer_height / ( double ) height < k ) k = renderer_height / ( double ) height;
+            if ( k >= 1.0 ) {
+                k = ( double ) ( int ) k;
+                renderer_scaled_width = width * k;
+                renderer_scaled_height = height * k;
+                renderer_offset_x = ( renderer_width - renderer_scaled_width ) / 2.0;
+                renderer_offset_y = ( renderer_height - renderer_scaled_height ) / 2.0;
+            }
+        }
+        if ( gfx_dev_cfg( "linear", 0 ) ) gr_filter_mode = GPU_FILTER_LINEAR;
+
         // Update factos
         renderer_scale_factor_width = ( double ) renderer_scaled_width / ( double ) width;
         renderer_scale_factor_height = ( double ) renderer_scaled_height / ( double ) height;
@@ -431,6 +482,7 @@ int gr_set_mode( int width, int height, int flags ) {
 
     fullscreen_last = fullscreen;
 
+    GVID_DBG("gr_set_mode returning 0");
     return 0;
 }
 

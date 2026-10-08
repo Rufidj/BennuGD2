@@ -60,11 +60,11 @@ int64_t libmod_gfx_out_region( INSTANCE * my, int64_t * params ) {
 
     instance_get_bbox( proc, gr, &bbox );
 
-    if ( LOCQWORD( libmod_gfx, proc, CTYPE ) == C_SCROLL ) {
+    if ( LOCQWORD( libmod_gfx, proc, LOCGFX_CTYPE ) == C_SCROLL ) {
         scrolldata  * scroll;
         int i;
 
-        int64_t cnumber = LOCQWORD( libmod_gfx, proc, CNUMBER );
+        int64_t cnumber = LOCQWORD( libmod_gfx, proc, LOCGFX_CNUMBER );
         if ( !cnumber ) cnumber = 0xFFFFFFFF ;
 
         for ( i = 0 ; i < MAX_SCROLLS ; i++ ) {

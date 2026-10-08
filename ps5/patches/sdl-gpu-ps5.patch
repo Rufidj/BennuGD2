@@ -1,0 +1,693 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6ebe698..28c80ec 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,8 @@
+-cmake_minimum_required(VERSION 3.5)
++cmake_minimum_required(VERSION 2.8.5)
++
++if(VITA)
++    add_definitions(-DVITA -D__vita__)
++endif()
+ 
+ project(SDL_gpu)
+ 
+@@ -344,6 +348,8 @@ endif(NOT GLEW_FOUND)
+ if(NOT STBI_FOUND OR NOT STBI_WRITE_FOUND)
+   add_definitions("-DSTBI_FAILURE_USERMSG")
+ 
++
++
+ 	if(NOT STBI_FOUND)
+ 	  include_directories(src/externals/stb_image)
+ 	endif(NOT STBI_FOUND)
+diff --git a/include/SDL_gpu_GLES_2.h b/include/SDL_gpu_GLES_2.h
+index fb71d97..e2143b0 100644
+--- a/include/SDL_gpu_GLES_2.h
++++ b/include/SDL_gpu_GLES_2.h
+@@ -135,9 +135,12 @@ typedef struct ContextData_GLES_2
+ 	unsigned int index_buffer_max_num_vertices;
+     
+     // Tier 3 rendering
+-    unsigned int blit_VBO[2];  // For double-buffering
++    #ifndef GPU_BLIT_VBO_COUNT
++    #define GPU_BLIT_VBO_COUNT 64   /* rotate many VBOs: deferred-draw drivers (PS5) read a batch after later ones were uploaded */
++    #endif
++    unsigned int blit_VBO[GPU_BLIT_VBO_COUNT];
+     unsigned int blit_IBO;
+-    GPU_bool blit_VBO_flop;
++    unsigned int blit_VBO_flop;
+     
+ 	GPU_AttributeSource shader_attributes[16];
+ 	unsigned int attribute_VBO[16];
+diff --git a/include/SDL_gpu_GLES_3.h b/include/SDL_gpu_GLES_3.h
+index b78abca..4ce232c 100644
+--- a/include/SDL_gpu_GLES_3.h
++++ b/include/SDL_gpu_GLES_3.h
+@@ -140,9 +140,12 @@ typedef struct ContextData_GLES_3
+     
+     // Tier 3 rendering
+     unsigned int blit_VAO;
+-    unsigned int blit_VBO[2];  // For double-buffering
++    #ifndef GPU_BLIT_VBO_COUNT
++    #define GPU_BLIT_VBO_COUNT 64   /* rotate many VBOs: deferred-draw drivers (PS5) read a batch after later ones were uploaded */
++    #endif
++    unsigned int blit_VBO[GPU_BLIT_VBO_COUNT];
+     unsigned int blit_IBO;
+-    GPU_bool blit_VBO_flop;
++    unsigned int blit_VBO_flop;
+     
+ 	GPU_AttributeSource shader_attributes[16];
+ 	unsigned int attribute_VBO[16];
+diff --git a/include/SDL_gpu_OpenGL_1.h b/include/SDL_gpu_OpenGL_1.h
+index c14ab58..3b0a967 100644
+--- a/include/SDL_gpu_OpenGL_1.h
++++ b/include/SDL_gpu_OpenGL_1.h
+@@ -245,9 +245,12 @@ typedef struct ContextData_OpenGL_1
+ 	unsigned int index_buffer_max_num_vertices;
+ 	
+     
+-    unsigned int blit_VBO[2];  // For double-buffering
++    #ifndef GPU_BLIT_VBO_COUNT
++    #define GPU_BLIT_VBO_COUNT 64   /* rotate many VBOs: deferred-draw drivers (PS5) read a batch after later ones were uploaded */
++    #endif
++    unsigned int blit_VBO[GPU_BLIT_VBO_COUNT];
+     unsigned int blit_IBO;
+-    GPU_bool blit_VBO_flop;
++    unsigned int blit_VBO_flop;
+     
+ 	GPU_AttributeSource shader_attributes[16];
+ 	unsigned int attribute_VBO[16];
+diff --git a/include/SDL_gpu_OpenGL_2.h b/include/SDL_gpu_OpenGL_2.h
+index 32a0b72..d7fb8ff 100644
+--- a/include/SDL_gpu_OpenGL_2.h
++++ b/include/SDL_gpu_OpenGL_2.h
+@@ -116,9 +116,12 @@ typedef struct ContextData_OpenGL_2
+ 	unsigned int index_buffer_max_num_vertices;
+ 	
+     
+-    unsigned int blit_VBO[2];  // For double-buffering
++    #ifndef GPU_BLIT_VBO_COUNT
++    #define GPU_BLIT_VBO_COUNT 64   /* rotate many VBOs: deferred-draw drivers (PS5) read a batch after later ones were uploaded */
++    #endif
++    unsigned int blit_VBO[GPU_BLIT_VBO_COUNT];
+     unsigned int blit_IBO;
+-    GPU_bool blit_VBO_flop;
++    unsigned int blit_VBO_flop;
+     
+ 	GPU_AttributeSource shader_attributes[16];
+ 	unsigned int attribute_VBO[16];
+diff --git a/include/SDL_gpu_OpenGL_3.h b/include/SDL_gpu_OpenGL_3.h
+index 83f5b59..fed48ec 100644
+--- a/include/SDL_gpu_OpenGL_3.h
++++ b/include/SDL_gpu_OpenGL_3.h
+@@ -180,9 +180,12 @@ typedef struct ContextData_OpenGL_3
+ 	
+     // Tier 3 rendering
+     unsigned int blit_VAO;
+-    unsigned int blit_VBO[2];  // For double-buffering
++    #ifndef GPU_BLIT_VBO_COUNT
++    #define GPU_BLIT_VBO_COUNT 64   /* rotate many VBOs: deferred-draw drivers (PS5) read a batch after later ones were uploaded */
++    #endif
++    unsigned int blit_VBO[GPU_BLIT_VBO_COUNT];
+     unsigned int blit_IBO;
+-    GPU_bool blit_VBO_flop;
++    unsigned int blit_VBO_flop;
+     
+ 	GPU_AttributeSource shader_attributes[16];
+ 	unsigned int attribute_VBO[16];
+diff --git a/include/SDL_gpu_OpenGL_4.h b/include/SDL_gpu_OpenGL_4.h
+index 1840bfa..6feaff2 100644
+--- a/include/SDL_gpu_OpenGL_4.h
++++ b/include/SDL_gpu_OpenGL_4.h
+@@ -118,9 +118,12 @@ typedef struct ContextData_OpenGL_4
+ 	
+     // Tier 3 rendering
+     unsigned int blit_VAO;
+-    unsigned int blit_VBO[2];  // For double-buffering
++    #ifndef GPU_BLIT_VBO_COUNT
++    #define GPU_BLIT_VBO_COUNT 64   /* rotate many VBOs: deferred-draw drivers (PS5) read a batch after later ones were uploaded */
++    #endif
++    unsigned int blit_VBO[GPU_BLIT_VBO_COUNT];
+     unsigned int blit_IBO;
+-    GPU_bool blit_VBO_flop;
++    unsigned int blit_VBO_flop;
+     
+ 	GPU_AttributeSource shader_attributes[16];
+ 	unsigned int attribute_VBO[16];
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 968cbcd..120545d 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -9,7 +9,6 @@ set(SDL_gpu_SRCS
+ 	renderer_OpenGL_2.c
+ 	renderer_OpenGL_3.c
+ 	renderer_OpenGL_4.c
+-	renderer_GLES_1.c
+ 	renderer_GLES_2.c
+ 	renderer_GLES_3.c
+ )
+@@ -140,6 +139,9 @@ if(BUILD_SHARED)
+ 			LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${OUTPUT_DIR}/lib"
+ 			RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${OUTPUT_DIR}/bin"
+ 		)
++		if(VITA)
++			target_compile_definitions(SDL_gpu_shared PRIVATE VITA __vita__)
++		endif()
+ 		# Short Version is the "marketing version". It is the version
+ 		# the user sees in an information panel.
+ 		SET(MACOSX_FRAMEWORK_SHORT_VERSION_STRING "${SDL_GPU_VERSION}")
+@@ -167,6 +169,9 @@ if(BUILD_SHARED)
+ 				LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${OUTPUT_DIR}/lib"
+ 				RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${OUTPUT_DIR}/bin"
+ 			)
++			if(VITA)
++				target_compile_definitions(SDL_gpu_shared PRIVATE VITA __vita__)
++			endif()
+ 		endif()
+ 
+ 	endif()
+@@ -193,6 +198,9 @@ if(BUILD_STATIC)
+ 		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${OUTPUT_DIR}/lib"
+ 		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${OUTPUT_DIR}/bin"
+ 	)
++	if(VITA)
++		target_compile_definitions(SDL_gpu PRIVATE VITA __vita__)
++	endif()
+ 	set_target_properties(SDL_gpu PROPERTIES LINKER_LANGUAGE C)
+ 	if(APPLE)
+ 		CONFIGURE_XCODE_DEFAULTS(SDL_gpu)	
+diff --git a/src/SDL_gpu.c b/src/SDL_gpu.c
+index 6342171..a9dfa53 100644
+--- a/src/SDL_gpu.c
++++ b/src/SDL_gpu.c
+@@ -1,5 +1,13 @@
+ #include "SDL_gpu.h"
+ #include "SDL_gpu_RendererImpl.h"
++
++#if defined(VITA) || defined(__vita__)
++#include <psp2/kernel/clib.h>
++#define RAY_DEBUG_PRINT sceClibPrintf
++#else
++#define RAY_DEBUG_PRINT printf
++#endif
++
+ #include "SDL_platform.h"
+ #include "stb_image.h"
+ #include "stb_image_write.h"
+@@ -407,8 +415,13 @@ GPU_Target* GPU_GetWindowTarget(Uint32 windowID)
+     return NULL;
+ }
+ 
++#if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
++SDL_GLContext gpu_ps5_shared_gl_context = NULL;
++#endif
++
+ GPU_Target* GPU_Init(Uint16 w, Uint16 h, GPU_WindowFlagEnum SDL_flags)
+ {
++    RAY_DEBUG_PRINT("RAY_VITA_DIAG: GPU_Init called (%d, %d)\n", w, h);
+     int renderer_order_size;
+     int i;
+     GPU_RendererID renderer_order[GPU_RENDERER_ORDER_MAX];
+@@ -756,6 +769,8 @@ void GPU_PushErrorCode(const char* function, GPU_ErrorEnum error, const char* de
+             vsnprintf(buf, GPU_ERROR_DETAILS_STRING_MAX, details, lst);
+             va_end(lst);
+ 
++            printf("RAY_VITA_DIAG: GPU_PushErrorCode -> %s: %s - %s\n", (function == NULL? "NULL" : function), GPU_GetErrorString(error), buf);
++            fflush(stdout);
+             GPU_LogError("%s: %s - %s\n", (function == NULL? "NULL" : function), GPU_GetErrorString(error), buf);
+         }
+         else
+diff --git a/src/SDL_gpu_renderer.c b/src/SDL_gpu_renderer.c
+index 98abe5d..33b085b 100644
+--- a/src/SDL_gpu_renderer.c
++++ b/src/SDL_gpu_renderer.c
+@@ -201,6 +201,11 @@ void gpu_register_built_in_renderers(void)
+             GPU_RegisterRenderer(GPU_MakeRendererID("OpenGL 3", GPU_RENDERER_OPENGL_3, 3, 2),
+                                  &GPU_CreateRenderer_OpenGL_3,
+                                  &GPU_FreeRenderer_OpenGL_3);
++            #elif defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
++            // ps5-g19 only creates one unshared OpenGL 3.3 Core context with default flags
++            GPU_RegisterRenderer(GPU_MakeRendererID("OpenGL 3", GPU_RENDERER_OPENGL_3, 3, 3),
++                                 &GPU_CreateRenderer_OpenGL_3,
++                                 &GPU_FreeRenderer_OpenGL_3);
+             #else
+             GPU_RegisterRenderer(GPU_MakeRendererID("OpenGL 3", GPU_RENDERER_OPENGL_3, 3, 0),
+                                  &GPU_CreateRenderer_OpenGL_3,
+@@ -361,9 +366,13 @@ void GPU_GetDefaultRendererOrder(int* order_size, GPU_RendererID* order)
+             default_order[count++] = GPU_MakeRendererID("OpenGL 4", GPU_RENDERER_OPENGL_4, 4, 0);
+             #endif
+             #ifndef SDL_GPU_DISABLE_OPENGL_3
++            #if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
++            default_order[count++] = GPU_MakeRendererID("OpenGL 3", GPU_RENDERER_OPENGL_3, 3, 3);
++            #else
+             default_order[count++] = GPU_MakeRendererID("OpenGL 3", GPU_RENDERER_OPENGL_3, 3, 0);
+             #endif
+-            
++            #endif
++
+         #endif
+         
+         #ifndef SDL_GPU_DISABLE_OPENGL_2
+diff --git a/src/externals/glew/glew.c b/src/externals/glew/glew.c
+index 28cf3b3..7db650f 100644
+--- a/src/externals/glew/glew.c
++++ b/src/externals/glew/glew.c
+@@ -34,7 +34,7 @@
+ 
+ #if defined(_WIN32)
+ #  include "GL/wglew.h"
+-#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
++#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__PROSPERO__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
+ #  include "GL/glxew.h"
+ #endif
+ 
+@@ -181,6 +181,12 @@ void* NSGLGetProcAddress (const GLubyte *name)
+ #  define glewGetProcAddress(name) NULL /* TODO */
+ #elif defined(__native_client__)
+ #  define glewGetProcAddress(name) NULL /* TODO */
++#elif defined(__PROSPERO__)
++   /* PS5: real proc-address loader is EGL's (confirmed present in this SDK's
++      EGL/egl.h) - the GLX path below assumes a desktop GLX context, which
++      this platform never has. */
++#  include <EGL/egl.h>
++#  define glewGetProcAddress(name) eglGetProcAddress((const char *)name)
+ #else /* __linux */
+ #  define glewGetProcAddress(name) (*glXGetProcAddressARB)(name)
+ #endif
+@@ -13374,7 +13380,7 @@ GLenum GLEWAPIENTRY wglewContextInit (WGLEW_CONTEXT_ARG_DEF_LIST)
+   return GLEW_OK;
+ }
+ 
+-#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
++#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__PROSPERO__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
+ 
+ PFNGLXGETCURRENTDISPLAYPROC __glewXGetCurrentDisplay = NULL;
+ 
+@@ -14566,7 +14572,7 @@ GLenum glxewContextInit (GLXEW_CONTEXT_ARG_DEF_LIST)
+   return GLEW_OK;
+ }
+ 
+-#endif /* !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX)) */
++#endif /* !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__PROSPERO__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX)) */
+ 
+ /* ------------------------------------------------------------------------ */
+ 
+@@ -14606,7 +14612,7 @@ GLboolean glewExperimental = GL_FALSE;
+ 
+ #if defined(_WIN32)
+ extern GLenum GLEWAPIENTRY wglewContextInit (void);
+-#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
++#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__PROSPERO__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX))
+ extern GLenum GLEWAPIENTRY glxewContextInit (void);
+ #endif /* _WIN32 */
+ 
+@@ -14617,7 +14623,7 @@ GLenum GLEWAPIENTRY glewInit (void)
+   if ( r != 0 ) return r;
+ #if defined(_WIN32)
+   return wglewContextInit();
+-#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX)) /* _UNIX */
++#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__PROSPERO__) && (!defined(__APPLE__) || defined(GLEW_APPLE_GLX)) /* _UNIX */
+   return glxewContextInit();
+ #else
+   return r;
+@@ -19135,7 +19141,7 @@ GLboolean GLEWAPIENTRY wglewIsSupported (const char* name)
+   return ret;
+ }
+ 
+-#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__APPLE__) || defined(GLEW_APPLE_GLX)
++#elif !defined(__ANDROID__) && !defined(__native_client__) && !defined(__HAIKU__) && !defined(__PROSPERO__) && !defined(__APPLE__) || defined(GLEW_APPLE_GLX)
+ 
+ #if defined(GLEW_MX)
+ GLboolean glxewContextIsSupported (const GLXEWContext* ctx, const char* name)
+diff --git a/src/renderer_GL_common.inl b/src/renderer_GL_common.inl
+index 317585b..91f31f1 100644
+--- a/src/renderer_GL_common.inl
++++ b/src/renderer_GL_common.inl
+@@ -1,6 +1,13 @@
++#if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
++extern SDL_GLContext gpu_ps5_shared_gl_context;
++#endif
+ /* This is an implementation file to be included after certain #defines have been set.
+ See a particular renderer's *.c file for specifics. */
+ 
++#if defined(VITA) || defined(__vita__)
++extern void vglSwapBuffers(int sync);
++#endif
++
+ #ifdef _MSC_VER
+ // Disable warning: selection for inlining
+ #pragma warning(disable: 4514 4711 4710)
+@@ -20,6 +27,15 @@ See a particular renderer's *.c file for specifics. */
+ 
+ #include <stdint.h>
+ #include <stdlib.h>
++
++#if defined(VITA) || defined(__vita__)
++#warning "VITA IS GLOBALLY DEFINED IN GL_COMMON"
++#include <psp2/kernel/clib.h>
++#define RAY_DEBUG_PRINT sceClibPrintf
++#else
++#define RAY_DEBUG_PRINT printf
++#endif
++
+ #include "SDL_platform.h"
+ #include "SDL_gpu.h"  // For poor, dumb Intellisense
+ #include <math.h>
+@@ -140,7 +156,11 @@ static_inline void get_window_dimensions(SDL_Window* window, int* w, int* h)
+ 
+ static_inline void get_drawable_dimensions(SDL_Window* window, int* w, int* h)
+ {
++    #if defined(VITA) || defined(__vita__)
++    get_window_dimensions(window, w, h);
++    #else
+     SDL_GL_GetDrawableSize(window, w, h);
++    #endif
+ }
+ 
+ static_inline void resize_window(GPU_Target* target, int w, int h)
+@@ -670,7 +690,9 @@ static void makeContextCurrent(GPU_Renderer* renderer, GPU_Target* target)
+     renderer->impl->FlushBlitBuffer(renderer);
+ 
+ #ifdef SDL_GPU_USE_SDL2
++    #if !defined(VITA) && !defined(__vita__)
+     SDL_GL_MakeCurrent(SDL_GetWindowFromID(target->context->windowID), target->context->context);
++    #endif
+ #endif
+     renderer->current_context_target = target;
+ }
+@@ -778,10 +800,11 @@ static GPU_bool growBlitBuffer(GPU_CONTEXT_DATA* cdata, unsigned int minimum_ver
+         glBindVertexArray(cdata->blit_VAO);
+         #endif
+ 
+-        glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[0]);
+-        glBufferData(GL_ARRAY_BUFFER, GPU_BLIT_BUFFER_STRIDE * cdata->blit_buffer_max_num_vertices, NULL, GL_STREAM_DRAW);
+-        glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[1]);
+-        glBufferData(GL_ARRAY_BUFFER, GPU_BLIT_BUFFER_STRIDE * cdata->blit_buffer_max_num_vertices, NULL, GL_STREAM_DRAW);
++        for(int vbo_i = 0; vbo_i < GPU_BLIT_VBO_COUNT; vbo_i++)
++        {
++            glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[vbo_i]);
++            glBufferData(GL_ARRAY_BUFFER, GPU_BLIT_BUFFER_STRIDE * cdata->blit_buffer_max_num_vertices, NULL, GL_STREAM_DRAW);
++        }
+ 
+         #if !defined(SDL_GPU_NO_VAO)
+         glBindVertexArray(0);
+@@ -1330,9 +1353,19 @@ static GPU_Target* Init(GPU_Renderer* renderer, GPU_RendererID renderer_request,
+         #endif
+ 
+         // Set up window flags
++        #if defined(VITA) || defined(__vita__)
++        // VITA: SDL2's VITA driver doesn't support SDL_WINDOW_OPENGL.
++        // Create window without it; GL context will be provided by vitaGL.
++        if(!(SDL_flags & SDL_WINDOW_HIDDEN))
++            SDL_flags |= SDL_WINDOW_SHOWN;
++        SDL_flags |= SDL_WINDOW_FULLSCREEN;
++        // Remove SDL_WINDOW_OPENGL if present
++        SDL_flags &= ~SDL_WINDOW_OPENGL;
++        #else
+         SDL_flags |= SDL_WINDOW_OPENGL;
+         if(!(SDL_flags & SDL_WINDOW_HIDDEN))
+             SDL_flags |= SDL_WINDOW_SHOWN;
++        #endif
+ 
+         renderer->SDL_init_flags = SDL_flags;
+         window = SDL_CreateWindow("",
+@@ -1365,7 +1398,6 @@ static GPU_Target* Init(GPU_Renderer* renderer, GPU_RendererID renderer_request,
+ 
+     renderer->enabled_features = 0xFFFFFFFF;  // Pretend to support them all if using incompatible headers
+ 
+-
+     // Create or re-init the current target.  This also creates the GL context and initializes enabled_features.
+     if(renderer->impl->CreateTargetFromWindow(renderer, get_window_id(window), renderer->current_context_target) == NULL)
+         return NULL;
+@@ -1397,6 +1429,11 @@ static GPU_bool IsFeatureEnabled(GPU_Renderer* renderer, GPU_FeatureEnum feature
+ 
+ static GPU_bool get_GL_version(int* major, int* minor)
+ {
++    #if defined(VITA) || defined(__vita__)
++    *major = 2;
++    *minor = 0;
++    return GPU_TRUE;
++    #endif
+     const char* version_string;
+     #ifdef SDL_GPU_USE_OPENGL
+         // OpenGL < 3.0 doesn't have GL_MAJOR_VERSION.  Check via version string instead.
+@@ -1442,6 +1479,10 @@ static GPU_bool get_GL_version(int* major, int* minor)
+ 
+ static GPU_bool get_GLSL_version(int* version)
+ {
++    #if defined(VITA) || defined(__vita__)
++    *version = 120;
++    return GPU_TRUE;
++    #endif
+     #ifndef SDL_GPU_DISABLE_SHADERS
+         const char* version_string;
+         int major, minor;
+@@ -1579,9 +1620,26 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+     // Make a new context if needed and make it current
+     if(created || target->context->context == NULL)
+     {
++        #if defined(VITA) || defined(__vita__)
++        RAY_DEBUG_PRINT("RAY_VITA_DIAG: Bypassing context creation for VITA/vitaGL\n");
++        // VITA: SDL2 doesn't support GL contexts. Use vitaGL instead.
++        // vitaGL must be initialized before this point (via vglInitExtended).
++        // We store a dummy non-NULL value as the context handle.
++        target->context->context = (SDL_GLContext)1;  // Non-NULL dummy
++        #else
++        #warning "VITA NOT DEFINED IN CreateTargetFromWindow block!"
++        #if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
++        // ps5-g19 allows one unshared GL context per process: every target shares the first one.
++        if(!gpu_ps5_shared_gl_context)
++            gpu_ps5_shared_gl_context = SDL_GL_CreateContext(window);
++        target->context->context = gpu_ps5_shared_gl_context;
++        #else
+         target->context->context = SDL_GL_CreateContext(window);
++        #endif
++        #endif
+         if(target->context->context == NULL)
+         {
++            RAY_DEBUG_PRINT("RAY_VITA_DIAG: CreateTargetFromWindow failed at context creation: %s\n", SDL_GetError());
+             GPU_PushErrorCode("GPU_CreateTargetFromWindow", GPU_ERROR_BACKEND_ERROR, "Failed to create GL context.");
+             SDL_free(cdata->blit_buffer);
+             SDL_free(cdata->index_buffer);
+@@ -1593,9 +1651,15 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+         }
+         GPU_AddWindowMapping(target);
+     }
++    RAY_DEBUG_PRINT("RAY_VITA_DIAG: Context created or repurposed\n");
+ 
+     // We need a GL context before we can get the drawable size.
++    #if defined(VITA) || defined(__vita__)
++    target->context->drawable_w = 960;
++    target->context->drawable_h = 544;
++    #else
+     SDL_GL_GetDrawableSize(window, &target->context->drawable_w, &target->context->drawable_h);
++    #endif
+ 
+     #else
+ 
+@@ -1660,6 +1724,7 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+     cdata->last_depth_write = GPU_TRUE;
+ 
+     #ifdef SDL_GPU_USE_OPENGL
++    #if !defined(VITA) && !defined(__vita__)
+     glewExperimental = GL_TRUE;  // Force GLEW to get exported functions instead of checking via extension string
+     err = glewInit();
+     if (GLEW_OK != err)
+@@ -1670,6 +1735,7 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+         return NULL;
+     }
+     #endif
++    #endif
+ 
+     renderer->impl->MakeCurrent(renderer, target, target->context->windowID);
+ 
+@@ -1685,6 +1751,7 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+     // Did the wrong runtime library try to use a later versioned renderer?
+     if(renderer->id.major_version < renderer->requested_id.major_version)
+     {
++        RAY_DEBUG_PRINT("RAY_VITA_DIAG: CreateTargetFromWindow failed at version check (%d < %d)\n", renderer->id.major_version, renderer->requested_id.major_version);
+         GPU_PushErrorCode("GPU_CreateTargetFromWindow", GPU_ERROR_BACKEND_ERROR, "Renderer major version (%d) is incompatible with the available OpenGL runtime library version (%d).", renderer->requested_id.major_version, renderer->id.major_version);
+         target->context->failed = GPU_TRUE;
+         return NULL;
+@@ -1695,12 +1762,15 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+ 
+     if(!IsFeatureEnabled(renderer, required_features))
+     {
++        RAY_DEBUG_PRINT("RAY_VITA_DIAG: CreateTargetFromWindow failed at feature check\n");
+         GPU_PushErrorCode("GPU_CreateTargetFromWindow", GPU_ERROR_BACKEND_ERROR, "Renderer does not support required features.");
+         target->context->failed = GPU_TRUE;
+         return NULL;
+     }
++    RAY_DEBUG_PRINT("RAY_VITA_DIAG: CreateTargetFromWindow success!\n");
+ 
+     #ifdef SDL_GPU_USE_SDL2
++    #if !defined(VITA) && !defined(__vita__)
+     // No preference for vsync?
+     if(!(renderer->GPU_init_flags & (GPU_INIT_DISABLE_VSYNC | GPU_INIT_ENABLE_VSYNC)))
+     {
+@@ -1713,6 +1783,7 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+     else if(renderer->GPU_init_flags & GPU_INIT_DISABLE_VSYNC)
+         SDL_GL_SetSwapInterval(0);
+     #endif
++    #endif
+ 
+     // Set fallback texture upload method
+     if(renderer->GPU_init_flags & GPU_INIT_USE_COPY_TEXTURE_UPLOAD_FALLBACK)
+@@ -1816,9 +1887,10 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+             return NULL;
+         }
+ 
++        printf("RAY_VITA_DIAG: Assigning p to target->context default_textured_shader_program\n"); fflush(stdout);
+         target->context->default_textured_vertex_shader_id = v;
+         target->context->default_textured_fragment_shader_id = f;
+-        target->context->default_textured_shader_program = p;
++        target->context->default_textured_shader_program = target->context->current_shader_program = p;
+ 
+         // Get locations of the attributes in the shader
+         target->context->default_textured_shader_block = GPU_LoadShaderBlock(p, "gpu_Vertex", "gpu_TexCoord", "gpu_Color", "gpu_ModelViewProjectionMatrix");
+@@ -1843,9 +1915,13 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+             return NULL;
+         }
+ 
++        printf("RAY_VITA_DIAG: Calling CreateShaderProgram\n"); fflush(stdout);
+         p = renderer->impl->CreateShaderProgram(renderer);
++        printf("RAY_VITA_DIAG: Calling AttachShader v\n"); fflush(stdout);
+         renderer->impl->AttachShader(renderer, p, v);
++        printf("RAY_VITA_DIAG: Calling AttachShader f\n"); fflush(stdout);
+         renderer->impl->AttachShader(renderer, p, f);
++        printf("RAY_VITA_DIAG: Calling LinkShaderProgram\n"); fflush(stdout);
+         renderer->impl->LinkShaderProgram(renderer, p);
+ 
+         if(!p)
+@@ -1855,15 +1931,20 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+             return NULL;
+         }
+ 
++        printf("RAY_VITA_DIAG: Calling glUseProgram\n"); fflush(stdout);
+         glUseProgram(p);
+-
++        
++        printf("RAY_VITA_DIAG: Assigning v to target->context at %p\n", target->context); fflush(stdout);
+         target->context->default_untextured_vertex_shader_id = v;
+         target->context->default_untextured_fragment_shader_id = f;
+         target->context->default_untextured_shader_program = target->context->current_shader_program = p;
+ 
+         // Get locations of the attributes in the shader
++        printf("RAY_VITA_DIAG: before GPU_LoadShaderBlock (untextured)\n"); fflush(stdout);
+         target->context->default_untextured_shader_block = GPU_LoadShaderBlock(p, "gpu_Vertex", NULL, "gpu_Color", "gpu_ModelViewProjectionMatrix");
++        printf("RAY_VITA_DIAG: before GPU_SetShaderBlock\n"); fflush(stdout);
+         GPU_SetShaderBlock(target->context->default_untextured_shader_block);
++        printf("RAY_VITA_DIAG: after GPU_SetShaderBlock\n"); fflush(stdout);
+ 
+     }
+     else
+@@ -1875,17 +1956,20 @@ static GPU_Target* CreateTargetFromWindow(GPU_Renderer* renderer, Uint32 windowI
+     #ifdef SDL_GPU_USE_BUFFER_PIPELINE
+         // Create vertex array container and buffer
+ 
+-        glGenBuffers(2, cdata->blit_VBO);
++        glGenBuffers(GPU_BLIT_VBO_COUNT, cdata->blit_VBO);
+         // Create space on the GPU
+-        glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[0]);
+-        glBufferData(GL_ARRAY_BUFFER, GPU_BLIT_BUFFER_STRIDE * cdata->blit_buffer_max_num_vertices, NULL, GL_STREAM_DRAW);
+-        glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[1]);
+-        glBufferData(GL_ARRAY_BUFFER, GPU_BLIT_BUFFER_STRIDE * cdata->blit_buffer_max_num_vertices, NULL, GL_STREAM_DRAW);
+-        cdata->blit_VBO_flop = GPU_FALSE;
++        for(int vbo_i = 0; vbo_i < GPU_BLIT_VBO_COUNT; vbo_i++)
++        {
++            glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[vbo_i]);
++            glBufferData(GL_ARRAY_BUFFER, GPU_BLIT_BUFFER_STRIDE * cdata->blit_buffer_max_num_vertices, NULL, GL_STREAM_DRAW);
++        }
++        cdata->blit_VBO_flop = 0;
++        printf("RAY_VITA_DIAG: before IBO setup\n"); fflush(stdout);
+ 
+         glGenBuffers(1, &cdata->blit_IBO);
+         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cdata->blit_IBO);
+         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * cdata->blit_buffer_max_num_vertices, NULL, GL_DYNAMIC_DRAW);
++        printf("RAY_VITA_DIAG: after IBO setup\n"); fflush(stdout);
+ 
+         glGenBuffers(16, cdata->attribute_VBO);
+ 
+@@ -1951,8 +2035,10 @@ static void MakeCurrent(GPU_Renderer* renderer, GPU_Target* target, Uint32 windo
+     {
+         renderer->current_context_target = target;
+         #ifdef SDL_GPU_USE_SDL2
++        #if !defined(VITA) && !defined(__vita__)
+         SDL_GL_MakeCurrent(SDL_GetWindowFromID(windowID), target->context->context);
+         #endif
++        #endif
+ 
+         // Reset window mapping, base size, and camera if the target's window was changed
+         if(target->context->windowID != windowID)
+@@ -2008,8 +2094,10 @@ static void ResetRendererState(GPU_Renderer* renderer)
+     #endif
+ 
+     #ifdef SDL_GPU_USE_SDL2
++    #if !defined(VITA) && !defined(__vita__)
+     SDL_GL_MakeCurrent(SDL_GetWindowFromID(target->context->windowID), target->context->context);
+     #endif
++    #endif
+ 
+ 
+     #ifndef SDL_GPU_USE_BUFFER_PIPELINE
+@@ -4104,7 +4192,7 @@ static void FreeContext(GPU_Context* context)
+     if(!context->failed)
+     {
+         #ifdef SDL_GPU_USE_BUFFER_PIPELINE
+-        glDeleteBuffers(2, cdata->blit_VBO);
++        glDeleteBuffers(GPU_BLIT_VBO_COUNT, cdata->blit_VBO);
+         glDeleteBuffers(1, &cdata->blit_IBO);
+         glDeleteBuffers(16, cdata->attribute_VBO);
+         #if !defined(SDL_GPU_NO_VAO)
+@@ -4114,9 +4202,11 @@ static void FreeContext(GPU_Context* context)
+     }
+ 
+     #ifdef SDL_GPU_USE_SDL2
++    #if !defined(VITA) && !defined(__vita__)
+     if(context->context != 0)
+         SDL_GL_DeleteContext(context->context);
+     #endif
++    #endif
+ 
+ 
+     SDL_free(cdata);
+@@ -5184,7 +5274,7 @@ static void PrimitiveBatchV(GPU_Renderer* renderer, GPU_Image* image, GPU_Target
+         {
+             // Upload blit buffer to a single buffer object
+             glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[cdata->blit_VBO_flop]);
+-            cdata->blit_VBO_flop = !cdata->blit_VBO_flop;
++            cdata->blit_VBO_flop = (cdata->blit_VBO_flop + 1) % GPU_BLIT_VBO_COUNT;
+             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cdata->blit_IBO);
+ 
+             // Copy the whole blit buffer to the GPU
+@@ -5609,7 +5699,7 @@ static void DoPartialFlush(GPU_Renderer* renderer, GPU_Target* dest, GPU_Context
+ 
+             // Upload blit buffer to a single buffer object
+             glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[cdata->blit_VBO_flop]);
+-            cdata->blit_VBO_flop = !cdata->blit_VBO_flop;
++            cdata->blit_VBO_flop = (cdata->blit_VBO_flop + 1) % GPU_BLIT_VBO_COUNT;
+             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cdata->blit_IBO);
+ 
+             // Copy the whole blit buffer to the GPU
+@@ -5706,7 +5796,7 @@ static void DoUntexturedFlush(GPU_Renderer* renderer, GPU_Target* dest, GPU_Cont
+ 
+         // Upload blit buffer to a single buffer object
+         glBindBuffer(GL_ARRAY_BUFFER, cdata->blit_VBO[cdata->blit_VBO_flop]);
+-        cdata->blit_VBO_flop = !cdata->blit_VBO_flop;
++        cdata->blit_VBO_flop = (cdata->blit_VBO_flop + 1) % GPU_BLIT_VBO_COUNT;
+         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cdata->blit_IBO);
+ 
+         // Copy the whole blit buffer to the GPU
+@@ -5817,7 +5907,11 @@ static void Flip(GPU_Renderer* renderer, GPU_Target* target)
+         makeContextCurrent(renderer, target);
+ 
+     #ifdef SDL_GPU_USE_SDL2
++        #if defined(VITA) || defined(__vita__)
++        vglSwapBuffers(GL_TRUE);
++        #else
+         SDL_GL_SwapWindow(SDL_GetWindowFromID(renderer->current_context_target->context->windowID));
++        #endif
+     #else
+         SDL_GL_SwapBuffers();
+     #endif

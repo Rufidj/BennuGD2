@@ -224,9 +224,9 @@ static int __get_proc_info(
     graph = instance_graph( proc );
     if ( !graph ) return 0;
 
-    oci->scale_x = LOCDOUBLE( libmod_gfx, proc, GRAPHSIZEX );
-    oci->scale_y = LOCDOUBLE( libmod_gfx, proc, GRAPHSIZEY );
-    if ( oci->scale_x == 100.0 && oci->scale_y == 100.0 ) oci->scale_x = oci->scale_y = LOCDOUBLE( libmod_gfx, proc, GRAPHSIZE );
+    oci->scale_x = LOCDOUBLE( libmod_gfx, proc, LOCGFX_GRAPHSIZEX );
+    oci->scale_y = LOCDOUBLE( libmod_gfx, proc, LOCGFX_GRAPHSIZEY );
+    if ( oci->scale_x == 100.0 && oci->scale_y == 100.0 ) oci->scale_x = oci->scale_y = LOCDOUBLE( libmod_gfx, proc, LOCGFX_GRAPHSIZE );
 
     oci->scale_x /= 100.0;
     oci->scale_y /= 100.0;
@@ -234,13 +234,13 @@ static int __get_proc_info(
     if ( oci->scale_x < 0.0 ) oci->scale_x = 0.0;
     if ( oci->scale_y < 0.0 ) oci->scale_y = 0.0;
 
-    oci->x = LOCDOUBLE( libmod_gfx, proc, COORDX );
-    oci->y = LOCDOUBLE( libmod_gfx, proc, COORDY );
+    oci->x = LOCDOUBLE( libmod_gfx, proc, LOCGFX_COORDX );
+    oci->y = LOCDOUBLE( libmod_gfx, proc, LOCGFX_COORDY );
 
-    RESOLXY( libmod_gfx, proc, oci->x, oci->y );
+    RESOLXY_NAMED( libmod_gfx, proc, LOCGFX_RESOLUTION, oci->x, oci->y );
 
-    oci->width  = LOCINT64( libmod_gfx, proc, CLIPW );
-    oci->height = LOCINT64( libmod_gfx, proc, CLIPH );
+    oci->width  = LOCINT64( libmod_gfx, proc, LOCGFX_CLIPW );
+    oci->height = LOCINT64( libmod_gfx, proc, LOCGFX_CLIPH );
 
     if ( !oci->width || !oci->height ) {
         oci->width  = graph->width;
@@ -249,8 +249,8 @@ static int __get_proc_info(
 
     /* Calculate the graphic center */
 
-    oci->center_x = LOCDOUBLE( libmod_gfx, proc, GRAPHCENTERX ) ;
-    oci->center_y = LOCDOUBLE( libmod_gfx, proc, GRAPHCENTERY ) ;
+    oci->center_x = LOCDOUBLE( libmod_gfx, proc, LOCGFX_GRAPHCENTERX ) ;
+    oci->center_y = LOCDOUBLE( libmod_gfx, proc, LOCGFX_GRAPHCENTERY ) ;
     if ( oci->center_x == POINT_UNDEFINED || oci->center_y == POINT_UNDEFINED ) {
         if ( graph->ncpoints && graph->cpoints[0].x != CPOINT_UNDEFINED ) {
             oci->center_x = graph->cpoints[0].x;
@@ -261,8 +261,8 @@ static int __get_proc_info(
         }
     }
 
-    int64_t angle = LOCINT64( libmod_gfx, proc, ANGLE );
-    oci->flags = LOCQWORD( libmod_gfx, proc, FLAGS );
+    int64_t angle = LOCINT64( libmod_gfx, proc, LOCGFX_ANGLE );
+    oci->flags = LOCQWORD( libmod_gfx, proc, LOCGFX_FLAGS );
 
     oci->c = cos_deg( angle );
     oci->s = sin_deg( angle );
@@ -679,7 +679,7 @@ static inline int __check_collision( __obj_col_info * ociA, __obj_col_info * oci
 static __obj_col_info __ociA = { 0 }, __ociB = { 0 };
 
 static int64_t __collision( INSTANCE * my, int64_t id ) {
-    int64_t render_graph = LOCINT64( libmod_gfx, my, RENDER_GRAPHID );
+    int64_t render_graph = LOCINT64( libmod_gfx, my, LOCGFX_RENDER_GRAPHID );
 
     if ( render_graph && id == -1 ) return 0; // collision with mouse not supported on instances with render_graph
 
@@ -719,10 +719,10 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
                 * idxB = 0;
             }
 
-            if ( LOCQWORD( libmod_gfx, my, CTYPE ) == C_SCROLL ) {
+            if ( LOCQWORD( libmod_gfx, my, LOCGFX_CTYPE ) == C_SCROLL ) {
                 int i;
 
-                int64_t cnumber = LOCQWORD( libmod_gfx, my, CNUMBER );
+                int64_t cnumber = LOCQWORD( libmod_gfx, my, LOCGFX_CNUMBER );
                 if ( !cnumber ) cnumber = 0xffffffffffffffff;
 
                 for ( ; id_scroll < MAX_SCROLLS && !collision; id_scroll++ ) {
@@ -772,7 +772,7 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
         return 0;
     }
 
-    int64_t ctype = LOCQWORD( libmod_gfx, my, CTYPE );
+    int64_t ctype = LOCQWORD( libmod_gfx, my, LOCGFX_CTYPE );
     int64_t id_scan = LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN );
 
     /* SINGLE INSTANCE */
@@ -789,9 +789,9 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
         ptr = instance_get( id );
         if ( ptr &&
              ptr != my &&
-             ctype == LOCQWORD( libmod_gfx, ptr, CTYPE ) &&
-             render_graph == LOCINT64( libmod_gfx, ptr, RENDER_GRAPHID ) &&
-             LOCQWORD( libmod_gfx, ptr, STATUS ) & ( STATUS_RUNNING | STATUS_FROZEN )
+             ctype == LOCQWORD( libmod_gfx, ptr, LOCGFX_CTYPE ) &&
+             render_graph == LOCINT64( libmod_gfx, ptr, LOCGFX_RENDER_GRAPHID ) &&
+             LOCQWORD( libmod_gfx, ptr, LOCGFX_STATUS ) & ( STATUS_RUNNING | STATUS_FROZEN )
            ) {
             if ( __get_proc_info( ptr, ociB ) ) {
                 collision = __check_collision( ociA, ociB, idxA, idxB, cbox_result_code, penetration ) ;
@@ -800,13 +800,13 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
                     (*idxB)++;
                     FREE( ociA->cboxes );
 
-                    LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN ) = LOCQWORD( libmod_gfx, ptr, PROCESS_ID );
+                    LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN ) = LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );
                     LOCINT64( libmod_gfx, my, COLLIDER_CBOX ) = cbox_result_code[0];
-                    LOCINT64( libmod_gfx, my, COLLIDED_ID   ) = LOCQWORD( libmod_gfx, ptr, PROCESS_ID );
+                    LOCINT64( libmod_gfx, my, COLLIDED_ID   ) = LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );
                     LOCINT64( libmod_gfx, my, COLLIDED_CBOX ) = cbox_result_code[1];
                     LOCINT64( libmod_gfx, my, PENETRATION_X ) = penetration[0];
                     LOCINT64( libmod_gfx, my, PENETRATION_Y ) = penetration[1];
-                    return LOCQWORD( libmod_gfx, ptr, PROCESS_ID );;
+                    return LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );;
                 }
             }
         }
@@ -832,9 +832,9 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
 
         while ( ptr ) {
             if ( ptr != my &&
-                 ctype == LOCQWORD( libmod_gfx, ptr, CTYPE ) &&
-                 render_graph == LOCINT64( libmod_gfx, ptr, RENDER_GRAPHID ) &&
-                 LOCQWORD( libmod_gfx, ptr, STATUS ) & ( STATUS_RUNNING | STATUS_FROZEN )
+                 ctype == LOCQWORD( libmod_gfx, ptr, LOCGFX_CTYPE ) &&
+                 render_graph == LOCINT64( libmod_gfx, ptr, LOCGFX_RENDER_GRAPHID ) &&
+                 LOCQWORD( libmod_gfx, ptr, LOCGFX_STATUS ) & ( STATUS_RUNNING | STATUS_FROZEN )
                ) {
                 if ( __get_proc_info( ptr, ociB ) ) {
                     collision = __check_collision( ociA, ociB, idxA, idxB, cbox_result_code, penetration ) ;
@@ -842,13 +842,13 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
                     if ( collision ) {
                         (*idxB)++;
                         FREE( ociA->cboxes );
-                        LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN ) = LOCQWORD( libmod_gfx, ptr, PROCESS_ID );
+                        LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN ) = LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );
                         LOCINT64( libmod_gfx, my, COLLIDER_CBOX ) = cbox_result_code[0];
-                        LOCINT64( libmod_gfx, my, COLLIDED_ID   ) = LOCQWORD( libmod_gfx, ptr, PROCESS_ID );
+                        LOCINT64( libmod_gfx, my, COLLIDED_ID   ) = LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );
                         LOCINT64( libmod_gfx, my, COLLIDED_CBOX ) = cbox_result_code[1];
                         LOCINT64( libmod_gfx, my, PENETRATION_X ) = penetration[0];
                         LOCINT64( libmod_gfx, my, PENETRATION_Y ) = penetration[1];
-                        return LOCQWORD( libmod_gfx, ptr, PROCESS_ID );;
+                        return LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );;
                     }
                 }
             }
@@ -881,9 +881,9 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
 
     while ( ptr ) {
         if ( ptr != my &&
-             ctype == LOCQWORD( libmod_gfx, ptr, CTYPE ) &&
-             render_graph == LOCINT64( libmod_gfx, ptr, RENDER_GRAPHID ) &&
-             LOCQWORD( libmod_gfx, ptr, STATUS ) & ( STATUS_RUNNING | STATUS_FROZEN )
+             ctype == LOCQWORD( libmod_gfx, ptr, LOCGFX_CTYPE ) &&
+             render_graph == LOCINT64( libmod_gfx, ptr, LOCGFX_RENDER_GRAPHID ) &&
+             LOCQWORD( libmod_gfx, ptr, LOCGFX_STATUS ) & ( STATUS_RUNNING | STATUS_FROZEN )
            ) {
             if ( __get_proc_info( ptr, ociB ) ) {
                 collision = __check_collision( ociA, ociB, idxA, idxB, cbox_result_code, penetration ) ;
@@ -891,13 +891,13 @@ static int64_t __collision( INSTANCE * my, int64_t id ) {
                 if ( collision ) {
                     (*idxB)++;
                     FREE( ociA->cboxes );
-                    LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN ) = LOCQWORD( libmod_gfx, ptr, PROCESS_ID );
+                    LOCQWORD( libmod_gfx, my, COLLISION_RESERVED_ID_SCAN ) = LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );
                     LOCINT64( libmod_gfx, my, COLLIDER_CBOX ) = cbox_result_code[0];
-                    LOCINT64( libmod_gfx, my, COLLIDED_ID   ) = LOCQWORD( libmod_gfx, ptr, PROCESS_ID );
+                    LOCINT64( libmod_gfx, my, COLLIDED_ID   ) = LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );
                     LOCINT64( libmod_gfx, my, COLLIDED_CBOX ) = cbox_result_code[1];
                     LOCINT64( libmod_gfx, my, PENETRATION_X ) = penetration[0];
                     LOCINT64( libmod_gfx, my, PENETRATION_Y ) = penetration[1];
-                    return LOCQWORD( libmod_gfx, ptr, PROCESS_ID );;
+                    return LOCQWORD( libmod_gfx, ptr, LOCGFX_PROCESS_ID );;
                 }
             }
         }

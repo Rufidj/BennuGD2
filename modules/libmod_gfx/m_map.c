@@ -827,6 +827,13 @@ static Sint64 SDLCALL __RWops_seek_cb( SDL_RWops *context, Sint64 offset, int wh
     return( file_pos( context->hidden.unknown.data1 ) );
 }
 
+static Sint64 SDLCALL __RWops_size_cb( SDL_RWops *context ) {
+    Sint64 cur = __RWops_seek_cb( context, 0, SEEK_CUR );
+    Sint64 end = __RWops_seek_cb( context, 0, SEEK_END );
+    if ( cur >= 0 ) __RWops_seek_cb( context, cur, SEEK_SET );
+    return end;
+}
+
 static size_t SDLCALL __RWops_read_cb( SDL_RWops *context, void *ptr, size_t size, size_t maxnum ) {
     size_t ret = file_read( context->hidden.unknown.data1, ptr, size * maxnum );
     if ( ret > 0 ) ret /= size;
@@ -850,6 +857,7 @@ static int SDLCALL __RWops_close_cb( SDL_RWops *context ) {
 static SDL_RWops *SDL_RWFromBGDFP( file *fp ) {
     SDL_RWops *rwops = SDL_AllocRW();
     if ( rwops != NULL ) {
+        rwops->size = __RWops_size_cb;
         rwops->seek = __RWops_seek_cb;
         rwops->read = __RWops_read_cb;
         rwops->write = __RWops_write_cb;

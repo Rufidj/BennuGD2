@@ -1,0 +1,15 @@
+diff --git a/theoraplay.c b/theoraplay.c
+index a1e40f5..5a5e161 100644
+--- a/theoraplay.c
++++ b/theoraplay.c
+@@ -42,8 +42,8 @@
+ #endif
+ 
+ #include "theoraplay.h"
+-#include "theora/theoradec.h"
+-#include "vorbis/codec.h"
++#include <theora/theoradec.h>
++#include <vorbis/codec.h>
+ 
+ #define THEORAPLAY_INTERNAL 1
+ 

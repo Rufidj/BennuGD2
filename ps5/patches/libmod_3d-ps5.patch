@@ -1,0 +1,1515 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 05f6763..9e65e68 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -17,6 +17,15 @@ else()
+     set(IS_VITA FALSE)
+ endif()
+ 
++# PS5: no GLX/system OpenGL to find_package() against (cross-compiled, no
++# pkg-config, no X11) - the driver is PS5_OPENGL_SDK_ROOT's own prebuilt
++# Mesa/gallium archives, wired in directly in the linking section below.
++if(PROSPERO)
++    set(IS_PROSPERO TRUE)
++else()
++    set(IS_PROSPERO FALSE)
++endif()
++
+ # ============================================================================
+ # Compiler flags
+ # ============================================================================
+@@ -31,7 +40,7 @@ endif()
+ # SDL2 dependency
+ # ============================================================================
+ 
+-if(NOT EMSCRIPTEN AND NOT IS_VITA)
++if(NOT EMSCRIPTEN AND NOT IS_VITA AND NOT IS_PROSPERO)
+     find_package(SDL2 REQUIRED)
+     find_package(SDL2_image REQUIRED)
+     find_package(OpenGL REQUIRED)
+@@ -41,6 +50,12 @@ if(NOT EMSCRIPTEN AND NOT IS_VITA)
+     if(WIN32)
+         find_package(GLEW REQUIRED)
+     endif()
++elseif(IS_PROSPERO)
++    # SDL2/SDL2_image are already resolved from build.sh's -D...LIBRARY/_INCLUDE_DIR
++    # cache variables (same pattern the VITA branch uses below); there is no
++    # OpenGL to find_package() here at all.
++    find_package(SDL2 REQUIRED)
++    find_package(SDL2_image REQUIRED)
+ endif()
+ 
+ # ============================================================================
+@@ -70,6 +85,9 @@ else()
+         ../../vendor/sdl-gpu/include
+         ${INCLUDE_DIRECTORIES}
+     )
++    if(IS_PROSPERO)
++        include_directories(${PS5_OPENGL_SDK_ROOT}/include)
++    endif()
+ endif()
+ 
+ # ============================================================================
+@@ -151,17 +169,31 @@ endif()
+ # VITA always uses the fallback (Jolt is excluded there).
+ # ============================================================================
+ option(USE_JOLT "Use Jolt Physics for rigid bodies" ON)
+-if(USE_JOLT AND NOT IS_VITA AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/jolt/Build/CMakeLists.txt")
++if(IS_PROSPERO)
++    # TODO(ps5): cross-compiling Jolt (C++17, exceptions/RTTI assumptions) through
++    # the prospero-clang18 wrapper is its own piece of work - deferred, fall back
++    # to the built-in rigid bodies for now so the rest of the module builds.
++    set(USE_JOLT OFF)
++endif()
++if(USE_JOLT AND NOT IS_VITA AND NOT IS_PROSPERO AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/jolt/Build/CMakeLists.txt")
+     message(WARNING "USE_JOLT is ON but jolt/ is missing - falling back to the built-in rigid bodies")
+     set(USE_JOLT OFF)
+ endif()
+-if(USE_JOLT AND NOT IS_VITA)
++if(USE_JOLT AND NOT IS_VITA AND NOT IS_PROSPERO)
+     list(APPEND SOURCES_LIBMOD_3D libmod_3d_jolt.cpp)
+ endif()
+ 
++# libmod_3d_shader.c, and libmod_3d_fsr.c/libmod_3d_smaa.c (via the
++# fsr_shader.h/smaa_shader.h they #include) embed GLSL/HLSL sources as
++# C++11 raw string literals (R"glsl(...)"), and ufbx.c (vendored) uses some
++# too - none of that is valid C, so all four need the C++ front end
++# regardless of their .c extension. Harmless everywhere: CMake passes -x c++
++# for them and otherwise compiles identically.
++set_source_files_properties(libmod_3d_shader.c libmod_3d_fsr.c libmod_3d_smaa.c ufbx.c PROPERTIES LANGUAGE CXX)
++
+ add_library(mod_3d ${LIBRARY_BUILD_TYPE} ${SOURCES_LIBMOD_3D})
+ 
+-if(USE_JOLT AND NOT IS_VITA)
++if(USE_JOLT AND NOT IS_VITA AND NOT IS_PROSPERO)
+     set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+     set(TARGET_HELLO_WORLD OFF CACHE BOOL "" FORCE)
+     set(TARGET_PERFORMANCE_TEST OFF CACHE BOOL "" FORCE)
+@@ -199,6 +231,21 @@ if(IS_VITA)
+         ${STDLIBSFLAGS}
+         -lm
+     )
++elseif(IS_PROSPERO)
++    # The actual GL driver archives (Mesa/gallium) and the libc++ runtime
++    # (needed now for this module's raw-string/ufbx.c C++ TUs) are resolved
++    # at eboot-packaging time, not here - this .a is a compile-only artifact
++    # on PS5; see this module's platform-detection comment above.
++    target_link_libraries(mod_3d
++        ${SDL2_LIBRARY}
++        ${SDL2_IMAGE_LIBRARY}
++        ${SDL_GPU_LIBRARY}
++        -L../../bin
++        bgdrtm
++        bggfx
++        sdlhandler
++        ${STDLIBSFLAGS}
++    )
+ else()
+     target_link_libraries(mod_3d
+         ${SDL2_LIBRARY}
+diff --git a/libmod_3d.c b/libmod_3d.c
+index 7f9fd01..893ff8c 100644
+--- a/libmod_3d.c
++++ b/libmod_3d.c
+@@ -8,6 +8,7 @@
+ #include "libmod_3d.h"
+ #include "libmod_3d_scene.h"
+ #include "libmod_3d_entity.h"
++
+ #include "libmod_3d_material.h"
+ #include "libmod_3d_light.h"
+ #include "libmod_3d_primitives.h"
+@@ -118,7 +119,7 @@ enum {
+     LOC3D_SPR_FRAME
+ };
+ 
+-DLVARFIXUP __bgdexport(libmod_3d, locals_fixup)[] = {
++DLVARFIXUP __bgdexport( libmod_3d, locals_fixup )[] = {
+     { "csubtype"  , NULL, -1, -1 },
+     { "x"         , NULL, -1, -1 },
+     { "y"         , NULL, -1, -1 },
+@@ -199,6 +200,22 @@ int g3d_engine_init(int width, int height) {
+ 
+     g_3d_initialized = 1;
+     printf("G3D: Engine initialized successfully\n");
++    {   /* dev tuning (g3d.cfg): fsr_height=<px> renders at that height and upscales with FSR 1 */
++        extern int g3d_dev_cfg_pub(const char *key, int def);
++        int fh = g3d_dev_cfg_pub("fsr_height", 0);
++        if (fh > 0) {
++            int sharp = g3d_dev_cfg_pub("fsr_sharp_pct", 20);
++            uint32_t dw = 0, dh = 0;
++            g3d_renderer_get_display_size(&dw, &dh);
++            if (dh > 0) {
++                float sc = (float)fh / (float)dh; if (sc > 1.0f) sc = 1.0f;
++                g3d_fsr_set_enabled(1);
++                g3d_fsr_set_sharpness(sharp / 100.0f);
++                g3d_renderer_set_render_scale(sc);
++                printf("G3D: cfg FSR on: render %d of %u (scale %.3f, sharp %.2f)\n", fh, dh, sc, sharp / 100.0f);
++            }
++        }
++    }
+ 
+     return 1;
+ }
+@@ -663,7 +680,7 @@ int64_t g3d_tr_probe_bgd(INSTANCE *my, int64_t *params) {
+ int64_t g3d_model_load_gltf_bgd(INSTANCE *my, int64_t *params) {
+     g3d_ensure_init();
+     const char *filename = (const char *)string_get(params[0]);
+-    G3DModel *model = g3d_gltf_load(filename);
++    G3DModel *model = g3d_gltf_load_shared(filename);   /* static props shared */
+     string_discard(params[0]);
+     if (!model)
+         return -1;
+@@ -2538,7 +2555,11 @@ int64_t g3d_collider_add_box_bgd(INSTANCE *my, int64_t *params) {
+                                 *(float *)&params[3], *(float *)&params[4], *(float *)&params[5]);
+ }
+ int64_t g3d_collider_clear_bgd(INSTANCE *my, int64_t *params) { g3d_collider_clear(); return 1; }
+-/* La colision del modelo entero: exacta (fija) o su envolvente (se mueve). */
++/* La colision del modelo entero: exacta (fija) o su envolvente (se mueve).
++   Ambas son solo-Jolt (implementadas en libmod_3d_jolt.cpp); con USE_JOLT
++   apagado (hoy PS5, mientras se porta Jolt por separado) no hay a que
++   llamar, asi que degradan a "no se pudo" en vez de dejar sin definir. */
++#ifdef USE_JOLT
+ int64_t g3d_collider_add_model_bgd(INSTANCE *my, int64_t *params) {
+     return g3d_collider_add_model((void*)(intptr_t)params[0], *(float*)&params[1],
+                                   *(float*)&params[2], *(float*)&params[3], *(float*)&params[4]);
+@@ -2548,6 +2569,10 @@ int64_t g3d_rigidbody_create_convex_model_bgd(INSTANCE *my, int64_t *params) {
+                                              *(float*)&params[2], (void*)(intptr_t)params[3],
+                                              *(float*)&params[4], *(float*)&params[5]);
+ }
++#else
++int64_t g3d_collider_add_model_bgd(INSTANCE *my, int64_t *params) { (void)my; (void)params; return -1; }
++int64_t g3d_rigidbody_create_convex_model_bgd(INSTANCE *my, int64_t *params) { (void)my; (void)params; return -1; }
++#endif
+ /* ---- Deshacer una escena para montar otra ----
+    Estas cuatro existian en C pero no estaban en la lista de BennuGD2, asi que un
+    juego que cambia de mapa no podia soltar la vegetacion, las zonas pintadas, los
+@@ -2664,9 +2689,12 @@ int64_t g3d_rigidbody_render_y_bgd(INSTANCE *my, int64_t *params) { float v = g3
+ int64_t g3d_rigidbody_render_z_bgd(INSTANCE *my, int64_t *params) { float v = g3d_rigidbody_render_z((int)params[0]); return (int64_t) * (int32_t *)&v; }
+ 
+ 
++extern void g3d_prof_mark_pub(const char *name);
+ static int g3d_object_info(void *what, REGION *clip, int64_t *key, int64_t *ready) {
++    g3d_prof_mark_pub("A_script_exec+frame_start");
+     *key = INT64_MAX; /* Highest Z -> draws first / at the bottom */
+     *ready = 1;
++    { static int n = 0; if (n < 4) { n++; printf("G3D: object_info #%d scaled=%dx%d init=%d\n", n, (int)renderer_scaled_width, (int)renderer_scaled_height, g_3d_initialized); } }
+ 
+     if (!renderer_scaled_width || !renderer_scaled_height)
+         return 0;
+@@ -2683,7 +2711,10 @@ static int g3d_object_info(void *what, REGION *clip, int64_t *key, int64_t *read
+     return 1;
+ }
+ 
++extern int gr_defer_clear;
+ static void g3d_object_draw(void *what, REGION *clip) {
++    g3d_prof_mark_pub("B_info_to_draw(2d_below)");
++    { static int n = 0; if (n < 4) { n++; printf("G3D: object_draw #%d init=%d\n", n, g_3d_initialized); } }
+     if (g_3d_initialized) {
+         /* Flush any queued 2D rendering (e.g. GPU_Clear or background map) */
+         GPU_FlushBlitBuffer();
+@@ -2693,7 +2724,11 @@ static void g3d_object_draw(void *what, REGION *clip) {
+ 
+         /* Reset SDL_gpu state so 2D sprites can draw correctly on top */
+         GPU_ResetRendererState();
++#ifdef __PROSPERO__
++        gr_defer_clear = 1;   /* next frame: the 3D resolve clears the screen late (see g_frame.c) */
++#endif
+     }
++    g3d_prof_mark_pub("C_after_3d_reset");
+ }
+ 
+ /* ============================================================================
+@@ -2786,6 +2821,14 @@ static void g3d_process_instance_hook( INSTANCE * i ) {
+             int64_t ggraph = LOCINT64( libmod_3d, i, LOC3D_GRAPH );
+             if ( ggraph ) {
+                 GRAPH * gr = bitmap_get( gfile, ggraph );
++#ifdef USE_SDL2_GPU
++                /* gr->tex is SDL_gpu's GPU_Image (w/h/texture_w/texture_h and
++                   GPU_GetTextureHandle) - only exists in that representation
++                   when BennuGD2 itself renders through SDL_gpu. On a plain
++                   USE_SDL2 build gr->tex is a different, opaque type, so this
++                   C3D_SPRITE texture bridge has nothing to attach to there;
++                   the sprite still gets position/scale/tint/frame above, it
++                   just renders untextured instead of using its 2D graphic. */
+                 if ( gr && gr->tex ) {
+                     /* La textura puede ser mayor que el grafico (relleno a
+                        potencia de dos), asi que el recorte va en proporcion. */
+@@ -2803,6 +2846,9 @@ static void g3d_process_instance_hook( INSTANCE * i ) {
+                                                (float) gr->cpoints[0].x / (float) gr->width,
+                                                (float) gr->cpoints[0].y / (float) gr->height );
+                 }
++#else
++                (void) gr;
++#endif
+             }
+             break;
+         }
+@@ -2933,13 +2979,14 @@ static void g3d_process_instance_hook( INSTANCE * i ) {
+ 
+ }
+ 
+-void __bgdexport(libmod_3d, module_initialize)() {
++void __bgdexport( libmod_3d, module_initialize )() {
++    printf("G3D: module_initialize\n");
+     g3d_engine_obj_id = gr_new_object(INT64_MAX, g3d_object_info, g3d_object_draw, NULL);
+     /* Register per-process hook for all C_3D instances */
+     gr_register_instance_ctype_hook( C_3D_CTYPE, g3d_process_instance_hook );
+ }
+ 
+-void __bgdexport(libmod_3d, module_finalize)() {
++void __bgdexport( libmod_3d, module_finalize )() {
+     if (g3d_engine_obj_id) {
+         gr_destroy_object(g3d_engine_obj_id);
+         g3d_engine_obj_id = 0;
+diff --git a/libmod_3d.h b/libmod_3d.h
+index 552fdfa..e21c78d 100644
+--- a/libmod_3d.h
++++ b/libmod_3d.h
+@@ -33,22 +33,15 @@ extern "C" {
+ 
+ /* --------------------------------------------------------------------------- */
+ 
+-#if !defined(__BGDC__)
+-enum {
+-    CSUBTYPE = 0,
+-    COORDX,
+-    COORDY,
+-    COORDZ,
+-    ANGLE_X,
+-    ANGLE_Y,
+-    ANGLE_Z,
+-    SIZE,
+-    SIZE_X,
+-    SIZE_Y,
+-    SIZE_Z,
+-    ENTITY
+-};
+-#endif
++/* (an unused enum with these names - CSUBTYPE/COORDX/COORDY/COORDZ/ANGLE_X/
++ * ANGLE_Y/ANGLE_Z/SIZE/SIZE_X/SIZE_Y/SIZE_Z/ENTITY - used to live here.
++ * Nothing in this module ever referenced it: libmod_3d.c defines and uses
++ * its own properly-scoped LOC3D_CSUBTYPE/LOC3D_COORDX/LOC3D_COORDY/
++ * LOC3D_COORDZ enum instead. Removed because the first four names collided
++ * with libbggfx.h's own (differently-valued) locals enum of the same names
++ * whenever both headers were included in the same translation unit - the
++ * only such case being libmod_3d.c itself, since libbggfx.h is included a
++ * few lines above this. ) */
+ 
+ /* ============================================================================
+    CONSTANTS
+diff --git a/libmod_3d_exports.h b/libmod_3d_exports.h
+index c6e2029..364c2c7 100644
+--- a/libmod_3d_exports.h
++++ b/libmod_3d_exports.h
+@@ -15,7 +15,7 @@
+ #include "libmod_3d.h"
+ 
+ /* Constants exported */
+-DLCONSTANT __bgdexport(libmod_3d, constants_def)[] = {
++DLCONSTANT __bgdexport( libmod_3d, constants_def )[] = {
+     /* 3D */
+     { "C_3D",                   TYPE_QWORD, C_3D},
+ 
+@@ -54,7 +54,7 @@ DLCONSTANT __bgdexport(libmod_3d, constants_def)[] = {
+ /* --------------------------------------------------------------------------- */
+ /* Local variables added to every process when libmod_3d is loaded             */
+ 
+-char * __bgdexport(libmod_3d, locals_def) =
++char * __bgdexport( libmod_3d, locals_def ) =
+     "DOUBLE angle_x=0.0;\n"
+     "DOUBLE angle_y=0.0;\n"
+     "DOUBLE angle_z=0.0;\n"
+@@ -471,7 +471,7 @@ int64_t g3d_material_set_map_bgd(INSTANCE *my, int64_t *params);
+ int64_t g3d_material_set_outline_bgd(INSTANCE *my, int64_t *params);
+ int64_t g3d_model_submesh_map_bgd(INSTANCE *my, int64_t *params);
+ 
+-DLSYSFUNCS __bgdexport(libmod_3d, functions_exports)[] = {
++DLSYSFUNCS __bgdexport( libmod_3d, functions_exports )[] = {
+     // FUNC("G3D_INIT", "II", TYPE_INT, g3d_init_bgd),
+     // FUNC("G3D_SHUTDOWN", "", TYPE_INT, g3d_shutdown_bgd),
+     // FUNC("G3D_RENDER", "I", TYPE_INT, g3d_render_bgd),
+@@ -856,7 +856,7 @@ DLSYSFUNCS __bgdexport(libmod_3d, functions_exports)[] = {
+     FUNC(NULL, NULL, 0, NULL)};
+ 
+ /* Hooks del módulo */
+-void __bgdexport(libmod_3d, module_initialize)();
+-void __bgdexport(libmod_3d, module_finalize)();
++void __bgdexport( libmod_3d, module_initialize )();
++void __bgdexport( libmod_3d, module_finalize )();
+ 
+ #endif /* __LIBMOD_3D_EXPORTS */
+diff --git a/libmod_3d_flow.c b/libmod_3d_flow.c
+index acf3825..fd879f0 100644
+--- a/libmod_3d_flow.c
++++ b/libmod_3d_flow.c
+@@ -10,6 +10,7 @@
+ #include "libmod_3d_terrain.h"
+ #include "libmod_3d_chunkterrain.h"   /* g3d_heightfield_height */
+ #include "libmod_3d_scene.h"
++#include "libmod_3d_scenefile.h"   /* g3d_scene_heightfield */
+ #include "libmod_3d_light.h"
+ #include "libmod_3d_water.h"   /* g3d_water_add_ripple_source (salpicadura al pie) */
+ #include <stdio.h>
+diff --git a/libmod_3d_fluidfill.c b/libmod_3d_fluidfill.c
+index feac828..6e93e0f 100644
+--- a/libmod_3d_fluidfill.c
++++ b/libmod_3d_fluidfill.c
+@@ -11,6 +11,7 @@
+ #include "libmod_3d_water.h"
+ #include "libmod_3d_mesh.h"
+ #include "libmod_3d_chunkterrain.h"   /* g3d_heightfield_height */
++#include "libmod_3d_scenefile.h"      /* g3d_scene_heightfield */
+ #include <stdlib.h>
+ #include <math.h>
+ 
+diff --git a/libmod_3d_gltf.c b/libmod_3d_gltf.c
+index 07161a3..296ec59 100644
+--- a/libmod_3d_gltf.c
++++ b/libmod_3d_gltf.c
+@@ -8,6 +8,7 @@
+  */
+ 
+ #define CGLTF_IMPLEMENTATION
++static double g3d_prof_now(void);
+ #include "cgltf.h"
+ 
+ #include "libmod_3d_gltf.h"
+@@ -143,7 +144,7 @@ static G3DTexture *texture_from_surface(SDL_Surface *src) {
+                (size_t)rgba->w * 4);
+     }
+     SDL_FreeSurface(rgba);
+-    g3d_texture_upload_gpu(tex);
++    g3d_texture_defer_upload(tex);   /* uploaded by g3d_texture_flush_pending() */
+     return tex;
+ }
+ 
+@@ -185,8 +186,42 @@ static G3DTexture *load_file_texture(const char *path) {
+ 
+ /* Load a cgltf image to a G3DTexture, handling DDS (block-compressed, GPU-native)
+    and everything SDL2_image can decode (PNG/JPG/...), embedded or external. */
++static G3DTexture *load_image_texture_uncached(cgltf_image *img, const char *gltf_path);
++
++/* Texture cache for glTF images: the same model is often loaded several times
++   (scatter, scenes), and each load used to decode and upload every texture again.
++   Textures are never freed by g3d_gltf_free, so sharing them is safe. Only
++   successful loads are cached. Key: the image source (embedded: file + byte
++   offset/size; external: file + uri). */
++#define GLTF_TEX_CACHE_MAX 512
++typedef struct { char key[1024]; G3DTexture *tex; } GltfTexCacheEntry;
++static GltfTexCacheEntry g_gltf_tex_cache[GLTF_TEX_CACHE_MAX];
++static int g_gltf_tex_cache_count = 0;
++
+ static G3DTexture *load_image_texture(cgltf_image *img, const char *gltf_path) {
+     if (!img) return NULL;
++    char key[1024];
++    if (img->buffer_view) {
++        cgltf_buffer_view *bv = img->buffer_view;
++        snprintf(key, sizeof(key), "E|%s|%zu|%zu", gltf_path ? gltf_path : "", (size_t)bv->offset, (size_t)bv->size);
++    } else if (img->uri && strncmp(img->uri, "data:", 5) != 0) {
++        snprintf(key, sizeof(key), "F|%s|%s", gltf_path ? gltf_path : "", img->uri);
++    } else {
++        return load_image_texture_uncached(img, gltf_path);
++    }
++    for (int i = 0; i < g_gltf_tex_cache_count; i++)
++        if (strcmp(g_gltf_tex_cache[i].key, key) == 0) return g_gltf_tex_cache[i].tex;
++    G3DTexture *tex = load_image_texture_uncached(img, gltf_path);
++    if (tex && g_gltf_tex_cache_count < GLTF_TEX_CACHE_MAX) {
++        snprintf(g_gltf_tex_cache[g_gltf_tex_cache_count].key, sizeof(g_gltf_tex_cache[0].key), "%s", key);
++        g_gltf_tex_cache[g_gltf_tex_cache_count].tex = tex;
++        g_gltf_tex_cache_count++;
++    }
++    return tex;
++}
++
++static G3DTexture *load_image_texture_uncached(cgltf_image *img, const char *gltf_path) {
++    if (!img) return NULL;
+ 
+     /* Embedded in the .glb buffer: we have the raw bytes directly. */
+     if (img->buffer_view) {
+@@ -627,15 +662,23 @@ static void chunk_model(G3DMesh **pmeshes, void ***ptex, int *psub, float cell)
+    re-centered on X/Z and dropped to Y=0. Streamed world/map sectors need this:
+    their geometry is baked at absolute world positions, so re-centering each
+    sector to the origin would pile every sector on top of each other. */
++static double g3d_prof_now(void);
++#include <time.h>
++static double g3d_prof_now(void) {
++    struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
++    return (double)t.tv_sec * 1000.0 + (double)t.tv_nsec / 1e6;
++}
+ static int g_gltf_recenter = 1;
+ void g3d_gltf_set_recenter(int on) { g_gltf_recenter = on ? 1 : 0; }
+ 
+ static void model_recenter_upload_off(G3DMesh *meshes, int sub, float *out_off) {
+     if (sub <= 0)
+         return;
++    Uint32 r0 = SDL_GetTicks();
+     /* Recompute bounds first (vertices may have just been rotated by orient) */
+     for (int s = 0; s < sub; s++)
+         g3d_mesh_calculate_bounds(&meshes[s]);
++    printf("G3D: TIMING recenter.bounds1=%ums\n", (unsigned)(SDL_GetTicks() - r0));
+     float mn[3], mx[3];
+     for (int k = 0; k < 3; k++) { mn[k] = meshes[0].aabb_min[k]; mx[k] = meshes[0].aabb_max[k]; }
+     for (int s = 1; s < sub; s++) {
+@@ -646,19 +689,29 @@ static void model_recenter_upload_off(G3DMesh *meshes, int sub, float *out_off)
+     }
+     float off[3] = { -0.5f * (mn[0] + mx[0]), -mn[1], -0.5f * (mn[2] + mx[2]) };
+     if (!g_gltf_recenter) { off[0] = off[1] = off[2] = 0.0f; }   /* keep absolute coords (sectors) */
++    printf("G3D: TIMING recenter.bounds_and_range=%ums\n", (unsigned)(SDL_GetTicks() - r0));
++    double pt_add = 0, pt_bnd = 0, pt_up = 0; uint64_t pt_verts = 0;
+     for (int s = 0; s < sub; s++) {
+         G3DMesh *m = &meshes[s];
++        double q0 = g3d_prof_now();
+         for (uint32_t v = 0; v < m->vertex_count; v++) {
+             m->vertices[v].position[0] += off[0];
+             m->vertices[v].position[1] += off[1];
+             m->vertices[v].position[2] += off[2];
+         }
++        double q1 = g3d_prof_now();
+         g3d_mesh_calculate_bounds(m);
++        double q2 = g3d_prof_now();
+         if (m->gpu_uploaded)
+             g3d_mesh_update_gpu(m);   /* orient(): re-upload edited vertices */
+         else
+             g3d_mesh_upload_gpu(m);
++        double q3 = g3d_prof_now();
++        pt_add += q1 - q0; pt_bnd += q2 - q1; pt_up += q3 - q2; pt_verts += m->vertex_count;
+     }
++    printf("G3D: PROF recenter: %d meshes %llu verts: add=%.1fms bounds=%.1fms upload=%.1fms\n",
++           sub, (unsigned long long)pt_verts, pt_add, pt_bnd, pt_up);
++    printf("G3D: TIMING recenter.offset_and_upload=%ums\n", (unsigned)(SDL_GetTicks() - r0));
+     if (out_off) { out_off[0] = off[0]; out_off[1] = off[1]; out_off[2] = off[2]; }
+ }
+ 
+@@ -824,7 +877,43 @@ static int build_skeleton(cgltf_data *data, G3DModel *model) {
+     return 1;
+ }
+ 
++/* Shared models for scene placement: a map repeats the same prop hundreds of
++   times (MODEL / SCATTER lines), and each placement used to parse, decode and
++   upload the whole file again. Placement only reads meshes and textures, and
++   nothing on that path frees the model, so one load per path is enough. Do NOT
++   use this for models that carry per-instance animation state. */
++#define GLTF_SHARED_MAX 256
++static struct { char path[512]; G3DModel *model; } g_gltf_shared[GLTF_SHARED_MAX];
++static int g_gltf_shared_count = 0;
++
++G3DModel *g3d_gltf_load_impl_timed(const char *filepath);
+ G3DModel *g3d_gltf_load(const char *filepath) {
++    if (!filepath) return NULL;
++    for (int i = 0; i < g_gltf_shared_count; i++)
++        if (strcmp(g_gltf_shared[i].path, filepath) == 0) return g_gltf_shared[i].model;
++    Uint32 t0 = SDL_GetTicks();
++    G3DModel *m = g3d_gltf_load_impl_timed(filepath);
++    printf("G3D: TIMING gltf %s total=%ums\n", filepath, (unsigned)(SDL_GetTicks() - t0));
++    /* Only static props are shared: an animated model keeps per-model playback
++       state, so two instances would fight over it. Those load fresh each time. */
++    if (m && m->animation_count == 0 && m->joint_count == 0 && g_gltf_shared_count < GLTF_SHARED_MAX) {
++        snprintf(g_gltf_shared[g_gltf_shared_count].path, sizeof(g_gltf_shared[0].path), "%s", filepath);
++        g_gltf_shared[g_gltf_shared_count].model = m;
++        g_gltf_shared_count++;
++    }
++    return m;
++}
++
++static Uint32 g_ph_last = 0;
++static void gltf_ph_reset(void) { g_ph_last = SDL_GetTicks(); }
++static void gltf_ph(const char *name) {
++    Uint32 n = SDL_GetTicks();
++    printf("G3D: TIMING gltf.%s=%ums\n", name, (unsigned)(n - g_ph_last));
++    g_ph_last = n;
++}
++
++G3DModel *g3d_gltf_load_impl_timed(const char *filepath) {
++    gltf_ph_reset();
+     if (!filepath)
+         return NULL;
+ 
+@@ -836,6 +925,7 @@ G3DModel *g3d_gltf_load(const char *filepath) {
+         fprintf(stderr, "G3D: glTF parse failed: %s\n", filepath);
+         return NULL;
+     }
++    gltf_ph("parse");
+     if (cgltf_load_buffers(&options, data, filepath) != cgltf_result_success) {
+         fprintf(stderr, "G3D: glTF buffer load failed: %s\n", filepath);
+         cgltf_free(data);
+@@ -881,13 +971,19 @@ G3DModel *g3d_gltf_load(const char *filepath) {
+     unsigned char *outline = (unsigned char *)calloc(max_sub, 1);
+     int sub = 0;
+ 
++    gltf_ph("buffers");
++    double pf_build = 0, pf_tex = 0;
+     for (cgltf_size m = 0; m < data->materials_count; m++) {
++        double z0 = g3d_prof_now();
+         G3DMesh *sm = build_submesh(data, &data->materials[m], NULL, anim_flag, 0);
++        pf_build += g3d_prof_now() - z0;
+         if (!sm)
+             continue;
+         meshes[sub] = *sm;           /* copy mesh struct into the array */
+         free(sm);
++        z0 = g3d_prof_now();
+         textures[sub] = gltf_load_base_color(&data->materials[m], filepath);
++        pf_tex += g3d_prof_now() - z0;
+         if (outline) outline[sub] = (unsigned char)gltf_is_outline_material(&data->materials[m]);
+         sub++;
+     }
+@@ -939,7 +1035,10 @@ G3DModel *g3d_gltf_load(const char *filepath) {
+                diag/6 measured on Bistro at street level: finer cells buy almost
+                no extra triangle savings (-16% at diag/6 vs -20% at diag/12) but
+                cost far more draw calls (341 vs 586). Coarse wins. */
+-            cell = (diag > 40.0f) ? (diag / 6.0f) : 0.0f;
++            /* Threshold raised from 40 to 150: props this size (pirate_ship,
++               medieval_house) were chunked into 6x6 pieces and each piece was
++               uploaded separately, which dominated load time on PS5. */
++            cell = (diag > 150.0f) ? (diag / 6.0f) : 0.0f;
+         }
+         if (cell > 0.0f) {
+             chunk_model(&meshes, &textures, &sub, cell);
+@@ -952,11 +1051,14 @@ G3DModel *g3d_gltf_load(const char *filepath) {
+         }
+     }
+ 
++    printf("G3D: PROF gltf %s: build_submesh=%.1fms base_color_textures=%.1fms\n", filepath, pf_build, pf_tex);
++    gltf_ph("submeshes_and_chunk");
+     /* Center on X/Z, rest on Y=0, upload. Capture the offset so skinned models
+        (whose bind_pos stays un-offset) can re-apply it after skinning. */
+     float off[3] = {0, 0, 0};
+     model_recenter_upload_off(meshes, sub, off);
+ 
++    gltf_ph("recenter_upload");
+     /* Build one LOCAL-space submesh per animated node (after recenter so it is
+        NOT baked/offset). Its AABB is stored in model space (rest node world +
+        off) so frustum culling still works; the renderer applies node_global
+@@ -1003,6 +1105,7 @@ G3DModel *g3d_gltf_load(const char *filepath) {
+     strncpy(model->filepath, filepath, sizeof(model->filepath) - 1);
+ 
+     /* Skeleton + animations (while cgltf data is still alive) */
++    gltf_ph("anim_nodes_pre_skeleton");
+     if (build_skeleton(data, model)) {
+         model->skin_offset[0] = off[0];
+         model->skin_offset[1] = off[1];
+@@ -1014,6 +1117,9 @@ G3DModel *g3d_gltf_load(const char *filepath) {
+            meshes[0].aabb_max[1] - meshes[0].aabb_min[1],
+            model->animation_count, model->joint_count);
+ 
++    gltf_ph("skeleton_and_nodes");
++    g3d_texture_flush_pending();   /* GL handles for every texture queued above */
++    gltf_ph("texture_flush");
+     cgltf_free(data);
+     return model;
+ }
+@@ -1096,10 +1202,14 @@ G3DModel *g3d_gltf_load_fractured(const char *filepath) {
+     printf("G3D: glTF loaded (fractured): %s (%d chunks, materials=%d)\n",
+            filepath, sub, mc);
+ 
++    g3d_texture_flush_pending();   /* GL handles for every texture queued above */
+     cgltf_free(data);
+     return model;
+ }
+ 
++
++G3DModel *g3d_gltf_load_shared(const char *filepath) { return g3d_gltf_load(filepath); }
++
+ void g3d_gltf_free(G3DModel *model) {
+     if (!model)
+         return;
+diff --git a/libmod_3d_gltf.h b/libmod_3d_gltf.h
+index a3bab53..5ba0f16 100644
+--- a/libmod_3d_gltf.h
++++ b/libmod_3d_gltf.h
+@@ -42,6 +42,9 @@ extern "C" {
+  *   }
+  */
+ G3DModel *g3d_gltf_load(const char *filepath);
++/* Same as g3d_gltf_load, but one shared model per path (for map placement;
++   see libmod_3d_gltf.c). Never free the result. */
++G3DModel *g3d_gltf_load_shared(const char *filepath);
+ 
+ /* Toggle X/Z re-centering of loaded models (default on). Turn OFF before loading
+    world/map sectors whose geometry is baked at absolute world coordinates. */
+diff --git a/libmod_3d_ibl.c b/libmod_3d_ibl.c
+index a9012c6..f74224a 100644
+--- a/libmod_3d_ibl.c
++++ b/libmod_3d_ibl.c
+@@ -18,8 +18,11 @@
+ #include "libmod_3d_math.h"
+ #include <stdio.h>
+ #include <stdlib.h>
++
+ #include <math.h>
+ 
++#include <SDL.h>
++
+ #ifndef VITA
+ #define GL_GLEXT_PROTOTYPES
+ #include <GL/gl.h>
+@@ -272,6 +275,7 @@ static void make_cubemap(GLuint *tex, int size, int mips) {
+ }
+ 
+ static int ibl_init(void) {
++    Uint32 ibl_t0 = SDL_GetTicks();
+     if (g_ibl.initialized)
+         return 1;
+ 
+@@ -283,6 +287,7 @@ static int ibl_init(void) {
+         return 0;
+     }
+ 
++    printf("G3D: TIMING ibl.shaders=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     glGenVertexArrays(1, &g_ibl.cube_vao);
+     glGenBuffers(1, &g_ibl.cube_vbo);
+     glBindVertexArray(g_ibl.cube_vao);
+@@ -300,10 +305,14 @@ static int ibl_init(void) {
+     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+     glBindVertexArray(0);
+ 
++    printf("G3D: TIMING ibl.buffers=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     make_cubemap(&g_ibl.env_cube, ENV_SIZE, 1);
++    printf("G3D: TIMING ibl.env_cube=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     make_cubemap(&g_ibl.irr_cube, IRR_SIZE, 0);
++    printf("G3D: TIMING ibl.irr_cube=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     make_cubemap(&g_ibl.pref_cube, PREF_SIZE, 1);
+ 
++    printf("G3D: TIMING ibl.pref_cube=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     glGenTextures(1, &g_ibl.brdf_lut);
+     glBindTexture(GL_TEXTURE_2D, g_ibl.brdf_lut);
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, BRDF_SIZE, BRDF_SIZE, 0, GL_RG, GL_FLOAT, NULL);
+@@ -312,6 +321,7 @@ static int ibl_init(void) {
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+ 
++    printf("G3D: TIMING ibl.brdf_tex=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     glGenFramebuffers(1, &g_ibl.fbo);
+ 
+     /* The BRDF LUT depends on nothing but the BRDF: bake it once. */
+@@ -333,6 +343,7 @@ static int ibl_init(void) {
+     glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+ 
+     g_ibl.initialized = 1;
++    printf("G3D: TIMING ibl_init=%ums\n", (unsigned)(SDL_GetTicks() - ibl_t0));
+     printf("G3D: IBL initialised (env %d², irradiance %d², prefilter %d² x%d mips, BRDF LUT %d²)\n",
+            ENV_SIZE, IRR_SIZE, PREF_SIZE, PREF_MIPS, BRDF_SIZE);
+     return 1;
+diff --git a/libmod_3d_instance.c b/libmod_3d_instance.c
+index 122b28c..9a87d94 100644
+--- a/libmod_3d_instance.c
++++ b/libmod_3d_instance.c
+@@ -120,7 +120,17 @@ static const char *inst_depth_frag =
+ 
+ /* ---- GPU-skinned instanced shaders (bind pose + per-vertex joints/weights,
+    per-instance matrix in 3..6, bone matrices in uBones). Reuses inst_frag. ---- */
++/* PS5's GL caps a vertex shader at 1024 default-uniform components (256 vec4);
++   uBones is mat4[N] = 4N vec4, so it must stay well under that there. */
++#ifdef __PROSPERO__
++#define INST_MAX_BONES 60
++#else
+ #define INST_MAX_BONES 100
++#endif
++#ifndef G3D_STR
++#define G3D_STR_(x) #x
++#define G3D_STR(x) G3D_STR_(x)
++#endif
+ static const char *inst_skin_vert =
+     "#version 330 core\n"
+     "layout(location=0) in vec3 position;\n"
+@@ -133,7 +143,7 @@ static const char *inst_skin_vert =
+     "layout(location=7) in vec4 joints;\n"
+     "layout(location=8) in vec4 weights;\n"
+     "uniform mat4 uView; uniform mat4 uProjection;\n"
+-    "uniform mat4 uBones[100]; uniform vec3 uSkinOffset; uniform int uBoneCount;\n"
++    "uniform mat4 uBones[" G3D_STR(INST_MAX_BONES) "]; uniform vec3 uSkinOffset; uniform int uBoneCount;\n"
+     "out vec3 vN; out vec2 vUV; out vec3 vWP;\n"
+     "void main(){\n"
+     "  mat4 M = mat4(iM0,iM1,iM2,iM3);\n"
+@@ -159,7 +169,7 @@ static const char *inst_skin_depth_vert =
+     "layout(location=7) in vec4 joints;\n"
+     "layout(location=8) in vec4 weights;\n"
+     "uniform mat4 uLightSpace;\n"
+-    "uniform mat4 uBones[100]; uniform vec3 uSkinOffset; uniform int uBoneCount;\n"
++    "uniform mat4 uBones[" G3D_STR(INST_MAX_BONES) "]; uniform vec3 uSkinOffset; uniform int uBoneCount;\n"
+     "void main(){\n"
+     "  mat4 M = mat4(iM0,iM1,iM2,iM3);\n"
+     "  float ws = weights.x+weights.y+weights.z+weights.w;\n"
+@@ -666,9 +676,9 @@ void g3d_instances_render_depth(Mat4 light_space) {
+         ensure_all_uploaded(gr);
+         if (gr->skinned && gr->skin_model) {
+             g3d_shader_use(g_inst.skin_depth_shader);
+-            g3d_shader_set_mat4_array(g_inst.skin_depth_shader, "uBones", gr->skin_model->joint_matrix, gr->skin_model->joint_count);
++            g3d_shader_set_mat4_array(g_inst.skin_depth_shader, "uBones", gr->skin_model->joint_matrix, gr->skin_model->joint_count < INST_MAX_BONES ? gr->skin_model->joint_count : INST_MAX_BONES);
+             g3d_shader_set_vec3(g_inst.skin_depth_shader, "uSkinOffset", vec3_make(gr->skin_model->skin_offset[0], gr->skin_model->skin_offset[1], gr->skin_model->skin_offset[2]));
+-            g3d_shader_set_int(g_inst.skin_depth_shader, "uBoneCount", gr->skin_model->joint_count);
++            g3d_shader_set_int(g_inst.skin_depth_shader, "uBoneCount", gr->skin_model->joint_count < INST_MAX_BONES ? gr->skin_model->joint_count : INST_MAX_BONES);
+         } else {
+             g3d_shader_use(g_inst.depth_shader);
+             g3d_shader_set_float(g_inst.depth_shader, "uWind", gr->wind);
+@@ -853,9 +863,9 @@ subir_al_gpu:
+             if (gr->tex) { glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, gr->tex); g3d_shader_set_int(sp, "uTex", 0); g3d_shader_set_int(sp, "uHasTex", 1); }
+             else g3d_shader_set_int(sp, "uHasTex", 0);
+             if (gr->skinned && gr->skin_model) {
+-                g3d_shader_set_mat4_array(sp, "uBones", gr->skin_model->joint_matrix, gr->skin_model->joint_count);
++                g3d_shader_set_mat4_array(sp, "uBones", gr->skin_model->joint_matrix, gr->skin_model->joint_count < INST_MAX_BONES ? gr->skin_model->joint_count : INST_MAX_BONES);
+                 g3d_shader_set_vec3(sp, "uSkinOffset", vec3_make(gr->skin_model->skin_offset[0], gr->skin_model->skin_offset[1], gr->skin_model->skin_offset[2]));
+-                g3d_shader_set_int(sp, "uBoneCount", gr->skin_model->joint_count);
++                g3d_shader_set_int(sp, "uBoneCount", gr->skin_model->joint_count < INST_MAX_BONES ? gr->skin_model->joint_count : INST_MAX_BONES);
+             } else g3d_shader_set_float(sp, "uWind", gr->wind);
+             glDrawElementsInstanced(GL_TRIANGLES, gr->mesh->index_count, GL_UNSIGNED_INT, 0, vis);
+             g3d_renderer_add_stats(1, (gr->mesh->index_count / 3) * (uint32_t)vis);
+diff --git a/libmod_3d_mesh.c b/libmod_3d_mesh.c
+index 0157ec6..890ae61 100644
+--- a/libmod_3d_mesh.c
++++ b/libmod_3d_mesh.c
+@@ -10,6 +10,7 @@
+ #include <string.h>
+ #include <stddef.h>
+ #include <math.h>
++#include <SDL.h>
+ 
+ #ifndef VITA
+ #define GL_GLEXT_PROTOTYPES
+@@ -106,20 +107,30 @@ void g3d_mesh_calculate_bounds(G3DMesh *mesh) {
+    ============================================================================
+  */
+ 
++#include <time.h>
++static double g3d_mesh_prof_now(void) {
++    struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
++    return (double)t.tv_sec * 1000.0 + (double)t.tv_nsec / 1e6;
++}
+ int g3d_mesh_upload_gpu(G3DMesh *mesh) {
+     if (!mesh || mesh->gpu_uploaded)
+         return 1;  /* Already uploaded */
++    Uint32 up_t0 = SDL_GetTicks();
++    double T[8]; int ti = 0; T[ti++] = g3d_mesh_prof_now();
+ 
+ #ifndef VITA
+     /* Create VAO */
+     glGenVertexArrays(1, &mesh->vao);
+     glBindVertexArray(mesh->vao);
++    T[ti++] = g3d_mesh_prof_now();   /* 1: after genVAO+bindVAO */
+ 
+     /* Create VBO (vertex buffer) */
+     glGenBuffers(1, &mesh->vbo);
+     glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
++    T[ti++] = g3d_mesh_prof_now();   /* 2: after genBuffer+bind */
+     glBufferData(GL_ARRAY_BUFFER, mesh->vertex_count * sizeof(G3DVertex),
+                  mesh->vertices, GL_STATIC_DRAW);
++    T[ti++] = g3d_mesh_prof_now();   /* 3: after VBO glBufferData */
+ 
+     /* Vertex attributes */
+     /* Position (location 0) */
+@@ -139,15 +150,22 @@ int g3d_mesh_upload_gpu(G3DMesh *mesh) {
+ 
+     /* Create EBO (element buffer) */
+     glGenBuffers(1, &mesh->ebo);
++    T[ti++] = g3d_mesh_prof_now();   /* 4: after attribs */
+     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ebo);
+     glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->index_count * sizeof(uint32_t),
+                  mesh->indices, GL_STATIC_DRAW);
++    T[ti++] = g3d_mesh_prof_now();   /* 5: after EBO glBufferData */
+ 
+     /* Unbind VAO */
+     glBindVertexArray(0);
++    T[ti++] = g3d_mesh_prof_now();   /* 6: end */
++    { static int n = 0; if (n++ < 12) printf("G3D: PROF upload#%d v=%u i=%u: vao=%.1f genbuf=%.1f vbo=%.1f attribs=%.1f ebo=%.1f unbind=%.1f ms\n", n, mesh->vertex_count, mesh->index_count, T[1]-T[0], T[2]-T[1], T[3]-T[2], T[4]-T[3], T[5]-T[4], T[6]-T[5]); }
+ 
+     mesh->gpu_uploaded = 1;
+ 
++    printf("G3D: TIMING upload v=%u i=%u bytes=%u ms=%u\n", mesh->vertex_count, mesh->index_count,
++           (unsigned)(mesh->vertex_count * sizeof(G3DVertex) + mesh->index_count * sizeof(uint32_t)),
++           (unsigned)(SDL_GetTicks() - up_t0));
+     printf("G3D: Mesh uploaded to GPU (VAO=%u, VBO=%u, EBO=%u)\n", mesh->vao,
+            mesh->vbo, mesh->ebo);
+ 
+diff --git a/libmod_3d_renderer.c b/libmod_3d_renderer.c
+index 62d5f1c..ddeea0d 100644
+--- a/libmod_3d_renderer.c
++++ b/libmod_3d_renderer.c
+@@ -4,6 +4,7 @@
+  * Core rendering: frustum culling, shadow pass, forward rendering
+  */
+ 
++static int g3d_dev_cfg(const char *key, int def);
+ #include "libmod_3d_renderer.h"
+ #include "libmod_3d_sprite.h"
+ #include "libmod_3d_glcaps.h"
+@@ -47,6 +48,10 @@
+ #define GL_GLEXT_PROTOTYPES
+ #include <GL/gl.h>
+ #include <GL/glext.h>
++
++#ifdef __PROSPERO__
++#include <stdio.h>
++#endif
+ #endif
+ 
+ /* ============================================================================
+@@ -221,6 +226,8 @@ int g3d_renderer_init(uint32_t width, uint32_t height) {
+     g_renderer.initialized = 1;
+ 
+ #ifndef VITA
++    { int mt_ = g3d_dev_cfg("maxtier", -1); if (mt_ >= 0) g3d_glcaps_set_max_tier(mt_); }
++    if (g3d_dev_cfg("renderscale_pct", 0)) g3d_renderer_set_render_scale(g3d_dev_cfg("renderscale_pct", 0) / 100.0f);
+     g3d_glcaps_print();   /* GL version, feature flags and the chosen quality tier */
+ #endif
+     printf("G3D: Renderer initialized\n");
+@@ -317,6 +324,7 @@ void g3d_renderer_set_viewport_size(uint32_t w, uint32_t h) {
+    1.0 = native. Only useful with an upscaler enabled (see libmod_3d_fsr.c),
+    otherwise the image is just stretched. */
+ void g3d_renderer_set_render_scale(float scale) {
++    if (g3d_dev_cfg("renderscale_pct", 0)) scale = g3d_dev_cfg("renderscale_pct", 0) / 100.0f;
+     if (scale <= 0.0f || scale > 1.0f) scale = 1.0f;
+     g_renderer.render_scale = scale;
+     update_render_size();
+@@ -343,13 +351,45 @@ void g3d_renderer_set_viewport_physical(uint32_t x, uint32_t y, uint32_t w, uint
+     g_renderer.vp_h = h;
+ }
+ 
++/* ---- Dev tuning file: /app0/data/g3d.cfg, lines "key=value" (read once). Lets us
++   try quality/perf variants on the console by uploading a text file instead of a
++   new build. Missing file or key = default (feature unchanged). ---- */
++static int g3d_dev_cfg(const char *key, int def) {
++    static int loaded = 0, n = 0;
++    static char keys[16][24]; static int vals[16];
++    if (!loaded) {
++        loaded = 1;
++        FILE *f = fopen("/app0/data/g3d.cfg", "rb");
++        if (f) {
++            char line[96];
++            while (n < 16 && fgets(line, sizeof line, f)) {
++                char *eq = strchr(line, '=');
++                if (!eq || line[0] == '#') continue;
++                *eq = 0;
++                snprintf(keys[n], sizeof keys[n], "%s", line);
++                vals[n] = atoi(eq + 1);
++                printf("G3D: cfg %s=%d\n", keys[n], vals[n]);
++                n++;
++            }
++            fclose(f);
++        }
++    }
++    for (int i = 0; i < n; i++) if (!strcmp(keys[i], key)) return vals[i];
++    return def;
++}
++
++int g3d_dev_cfg_pub(const char *key, int def) { return g3d_dev_cfg(key, def); }
++
+ void g3d_renderer_enable_shadows(int enabled, uint32_t resolution) {
++    if (g3d_dev_cfg("noshadow", 0)) enabled = 0;
++    if (g3d_dev_cfg("shadow_res", 0)) resolution = (uint32_t)g3d_dev_cfg("shadow_res", 0);
+     g_renderer.shadow_enabled = enabled;
+     g_renderer.shadow_map_width = resolution;
+     g_renderer.shadow_map_height = resolution;
+ }
+ 
+ void g3d_renderer_set_shadows(int enabled) {
++    if (g3d_dev_cfg("noshadow", 0)) enabled = 0;
+     g_renderer.shadow_enabled = enabled;
+ }
+ 
+@@ -359,6 +399,7 @@ void g3d_renderer_set_shadows(int enabled) {
+    almacenamiento mutable (se creo con glTexImage2D), asi que basta reasignarla al
+    nuevo tamano; el framebuffer sigue apuntando a la misma id. */
+ void g3d_renderer_set_shadow_resolution(uint32_t resolution) {
++    if (g3d_dev_cfg("shadow_res", 0)) resolution = (uint32_t)g3d_dev_cfg("shadow_res", 0);
+     if (resolution < 512) resolution = 512;
+     if (resolution > 8192) resolution = 8192;
+     if (resolution == g_renderer.shadow_map_width) return;
+@@ -539,6 +580,11 @@ void g3d_renderer_begin_frame(void) {
+ }
+ 
+ void g3d_renderer_shadow_pass(void) {
++    {   /* dev tuning: refresh the sun shadow map only every Nth frame (map + matrix are kept) */
++        static unsigned int n_ = 0;
++        int ev_ = g3d_dev_cfg("shadow_every", 1);
++        if (ev_ > 1 && (n_++ % (unsigned)ev_)) return;
++    }
+     if (!g_renderer.initialized || !g_renderer.shadow_enabled)
+         return;
+ 
+@@ -620,6 +666,11 @@ void g3d_renderer_shadow_pass(void) {
+ /* Render scene depth from the first spot light's point of view, so its lit cone
+    can be tested for occlusion (moving shadows that follow the flashlight). */
+ void g3d_renderer_spot_shadow_pass(void) {
++    {   /* same for the torch/spot shadow maps (the caster list is kept between refreshes) */
++        static unsigned int n_ = 0;
++        int ev_ = g3d_dev_cfg("spotshadow_every", 1);
++        if (ev_ > 1 && (n_++ % (unsigned)ev_)) return;
++    }
+     g_renderer.num_shadow_casters = 0;
+     if (!g_renderer.initialized || !g_renderer.shadow_enabled)
+         return;
+@@ -639,9 +690,9 @@ void g3d_renderer_spot_shadow_pass(void) {
+         float dd;
+         if (l->type == G3D_LIGHT_TYPE_SPOT) dd = -1.0f;   /* spots always included */
+         else { Vec3 v = vec3_sub(l->position, cam); dd = v.x*v.x + v.y*v.y + v.z*v.z; }
+-        if (ncand < 4) { cand_id[ncand] = light_ids[i]; cand_d[ncand] = dd; ncand++; }
++        if (ncand < G3D_MAX_SC) { cand_id[ncand] = light_ids[i]; cand_d[ncand] = dd; ncand++; }
+         else {
+-            int worst = 0; for (int k = 1; k < 4; k++) if (cand_d[k] > cand_d[worst]) worst = k;
++            int worst = 0; for (int k = 1; k < G3D_MAX_SC; k++) if (cand_d[k] > cand_d[worst]) worst = k;
+             if (dd < cand_d[worst]) { cand_id[worst] = light_ids[i]; cand_d[worst] = dd; }
+         }
+     }
+@@ -746,9 +797,16 @@ uint32_t g3d_renderer_capture_scene(void) {
+     }
+     glBindTexture(GL_TEXTURE_2D, g_renderer.scene_texture);
+     /* Copy the current colour buffer (the opaque scene) into the texture. */
+-    if (w != g_renderer.scene_tex_w || h != g_renderer.scene_tex_h) {
+-        glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, cx, cy, (GLsizei)w, (GLsizei)h, 0);
++    /* The source is the RGBA16F HDR buffer when HDR is on. Copying it into an
++       8-bit RGB texture is a format conversion the PS5 driver does on the CPU
++       (a 1080p "software-blit", ~140 ms/frame); a matching RGBA16F destination
++       is a plain GPU copy. */
++    GLenum cap_fmt = (g_renderer.hdr_active && g_renderer.hdr_ready && !g3d_dev_cfg("capfmt_rgb", 0)) ? GL_RGBA16F : GL_RGB;
++    static GLenum last_cap_fmt = 0;
++    if (w != g_renderer.scene_tex_w || h != g_renderer.scene_tex_h || cap_fmt != last_cap_fmt) {
++        glCopyTexImage2D(GL_TEXTURE_2D, 0, cap_fmt, cx, cy, (GLsizei)w, (GLsizei)h, 0);
+         g_renderer.scene_tex_w = w; g_renderer.scene_tex_h = h;
++        last_cap_fmt = cap_fmt;
+     } else {
+         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, cx, cy, (GLsizei)w, (GLsizei)h);
+     }
+@@ -936,8 +994,21 @@ static void ensure_hdr_targets(uint32_t w, uint32_t h) {
+     g_renderer.hdr_ready = 1;
+ }
+ 
++extern int gr_clear_was_deferred;
++/* The screen clear libbggfx skipped at the start of this frame (see g_frame.c). */
++static void g3d_screen_clear_if_deferred(void) {
++    if (!gr_clear_was_deferred) return;
++    gr_clear_was_deferred = 0;
++    glBindFramebuffer(GL_FRAMEBUFFER, g_renderer.target_fbo);
++    glDisable(GL_SCISSOR_TEST);
++    glViewport(0, 0, g_renderer.display_width, g_renderer.display_height);
++    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
++    glClear(GL_COLOR_BUFFER_BIT);
++}
++
+ void g3d_renderer_resolve_hdr(void) {
+     if (!g_renderer.hdr_active || !g_renderer.hdr_ready) return;
++    g3d_screen_clear_if_deferred();
+     if (!g_renderer.tonemap_shader) {
+         g_renderer.tonemap_shader = g3d_shader_create(post_vert, hdr_resolve_frag);
+         g_renderer.bright_shader  = g3d_shader_create(post_vert, hdr_bright_frag);
+@@ -1596,10 +1667,54 @@ void g3d_renderer_end_frame(void) {
+ #endif
+ }
+ 
++/* Cheap per-pass CPU timing: G3D_STG(name) charges the time since the previous
++   mark to `name`; the table is printed once every 120 frames (one printf, no GL
++   calls). Compile with -DG3D_STAGE_TRACE for the old glGetError-per-pass trace. */
++#include <time.h>
++static int g_stg_frame = 0;
++#ifdef G3D_STAGE_TRACE
++void g3d_prof_mark_pub(const char *name) { (void)name; }
++#define G3D_STG(n) do { if (g_stg_frame < 3) { GLenum e_ = glGetError(); printf("G3D: STAGE f%d %s glerr=0x%x\n", g_stg_frame, n, (unsigned)e_); } } while (0)
++#else
++#define G3D_STG_MAX 40
++static const char *g_stg_name[G3D_STG_MAX]; static double g_stg_acc[G3D_STG_MAX]; static int g_stg_n = 0;
++static double g_stg_last = 0, g_stg_t0 = 0;
++static double g_stg_now(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1000.0 + (double)t.tv_nsec / 1e6; }
++static int g_stg_fin = -1;
++#define G3D_STG(n) do { static int idx_ = -1; \
++    if (g_stg_fin < 0) g_stg_fin = g3d_dev_cfg("gpufinish", 0); \
++    if (g_stg_fin) glFinish(); \
++    double t_ = g_stg_now(); \
++    if (idx_ < 0 && g_stg_n < G3D_STG_MAX) { idx_ = g_stg_n++; g_stg_name[idx_] = n; } \
++    if (idx_ >= 0) g_stg_acc[idx_] += t_ - g_stg_last; g_stg_last = t_; } while (0)
++void g3d_prof_mark_pub(const char *name) {
++    int idx = -1;
++    for (int i = 0; i < g_stg_n; i++) if (g_stg_name[i] == name) { idx = i; break; }
++    double t = g_stg_now();
++    if (idx < 0 && g_stg_n < G3D_STG_MAX) { idx = g_stg_n++; g_stg_name[idx] = name; }
++    if (idx >= 0 && g_stg_last > 0) g_stg_acc[idx] += t - g_stg_last;
++    g_stg_last = t;
++}
++static void g_stg_report(void) {
++    double now = g_stg_now(), el = now - g_stg_t0;
++    printf("G3D: PERF %.1f fps (%.1f ms/frame) |", 120000.0 / el, el / 120.0);
++    for (int i = 0; i < g_stg_n; i++) { if (g_stg_acc[i] / 120.0 >= 0.05) printf(" %s=%.2f", g_stg_name[i], g_stg_acc[i] / 120.0); g_stg_acc[i] = 0; }
++    { extern unsigned int g3d_uloc_gl_calls, g3d_uloc_full; static unsigned int last_ = 0;
++      printf(" | glGetUniformLocation/frame=%.1f cache_full_misses=%u", (g3d_uloc_gl_calls - last_) / 120.0, g3d_uloc_full); last_ = g3d_uloc_gl_calls; }
++    printf("\n"); g_stg_t0 = now;
++}
++#endif
+ void g3d_renderer_render(void) {
++#ifndef G3D_STAGE_TRACE
++    if (g_stg_frame == 0) { g_stg_t0 = g_stg_now(); g_stg_last = g_stg_t0; }
++    G3D_STG("OUTSIDE_3d(script+2d+present)");   /* time since the previous frame's render ended */
++#endif
+     g3d_renderer_begin_frame();
++    G3D_STG("r_begin_frame");
+     g3d_renderer_shadow_pass();
++    G3D_STG("r_shadow_pass");
+     g3d_renderer_spot_shadow_pass();
++    G3D_STG("r_spot_shadow_pass");
+     if (g3d_water_reflection_enabled()) {
+         g3d_renderer_reflection_pass_plane(0.0f, g3d_water_get_level(), 0.0f,
+                                            0.0f, 1.0f, 0.0f,
+@@ -1609,40 +1724,53 @@ void g3d_renderer_render(void) {
+     }
+     /* Visible/near mirrors render the scene mirrored into their textures */
+     g3d_mirror_render_reflections(g_renderer.active_camera);
++    G3D_STG("g3d_mirror_render_reflections");
+     g3d_renderer_forward_pass();
++    G3D_STG("r_forward_pass");
+     /* Instanced vegetation/props (opaque, one draw call per group) */
+     g3d_instances_render_all(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_instances_render_all");
+     /* Sprites 2D del mundo (personajes estilo HD-2D): van en el pase OPACO, con
+        recorte alfa, para que tapen y sean tapados por la geometria sin ordenar. */
+     g3d_sprites_render(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_sprites_render");
+     /* Depth now holds the opaque occluders: test every entity's box against it
+        so the next frame can skip whatever is fully hidden. */
+     {
+         int occ_n = 0;
+         int *occ_e = g3d_scene_impl_get_entities(&occ_n);
+         g3d_occlusion_pass(g_renderer.active_camera, occ_e, occ_n, g_renderer.flip_y);
++    G3D_STG("g3d_occlusion_pass");
+     }
+     /* Sky fills the background after opaque geometry (depth LEQUAL, far plane) */
+     g3d_sky_render_pass(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_sky_render_pass");
+     /* Mirror surfaces (opaque) sample their reflection textures */
+     g3d_mirror_render_surfaces(g_renderer.active_camera, g_renderer.flip_y);
+     /* SSAO from the opaque depth (before transparent water) -> applied in the resolve */
+     g3d_renderer_ssao_pass();
++    G3D_STG("r_ssao_pass");
+     /* World-space volumetric low clouds (fly-through), composited over opaque + sky */
+     g3d_renderer_cloud_pass();
++    G3D_STG("r_cloud_pass");
+     /* Semi-transparent entities (alpha blended) AFTER opaque + sky so they aren't
+        repainted by the sky where there's no opaque geometry behind them. */
+     g3d_renderer_transparent_pass();
++    G3D_STG("r_transparent_pass");
+     /* Transparent water + flows after the opaque pass (same Y-flip for GRAPH).
+        Grab the opaque scene first so the water can refract it. */
+     g3d_water_tick();   /* re-emit ripples at registered sources (river mouths) */
+     g3d_water_update_underwater(g_renderer.active_camera); /* camera-submerged? */
+-    if (g3d_water_is_enabled() || g3d_fluid_count() > 0 || g3d_watersim_active() || g3d_voxwater_active()) {
++    if (!g3d_dev_cfg("nocapture", 0) && (g3d_water_is_enabled() || g3d_fluid_count() > 0 || g3d_watersim_active() || g3d_voxwater_active())) {
+         g3d_renderer_capture_scene();
++        G3D_STG("capture_scene");
+         g3d_renderer_capture_depth();   /* for screen-space reflections in the water */
++        G3D_STG("capture_depth");
+     }
+-    g3d_water_render_pass(g_renderer.active_camera, g_renderer.flip_y);
++    if (!g3d_dev_cfg("nowater", 0)) g3d_water_render_pass(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_water_render_pass");
+     g3d_fluid_render_pass(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_fluid_render_pass");
+     /* live height-field water sim (unified lakes+rivers): advance + draw.
+        On voxel terrain the 3D voxel water owns everything -> don't draw the 2.5D. */
+     if (g3d_watersim_active() && !g3d_voxterrain_active()) {
+@@ -1652,11 +1780,13 @@ void g3d_renderer_render(void) {
+         wsim_last = now;
+         if (dt > 0.1f) dt = 0.1f;
+         g3d_watersim_step(dt);
++    G3D_STG("watersim_step");
+         /* Droplets at the foot of the falls and off anything solid standing in
+            moving water. Before the particle pass below, so they are drawn the
+            same frame they are born. */
+         g3d_water_splash_tick(dt);
+         g3d_watersim_render(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("watersim_render");
+     }
+     /* 3D voxel water (fills caves, waterfalls): advance + draw */
+     if (g3d_voxwater_active()) {
+@@ -1669,11 +1799,21 @@ void g3d_renderer_render(void) {
+         g3d_voxwater_render(g_renderer.active_camera, g_renderer.flip_y);
+     }
+     g3d_flow_render_pass(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_flow_render_pass");
+     g3d_particles_update_render(g_renderer.active_camera, g_renderer.flip_y);
++    G3D_STG("g3d_particles_update_render");
+     g3d_fire_render(g_renderer.active_camera, g_renderer.flip_y);   /* torch/campfire flames */
++    G3D_STG("fire");
+     g3d_renderer_underwater_pass();   /* fullscreen tint+wobble if camera is submerged */
++    G3D_STG("underwater");
+     g3d_renderer_resolve_hdr();       /* HDR + bloom -> host FBO (no-op if HDR off) */
++    G3D_STG("resolve_hdr");
+     g3d_renderer_end_frame();
++    G3D_STG("r_end_frame");
++    g_stg_frame++;
++#ifndef G3D_STAGE_TRACE
++    if (g_stg_frame % 120 == 0) g_stg_report();
++#endif
+ }
+ 
+ /* ============================================================================
+diff --git a/libmod_3d_scatter.c b/libmod_3d_scatter.c
+index 91a9bee..e92f517 100644
+--- a/libmod_3d_scatter.c
++++ b/libmod_3d_scatter.c
+@@ -68,7 +68,7 @@ static G3DModel *sc_load_model(const char *asset) {
+     const char *dot = strrchr(asset, '.');
+     if (dot && (strcmp(dot, ".fbx") == 0 || strcmp(dot, ".FBX") == 0))
+         return g3d_fbx_load(path);
+-    return g3d_gltf_load(path);
++    return g3d_gltf_load_shared(path);
+ }
+ 
+ /* Une varias submallas en una sola. Un modelo descargado viene partido por
+diff --git a/libmod_3d_scenefile.c b/libmod_3d_scenefile.c
+index 371a0f4..37fdc12 100644
+--- a/libmod_3d_scenefile.c
++++ b/libmod_3d_scenefile.c
+@@ -151,7 +151,7 @@ static int make_mat(const char *tex, float r, float g, float b) {
+ 
+ static void place_model(int scene, const char *path, float x, float y, float z,
+                         float rx, float ry, float rz, float sx, float sy, float sz) {
+-    G3DModel *model = g3d_gltf_load(path);
++    G3DModel *model = g3d_gltf_load_shared(path);
+     if (!model) return;
+     for (uint32_t s = 0; s < model->mesh_count; s++) {
+         int ent = g3d_entity_impl_spawn(scene, 0, x, y, z);
+@@ -380,7 +380,7 @@ int g3d_scene_load(const char *file) {
+             char path[256]; int count, seed; float area, th, sv, wind;
+             sscanf(line, "SCATTER %255s %d %f %f %f %f %d", path, &count, &area,
+                    &th, &sv, &wind, &seed);
+-            G3DModel *m = g3d_gltf_load(path);
++            G3DModel *m = g3d_gltf_load_shared(path);
+             if (m && terrain) g3d_scatter_model(m, terrain, count, area, th, sv, wind, (unsigned)seed);
+         } else if (strncmp(line, "MODEL", 5) == 0) {
+             char path[256]; float x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1;
+diff --git a/libmod_3d_shader.c b/libmod_3d_shader.c
+index b0181aa..911af83 100644
+--- a/libmod_3d_shader.c
++++ b/libmod_3d_shader.c
+@@ -8,6 +8,7 @@
+ #include "libmod_3d_glcaps.h"
+ #include "libmod_3d_cloud_glsl.h"
+ #include <stdio.h>
++#include <SDL.h>
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -100,8 +101,47 @@ static int g3d_shader_compile(G3DShader *shader) {
+ #endif
+ }
+ 
+-G3DShaderProgram *g3d_shader_create(const char *vert_source,
+-                                     const char *frag_source) {
++/* PS5: the shader driver links each program slowly and modules request the
++ * same source many times (glTF submeshes, water, sky). Keep one program per
++ * distinct source pair and never free it through g3d_shader_free. */
++#if defined(__PROSPERO__)
++#define G3D_SHADER_CACHE_MAX 128
++typedef struct { char *vs; char *fs; G3DShaderProgram *prog; } G3DShaderCacheEntry;
++static G3DShaderCacheEntry g3d_shader_cache[G3D_SHADER_CACHE_MAX];
++static int g3d_shader_cache_count = 0;
++
++static int g3d_shader_is_cached(G3DShaderProgram *program) {
++    for (int i = 0; i < g3d_shader_cache_count; i++)
++        if (g3d_shader_cache[i].prog == program) return 1;
++    return 0;
++}
++#endif
++
++static G3DShaderProgram *g3d_shader_create_uncached(const char *vert_source, const char *frag_source);
++
++G3DShaderProgram *g3d_shader_create(const char *vert_source, const char *frag_source) {
++#if defined(__PROSPERO__)
++    for (int i = 0; i < g3d_shader_cache_count; i++) {
++        if (strcmp(g3d_shader_cache[i].vs, vert_source) == 0 && strcmp(g3d_shader_cache[i].fs, frag_source) == 0)
++            return g3d_shader_cache[i].prog;
++    }
++#endif
++    Uint32 sp_t0 = SDL_GetTicks();
++    G3DShaderProgram *prog = g3d_shader_create_uncached(vert_source, frag_source);
++    printf("G3D: TIMING shader %ums frag=\"%.40s\"\n", (unsigned)(SDL_GetTicks() - sp_t0),
++           frag_source ? frag_source : "?");
++#if defined(__PROSPERO__)
++    if (prog && g3d_shader_cache_count < G3D_SHADER_CACHE_MAX) {
++        g3d_shader_cache[g3d_shader_cache_count].vs = strdup(vert_source);
++        g3d_shader_cache[g3d_shader_cache_count].fs = strdup(frag_source);
++        g3d_shader_cache[g3d_shader_cache_count].prog = prog;
++        g3d_shader_cache_count++;
++    }
++#endif
++    return prog;
++}
++
++static G3DShaderProgram *g3d_shader_create_uncached(const char *vert_source, const char *frag_source) {
+     G3DShaderProgram *program =
+         (G3DShaderProgram *)malloc(sizeof(G3DShaderProgram));
+     if (!program)
+@@ -284,6 +324,10 @@ void g3d_shader_image_barrier(void) {}
+ void g3d_shader_free(G3DShaderProgram *program) {
+     if (!program)
+         return;
++#if defined(__PROSPERO__)
++    if (g3d_shader_is_cached(program))
++        return;
++#endif
+ 
+ #ifndef VITA
+     if (program->vertex_shader.id)
+@@ -317,6 +361,7 @@ static unsigned int uniform_hash(const char *s) {
+     return h;
+ }
+ 
++unsigned int g3d_uloc_gl_calls = 0, g3d_uloc_full = 0;
+ int g3d_shader_get_uniform(G3DShaderProgram *program, const char *name) {
+     if (!program || !program->linked)
+         return -1;
+@@ -334,6 +379,7 @@ int g3d_shader_get_uniform(G3DShaderProgram *program, const char *name) {
+     /* Not in cache, ask GL */
+ #ifndef VITA
+     int location = glGetUniformLocation(program->id, name);
++    g3d_uloc_gl_calls++;
+ #else
+     int location = -1;
+ #endif
+@@ -341,6 +387,7 @@ int g3d_shader_get_uniform(G3DShaderProgram *program, const char *name) {
+     /* Cache the answer even when it's -1: a uniform the shader doesn't have
+        (or that got optimised out) is asked for on every draw too, and each miss
+        is a driver-side string lookup. */
++    if (program->uniform_count >= G3D_MAX_UNIFORMS) g3d_uloc_full++;
+     if (program->uniform_count < G3D_MAX_UNIFORMS) {
+         program->uniform_locations[program->uniform_count] = location;
+         program->uniform_hashes[program->uniform_count] = h;
+@@ -579,7 +626,7 @@ uniform float uPLCosOut[MAX_PL];  // cos(outer cone half-angle)
+ 
+ // Dynamic shadow maps for up to 4 spot/point lights (torches). Each shadows the point
+ // light in uPL slot uCasterSlot[k].
+-#define MAX_SC 4
++)glsl" "#define MAX_SC " G3D_STR(G3D_MAX_SC) "\n" R"glsl(
+ uniform sampler2D uSpotShadowMap[MAX_SC];
+ uniform mat4 uSpotLightSpaceMatrix[MAX_SC];
+ uniform int uCasterSlot[MAX_SC];
+@@ -867,8 +914,10 @@ void main() {
+     if (uSpotShadowEnabled == 1) {
+         if (0 < uNumShadowCasters) casterMul[0] = 1.0 - calcCasterShadow(uSpotShadowMap[0], uSpotLightSpaceMatrix[0]);
+         if (1 < uNumShadowCasters) casterMul[1] = 1.0 - calcCasterShadow(uSpotShadowMap[1], uSpotLightSpaceMatrix[1]);
++#if MAX_SC > 2
+         if (2 < uNumShadowCasters) casterMul[2] = 1.0 - calcCasterShadow(uSpotShadowMap[2], uSpotLightSpaceMatrix[2]);
+         if (3 < uNumShadowCasters) casterMul[3] = 1.0 - calcCasterShadow(uSpotShadowMap[3], uSpotLightSpaceMatrix[3]);
++#endif
+     }
+ 
+     // Direct: point / spot lights
+diff --git a/libmod_3d_shader.h b/libmod_3d_shader.h
+index 9ceb5b4..befe68a 100644
+--- a/libmod_3d_shader.h
++++ b/libmod_3d_shader.h
+@@ -6,6 +6,18 @@
+  */
+ 
+ #ifndef __LIBMOD_3D_SHADER_H
++/* How many torch/spot lights can cast a dynamic shadow at once. Each one costs a
++   fragment-shader sampler in the main lit shader, and PS5's GL only allows 16
++   samplers per fragment shader (the shader needs 14 + this). */
++#ifndef G3D_MAX_SC
++#  ifdef __PROSPERO__
++#    define G3D_MAX_SC 2
++#  else
++#    define G3D_MAX_SC 4
++#  endif
++#endif
++#define G3D_STR_(x) #x
++#define G3D_STR(x) G3D_STR_(x)
+ #define __LIBMOD_3D_SHADER_H
+ 
+ #include "libmod_3d_math.h"
+diff --git a/libmod_3d_texture.c b/libmod_3d_texture.c
+index 8af048d..ee29a04 100644
+--- a/libmod_3d_texture.c
++++ b/libmod_3d_texture.c
+@@ -249,6 +249,127 @@ int g3d_texture_upload_gpu(G3DTexture *texture) {
+ #endif
+ }
+ 
++/* ============================================================================
++   DEFERRED UPLOAD (glTF): the CPU work of a mip chain (box filter) runs on
++   worker threads; only the GL calls stay on the thread that owns the context.
++   The driver's glGenerateMipmap is single-threaded and slow on PS5, so this
++   path replaces it for batches of textures.
++   ============================================================================
++ */
++
++#ifndef VITA
++#define G3D_MIP_MAX_LEVELS 16
++#define G3D_MIP_THREADS 4
++
++typedef struct {
++    G3DTexture *tex;
++    uint32_t nlev;
++    uint32_t lw[G3D_MIP_MAX_LEVELS], lh[G3D_MIP_MAX_LEVELS];
++    uint8_t *lev[G3D_MIP_MAX_LEVELS];   /* lev[0] is tex->data (not owned) */
++} PendingTex;
++
++typedef struct { int start, step; } MipWorkArg;
++
++static PendingTex *g_pending = NULL;
++static int g_npending = 0, g_pending_cap = 0;
++
++/* Box-filter the full chain into owned buffers. Pure CPU, thread-safe. */
++static void build_mip_chain(PendingTex *p) {
++    G3DTexture *t = p->tex;
++    uint32_t w = t->width, h = t->height;
++    const uint8_t *src = t->data;
++
++    p->nlev = 1;
++    p->lw[0] = w; p->lh[0] = h; p->lev[0] = t->data;
++
++    while ((w > 1 || h > 1) && p->nlev < G3D_MIP_MAX_LEVELS) {
++        uint32_t nw = w > 1 ? w / 2 : 1, nh = h > 1 ? h / 2 : 1;
++        uint8_t *dst = (uint8_t *)malloc((size_t)nw * nh * 4);
++        if (!dst) break;
++        for (uint32_t y = 0; y < nh; y++) {
++            uint32_t sy0 = y * 2, sy1 = sy0 + 1 < h ? sy0 + 1 : h - 1;
++            for (uint32_t x = 0; x < nw; x++) {
++                uint32_t sx0 = x * 2, sx1 = sx0 + 1 < w ? sx0 + 1 : w - 1;
++                const uint8_t *a = src + ((size_t)sy0 * w + sx0) * 4;
++                const uint8_t *b = src + ((size_t)sy0 * w + sx1) * 4;
++                const uint8_t *c = src + ((size_t)sy1 * w + sx0) * 4;
++                const uint8_t *d = src + ((size_t)sy1 * w + sx1) * 4;
++                uint8_t *o = dst + ((size_t)y * nw + x) * 4;
++                for (int k = 0; k < 4; k++)
++                    o[k] = (uint8_t)((a[k] + b[k] + c[k] + d[k] + 2) / 4);
++            }
++        }
++        p->lev[p->nlev] = dst;
++        p->lw[p->nlev] = nw; p->lh[p->nlev] = nh;
++        p->nlev++;
++        src = dst; w = nw; h = nh;
++    }
++}
++
++static int mip_worker(void *arg) {
++    MipWorkArg *a = (MipWorkArg *)arg;
++    for (int i = a->start; i < g_npending; i += a->step)
++        build_mip_chain(&g_pending[i]);
++    return 0;
++}
++
++/* GL side of one texture: all levels from the prepared chain. Main thread only. */
++static void upload_prepared(PendingTex *p) {
++    G3DTexture *t = p->tex;
++    glGenTextures(1, &t->gl_handle);
++    glBindTexture(GL_TEXTURE_2D, t->gl_handle);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
++                    p->nlev > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
++    for (uint32_t l = 0; l < p->nlev; l++)
++        glTexImage2D(GL_TEXTURE_2D, (GLint)l, GL_RGBA, (GLsizei)p->lw[l], (GLsizei)p->lh[l],
++                     0, GL_RGBA, GL_UNSIGNED_BYTE, p->lev[l]);
++    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, (GLint)p->nlev - 1);
++    t->gpu_uploaded = 1;
++    for (uint32_t l = 1; l < p->nlev; l++) free(p->lev[l]);
++}
++#endif
++
++/* Queue a texture for the next g3d_texture_flush_pending(). Until then it has
++   CPU data only (gl_handle == 0), so it must not be bound before the flush. */
++void g3d_texture_defer_upload(G3DTexture *tex) {
++    if (!tex || !tex->data || tex->gpu_uploaded) return;
++#ifndef VITA
++    if (g_npending == g_pending_cap) {
++        int cap = g_pending_cap ? g_pending_cap * 2 : 256;
++        PendingTex *n = (PendingTex *)realloc(g_pending, (size_t)cap * sizeof *n);
++        if (!n) { g3d_texture_upload_gpu(tex); return; }
++        g_pending = n; g_pending_cap = cap;
++    }
++    memset(&g_pending[g_npending], 0, sizeof g_pending[0]);
++    g_pending[g_npending++].tex = tex;
++#else
++    g3d_texture_upload_gpu(tex);
++#endif
++}
++
++/* Build every queued mip chain on worker threads, then upload on this thread. */
++void g3d_texture_flush_pending(void) {
++#ifndef VITA
++    if (g_npending == 0) return;
++    int nthreads = g_npending < G3D_MIP_THREADS ? g_npending : G3D_MIP_THREADS;
++    SDL_Thread *th[G3D_MIP_THREADS] = {0};
++    MipWorkArg arg[G3D_MIP_THREADS];
++    for (int k = 0; k < nthreads; k++) {
++        arg[k].start = k; arg[k].step = nthreads;
++        th[k] = SDL_CreateThread(mip_worker, "g3d_mip", &arg[k]);
++        if (!th[k]) mip_worker(&arg[k]);   /* no thread: do it here */
++    }
++    for (int k = 0; k < nthreads; k++)
++        if (th[k]) SDL_WaitThread(th[k], NULL);
++    for (int i = 0; i < g_npending; i++)
++        upload_prepared(&g_pending[i]);
++#endif
++    g_npending = 0;
++}
++
+ void g3d_texture_bind(G3DTexture *texture, int texture_unit) {
+     if (!texture || !texture->gpu_uploaded)
+         return;
+diff --git a/libmod_3d_texture.h b/libmod_3d_texture.h
+index e74dae8..0f66cf5 100644
+--- a/libmod_3d_texture.h
++++ b/libmod_3d_texture.h
+@@ -64,6 +64,12 @@ G3DTexture *g3d_texture_create_from_data(const char *name, uint32_t width,
+ /* Upload texture to GPU */
+ int g3d_texture_upload_gpu(G3DTexture *texture);
+ 
++/* Batched upload: queue a texture now, upload it on g3d_texture_flush_pending().
++   The mip chains are built on worker threads. Until the flush the texture has
++   no GL handle. */
++void g3d_texture_defer_upload(G3DTexture *texture);
++void g3d_texture_flush_pending(void);
++
+ /* Bind texture for rendering */
+ void g3d_texture_bind(G3DTexture *texture, int texture_unit);
+ 
+diff --git a/libmod_3d_water.c b/libmod_3d_water.c
+index 6a878ea..3eb5c20 100644
+--- a/libmod_3d_water.c
++++ b/libmod_3d_water.c
+@@ -14,6 +14,7 @@
+ #include "libmod_3d_renderer.h"
+ #include "libmod_3d_particles.h"
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <math.h>
+ 
+ #include <SDL.h>
+diff --git a/libmod_3d_water_render.c b/libmod_3d_water_render.c
+index ed38785..3f9d8f7 100644
+--- a/libmod_3d_water_render.c
++++ b/libmod_3d_water_render.c
+@@ -763,11 +763,13 @@ static void wr_swash(G3DCamera *camera, Mat4 invvp, float t, int flip_y) {
+    Render
+    -------------------------------------------------------------------------- */
+ 
++extern int g3d_dev_cfg_pub(const char *key, int def);
+ void g3d_water_render(G3DCamera *camera, int flip_y) {
+     if (!camera || R.failed) return;
+     if (!g3d_waterfield_active()) return;
+ 
+     if (!R.inited) {
++        if (g3d_dev_cfg_pub("nospectrum", 0)) R.want_spectrum = 0;
+         /* Spectral waves where the hardware can run them. This must happen
+            BEFORE the shaders are built, because whether the spectrum exists is
+            compiled into them as WATER_SPECTRUM. */
+@@ -816,7 +818,7 @@ void g3d_water_render(G3DCamera *camera, int flip_y) {
+ 
+     /* Same rule for the foam pass, and it must come before the surface reads
+        the field it just wrote. */
+-    wr_foam_update(t);
++    if (!g3d_dev_cfg_pub("nofoam", 0)) wr_foam_update(t);
+ 
+     G3DShaderProgram *sh = R.prog;
+     g3d_shader_use(sh);
+diff --git a/test_water_fft.c b/test_water_fft.c
+index b220497..b3eef84 100644
+--- a/test_water_fft.c
++++ b/test_water_fft.c
+@@ -11,6 +11,7 @@
+ #include <GL/glext.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <math.h>
+ 
+ #include "libmod_3d_glcaps.h"

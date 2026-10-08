@@ -11,7 +11,7 @@ cat > $1 <<EOT
  *
  *  Copyright (C) SplinterGU (Fenix/BennuGD) (Since 2006)
  *  Copyright (C) 2002-2006 Fenix Team (Fenix)
- *  Copyright (C) 1999-2002 José Luis Cebrián Pagüe (Fenix)
+ *  Copyright (C) 1999-2002 Josï¿½ Luis Cebriï¿½n Pagï¿½e (Fenix)
  *
  *  This file is part of Bennu Game Development
  *
@@ -42,7 +42,7 @@ EOT
 search_bgdc_includes()
 {
     echo "#ifdef __BGDC__"
-    for i in $(for ii in $SCOPE; do find $MODULES_PATH/$ii -maxdepth 1 -regex '.+\(_exports\.h\)'; done); do echo "#include \"$(basename $i)\""; done
+    for i in $(for ii in $SCOPE; do find -L $MODULES_PATH/$ii -maxdepth 1 -regex '.+\(_exports\.h\)'; done); do echo "#include \"$(basename $i)\""; done
     echo "#endif"
     echo " "
 }
@@ -52,7 +52,7 @@ search_symbols()
     echo "/* ---------- $2 ---------- */"
     echo " "
 
-    for i in $(grep __bgdexport $(for ii in $SCOPE; do find $MODULES_PATH/$ii -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)'; done) /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/'| grep $2); do
+    for i in $(grep __bgdexport $(for ii in $SCOPE; do find -L $MODULES_PATH/$ii -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)'; done) /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/'| grep $2); do
         echo "extern $1 $i$3;"
     done
 
@@ -61,7 +61,7 @@ search_symbols()
 
 #make_fake_dl_item()
 #{
-#    for i in $(grep __bgdexport $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/' 2>/dev/null| grep $2); do
+#    for i in $(grep __bgdexport $(find -L $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/' 2>/dev/null| grep $2); do
 #        echo -n $i
 #    done
 #}
@@ -72,13 +72,16 @@ make_fake_dl_item()
     local symbol="$2"
     local line_to_print=""
 
-    for i in $(grep -w __bgdexport $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/' 2>/dev/null|grep $symbol); do
+    # awk dedupe: a symbol declared in the module's *_exports.h AND defined in
+    # its .c shows up twice, which check_conditional reads as "#ifdef <symbol>"
+    # (a macro that never exists) and silently falls back to NULL.
+    for i in $(grep -w __bgdexport $(find -L $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r 's/\s(\w+)[, ]+(\w+)/\1_\2/' 2>/dev/null|grep $symbol | awk '!seen[$0]++'); do
         line_to_print="$i"
         echo $line_to_print
     done
 
     if [ -z "$line_to_print" ]; then
-        for i in $(grep -w __bgdexport_ifdef $(find $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r "s/\s(\w+)[, ]+(\w+)[, ]+(\w+)/\1 \2_\3/" 2>/dev/null|grep $symbol); do
+        for i in $(grep -w __bgdexport_ifdef $(find -L $MODULES_PATH/$i -maxdepth 1 -regex '.+\(_exports\.h\|\.c\)') /dev/null | cut -f2 -d "(" | cut -f1 -d ")" | sed -r "s/\s(\w+)[, ]+(\w+)[, ]+(\w+)/\1 \2_\3/" 2>/dev/null|grep $symbol); do
             line_to_print="$i"
             echo "$line_to_print"
         done
@@ -250,6 +253,17 @@ make_fake_dl()
 
 # without mathi
 SCOPE=$(for i in $(ls ../modules/); do basename $i; done)
+# A platform that skips a module's own CMakeLists.txt (return() before its
+# add_library(), e.g. modules/libmod_net on PS5 - see that file) never
+# produces its .a, but this scan can't tell that from a module that's simply
+# always built; EXCLUDE_FAKEDL_MODULES (set by build.sh for that platform)
+# is how the caller says so, so fake_dl_init() doesn't declare/reference
+# symbols nothing will ever define.
+if [ -n "$EXCLUDE_FAKEDL_MODULES" ]; then
+    for excluded in $EXCLUDE_FAKEDL_MODULES; do
+        SCOPE=$(echo "$SCOPE" | grep -v "^${excluded}\$")
+    done
+fi
 export SCOPE
 
 credits                                                            $FAKE_DL_FNAME

@@ -258,6 +258,18 @@ static int compare_instances( const void * ptr1, const void * ptr2 ) {
     return !ret ? LOCQWORD( libbggfx, i1, PROCESS_ID ) - LOCQWORD( libbggfx, i2, PROCESS_ID ) : ret;
 }
 
+/* Stable insertion sort. Replaces qsort(): the draw order of the scroll's processes must be
+   exactly compare_instances() regardless of the platform libc (PS5's own libc qsort is not
+   trusted with it), and tied elements must keep a fixed order frame to frame. */
+static void sort_instances( INSTANCE ** a, int64_t n ) {
+    for ( int64_t i = 1; i < n; i++ ) {
+        INSTANCE * v = a[i];
+        int64_t j = i - 1;
+        while ( j >= 0 && compare_instances( &a[j], &v ) > 0 ) { a[j + 1] = a[j]; j--; }
+        a[j + 1] = v;
+    }
+}
+
 /* --------------------------------------------------------------------------- */
 
 void scroll_draw( int64_t n, REGION * clipping ) {
@@ -409,7 +421,20 @@ void scroll_draw( int64_t n, REGION * clipping ) {
 
     if ( proclist_count ) {
         /* Ordena la listilla */
-        qsort( proclist, proclist_count, sizeof( INSTANCE * ), compare_instances );
+        sort_instances( proclist, proclist_count );
+
+#ifdef __PROSPERO__
+        {   /* dev: dump the final draw order (gfx.cfg dumpz=1), once every 120 frames */
+            extern int gfx_dev_cfg( const char *key, int def );
+            static unsigned int dz_frame = 0;
+            if ( gfx_dev_cfg( "dumpz", 0 ) && ( dz_frame++ % 120 ) == 0 ) {
+                printf( "SCROLLORDER scroll=%d n=%d (first drawn -> last):", ( int ) n, ( int ) proclist_count );
+                for ( int64_t k = 0; k < proclist_count && k < 60; k++ )
+                    printf( " %s(z=%d,g=%d)", proclist[k]->proc->name, ( int ) LOCDOUBLE( libbggfx, proclist[k], COORDZ ), ( int ) LOCQWORD( libbggfx, proclist[k], GRAPHID ) );
+                printf( "\n" );
+            }
+        }
+#endif
 
         int64_t nproc;
 

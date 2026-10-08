@@ -29,7 +29,7 @@
 #define __G_SHADERS_H
 
 #if USE_SDL2
-#ifndef __ANDROID__
+#if !defined(__ANDROID__) && !defined(__PROSPERO__)
 #include <GL/glew.h>
 #endif
 #include <SDL_opengl.h>

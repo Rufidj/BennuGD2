@@ -26,6 +26,7 @@
  *
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -368,6 +369,37 @@ maybe we must do a custom and try this
 #endif
 }
 
+#ifdef USE_SDL2_GPU
+extern int gfx_dev_cfg( const char *key, int def );
+
+/* Clip state shared across gr_prepare_renderer() calls (file scope so a new frame can reset it). */
+static REGION gr_clip_last_store = { 0, 0, 0, 0 }, * gr_clip_last = NULL;
+static GRAPH * gr_clip_last_dest = NULL;
+
+void gr_clip_reset( void ) { gr_clip_last = NULL; gr_clip_last_dest = ( GRAPH * ) 1; }
+
+/* Clip the SCREEN target to a rectangle given in game (virtual) pixels.
+   SDL_gpu turns a clip rect into a glScissor as  x * (drawable_w / virtual_w),
+   ignoring that the viewport may be letterboxed (offset + a smaller scale), so with
+   bars the clip landed in the wrong, much larger rectangle and scrolling
+   backgrounds bled into the bars. Pre-compensate: ask for the clip rect that, after
+   SDL_gpu's own conversion, equals the real on-screen rectangle. */
+static void gr_screen_clip( int x, int y, int w, int h ) {
+    if ( !gRenderer || !gRenderer->context || gRenderer->w <= 0 || gRenderer->h <= 0 ) { GPU_SetClip( gRenderer, x, y, w, h ); return; }
+    double xf = ( double ) gRenderer->context->drawable_w / gRenderer->w;
+    double yf = ( double ) gRenderer->context->drawable_h / gRenderer->h;
+    double rx = renderer_offset_x + x * renderer_scale_factor_width;
+    double ry = renderer_offset_y + y * renderer_scale_factor_height;
+    double rw = w * renderer_scale_factor_width;
+    double rh = h * renderer_scale_factor_height;
+    double yb = gRenderer->context->drawable_h - ( ry + rh );        /* bottom-up, as glScissor wants it */
+    double cw = rw / xf, ch = rh / yf;
+    double cx = rx / xf;
+    double cy = gRenderer->h - ch - yb / yf;                         /* inverse of SDL_gpu's  y = h - (cy + ch) */
+    GPU_SetClip( gRenderer, ( Sint16 ) lround( cx ), ( Sint16 ) lround( cy ), ( Uint16 ) lround( cw ), ( Uint16 ) lround( ch ) );
+}
+#endif
+
 /* --------------------------------------------------------------------------- */
 /*
  *  FUNCTION : gr_prepare_renderer
@@ -426,28 +458,28 @@ int gr_prepare_renderer( GRAPH * dest, REGION * clip, int64_t flags, BLENDMODE *
     SDL_RenderSetClipRect( gRenderer, &rect );
 #endif
 #ifdef USE_SDL2_GPU
-    static REGION _lastClip = { 0, 0, 0, 0 }, * lastClip = NULL;
-    static GRAPH * lastDest = NULL;
-
     int doClip = 0, doUnClip = 0;
+    if ( gfx_dev_cfg( "noclip", 0 ) ) clip = NULL;
 
-    if ( clip && ( dest != lastDest || !lastClip || lastClip->x != clip->x || lastClip->y != clip->y || lastClip->x2 != clip->x2 || lastClip->y2 != clip->y2 ) ) doClip = 1;
-    if ( dest != lastDest && !clip ) doUnClip = 1;
-    if ( dest == lastDest && !clip && clip != lastClip ) doUnClip = 1;
+    if ( clip && ( dest != gr_clip_last_dest || !gr_clip_last || gr_clip_last->x != clip->x || gr_clip_last->y != clip->y || gr_clip_last->x2 != clip->x2 || gr_clip_last->y2 != clip->y2 ) ) doClip = 1;
+    if ( dest != gr_clip_last_dest && !clip ) doUnClip = 1;
+    if ( dest == gr_clip_last_dest && !clip && clip != gr_clip_last ) doUnClip = 1;
 
     GPU_Target * dst = dest ? dest->tex->target : gRenderer;
 
     if ( doUnClip ) {
-        GPU_UnsetClip( dst );
-        lastClip = NULL;
-        lastDest = dest;
+        if ( dest ) GPU_UnsetClip( dst );
+        else gr_screen_clip( 0, 0, scr_width, scr_height );   /* the game area, never the whole window */
+        gr_clip_last = NULL;
+        gr_clip_last_dest = dest;
     }
 
     if ( doClip ) {
-        GPU_SetClip( dst, clip->x, clip->y, clip->x2 - clip->x + 1, clip->y2 - clip->y + 1 );
-        _lastClip = *clip;
-        lastClip = &_lastClip;
-        lastDest = dest;
+        if ( dest ) GPU_SetClip( dst, clip->x, clip->y, clip->x2 - clip->x + 1, clip->y2 - clip->y + 1 );
+        else gr_screen_clip( clip->x, clip->y, clip->x2 - clip->x + 1, clip->y2 - clip->y + 1 );
+        gr_clip_last_store = *clip;
+        gr_clip_last = &gr_clip_last_store;
+        gr_clip_last_dest = dest;
     }
 #endif
 
@@ -744,6 +776,7 @@ void gr_blit(   GRAPH * dest,
             if ( dest ) dest->dirty = 1;
 
             GPU_BlitTransformX( tex, gr_clip, dst, ( float ) ( ( int ) scrx ), ( float ) ( ( int ) scry ), ( float ) ( ( int ) ( centerx - offx ) ), ( float ) ( ( int ) ( centery - offy ) ), ( float ) angle / -1000.0, scalex_adjusted, scaley_adjusted );
+            if ( gfx_dev_cfg( "flushblit", 0 ) ) GPU_FlushBlitBuffer();
 #endif
         }
     } else {
@@ -774,6 +807,7 @@ void gr_blit(   GRAPH * dest,
         if ( dest ) dest->dirty = 1;
 
         GPU_BlitTransformX( gr->tex, gr_clip, dst, ( float ) ( ( int ) scrx ), ( float ) ( ( int ) scry ), ( float ) ( ( int ) centerx ), ( float ) ( ( int ) centery ), ( float ) angle / -1000.0, scalex_adjusted, scaley_adjusted );
+            if ( gfx_dev_cfg( "flushblit", 0 ) ) GPU_FlushBlitBuffer();
 #endif
     }
 

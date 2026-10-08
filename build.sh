@@ -159,6 +159,43 @@ build_target() {
                 fi
                 ;;
 
+            ps5|prospero)
+                # PS5 (Prospero): cross-compiled with the prospero-clang18 wrapper and
+                # sysroot from ../ps5-opengl/native-app-boilerplate (the same toolchain
+                # that builds the known-good triangle/BennuGD2 test titles there). Only
+                # produces .a archives + the bgdi executable object for now - packaging
+                # into a signed eboot is still native-app-boilerplate's `make app`, same
+                # as every hand-built PS5 test so far.
+                TARGET=x86_64-sie-ps5
+                COMPILER=""
+                STATIC_ENABLED=1 # force STATIC, same as switch/ps3
+                EXCLUDE_FAKEDL_MODULES="libmod_net" # see modules/libmod_net/CMakeLists.txt
+                USE_SDL2=0
+                USE_SDL2_GPU=1 # vendor/sdl-gpu/build/x86_64-sie-ps5 (built once, see its own
+                                # README note below) - the real 2D renderer, matching what
+                                # already runs on-console today.
+                PS5_OPENGL_ROOT="/home/ruben/Escritorio/ps5-opengl"
+                CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ps5.cmake -DBUILD_TARGET=interpreter -DPROSPERO=ON \
+                    -DZLIB_INCLUDE_DIR=${PWD}/vendor/ps5/include -DZLIB_LIBRARY=${PWD}/vendor/ps5/lib/libz.a \
+                    -DSDL2_INCLUDE_DIR=${PS5_OPENGL_ROOT}/native-app-boilerplate/vendor/sdl2-real/include/SDL2 \
+                    -DSDL2_LIBRARY=${PS5_OPENGL_ROOT}/ps5-opengl/build/native-sdl2-audio/sdk/lib/libSDL2.a \
+                    -DSDL2_IMAGE_INCLUDE_DIR=${PWD}/vendor/ps5/include -DSDL2_IMAGE_LIBRARY=${PWD}/vendor/ps5/lib/libSDL2_image.a \
+                    -DSDLMIXER_INCLUDE_DIR=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/include -DSDLMIXER_LIBRARY=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/libSDL2_mixer.a \
+                    -DSDL2_mixer_INCLUDE_DIRS=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/include -DSDL2_mixer_LIBRARIES=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/libSDL2_mixer.a \
+                    -DPS5_OPENGL_SDK_ROOT=${PS5_OPENGL_ROOT}/native-app-boilerplate/vendor/ps5-opengl-sdk \
+                    -DSDL_GPU_INCLUDE_DIR=${PWD}/vendor/sdl-gpu/include -DSDL_GPU_LIBRARY=${PWD}/vendor/sdl-gpu/build/x86_64-sie-ps5/SDL_gpu/lib/libSDL2_gpu.a"
+                # zlib.h (and anything else under vendor/ps5/include) isn't found via any
+                # default system path on this cross sysroot - every module needs it, same
+                # mechanism the "switch" case above uses for $DEVKITPRO's headers. Some
+                # modules #include <SDL.h>, others #include <SDL2/SDL.h> - add the parent
+                # of the SDL2 include dir too so both spellings resolve.
+                INCLUDE_DIRECTORIES="${PWD}/vendor/ps5/include;${PS5_OPENGL_ROOT}/native-app-boilerplate/vendor/sdl2-real/include"
+                export INCLUDE_DIRECTORIES
+                # bgdrtm's own target_link_libraries(bgdrtm -lz ...) only names "-lz" -
+                # give the linker somewhere to actually find it.
+                CMAKE_EXTRA="$CMAKE_EXTRA -DCMAKE_EXE_LINKER_FLAGS=-L${PWD}/vendor/ps5/lib"
+                ;;
+
             switch)
                 TARGET=aarch64-none-elf
                 COMPILER=""
@@ -427,7 +464,7 @@ build_target() {
         EXTRA_CFLAGS+=" -D__STATIC__"
         LIBRARY_BUILD_TYPE=STATIC
         cd core
-        ./make-fakedl.sh
+        EXCLUDE_FAKEDL_MODULES="$EXCLUDE_FAKEDL_MODULES" ./make-fakedl.sh
         cd -
     fi
 

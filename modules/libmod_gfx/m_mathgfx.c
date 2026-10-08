@@ -49,8 +49,8 @@
 static inline int64_t __get_angle( INSTANCE * a, INSTANCE * b ) {
     if ( !a || !b ) return -1;
 
-    double dx = LOCDOUBLE( libmod_gfx, b, COORDX ) - LOCDOUBLE( libmod_gfx, a, COORDX );
-    double dy = LOCDOUBLE( libmod_gfx, b, COORDY ) - LOCDOUBLE( libmod_gfx, a, COORDY );
+    double dx = LOCDOUBLE( libmod_gfx, b, LOCGFX_COORDX ) - LOCDOUBLE( libmod_gfx, a, LOCGFX_COORDX );
+    double dy = LOCDOUBLE( libmod_gfx, b, LOCGFX_COORDY ) - LOCDOUBLE( libmod_gfx, a, LOCGFX_COORDY );
 
     int64_t angle ;
 
@@ -66,13 +66,13 @@ static inline int64_t __get_angle( INSTANCE * a, INSTANCE * b ) {
 static inline int64_t __get_distance( INSTANCE * a, INSTANCE * b ) {
     if ( !a || !b ) return -1;
 
-    int64_t x1 = LOCDOUBLE( libmod_gfx, a, COORDX ), y1 = LOCDOUBLE( libmod_gfx, a, COORDY ) ;
-    int64_t x2 = LOCDOUBLE( libmod_gfx, b, COORDX ), y2 = LOCDOUBLE( libmod_gfx, b, COORDY ) ;
+    int64_t x1 = LOCDOUBLE( libmod_gfx, a, LOCGFX_COORDX ), y1 = LOCDOUBLE( libmod_gfx, a, LOCGFX_COORDY ) ;
+    int64_t x2 = LOCDOUBLE( libmod_gfx, b, LOCGFX_COORDX ), y2 = LOCDOUBLE( libmod_gfx, b, LOCGFX_COORDY ) ;
 
-    int64_t res = LOCINT64( libmod_gfx, a, RESOLUTION ) ;
+    int64_t res = LOCINT64( libmod_gfx, a, LOCGFX_RESOLUTION ) ;
 
-    RESOLXY( libmod_gfx, a, x1, y1 );
-    RESOLXY( libmod_gfx, b, x2, y2 );
+    RESOLXY_NAMED( libmod_gfx, a, LOCGFX_RESOLUTION, x1, y1 );
+    RESOLXY_NAMED( libmod_gfx, b, LOCGFX_RESOLUTION, x2, y2 );
 
     double dx = ( x2 - x1 ) * ( x2 - x1 ) ;
     double dy = ( y2 - y1 ) * ( y2 - y1 ) ;
@@ -90,9 +90,9 @@ static inline int64_t __get_distance( INSTANCE * a, INSTANCE * b ) {
 /* --------------------------------------------------------------------------- */
 
 int64_t libmod_gfx_advance( INSTANCE * my, int64_t * params ) {
-    int64_t angle = LOCINT64( libmod_gfx, my, ANGLE ) ;
-    LOCDOUBLE( libmod_gfx, my, COORDX ) += cos_deg( angle ) * ( *( double * ) &params[0] );
-    LOCDOUBLE( libmod_gfx, my, COORDY ) -= sin_deg( angle ) * ( *( double * ) &params[0] );
+    int64_t angle = LOCINT64( libmod_gfx, my, LOCGFX_ANGLE ) ;
+    LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDX ) += cos_deg( angle ) * ( *( double * ) &params[0] );
+    LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDY ) -= sin_deg( angle ) * ( *( double * ) &params[0] );
     return 1 ;
 }
 
@@ -100,8 +100,8 @@ int64_t libmod_gfx_advance( INSTANCE * my, int64_t * params ) {
 
 int64_t libmod_gfx_xadvance( INSTANCE * my, int64_t * params ) {
     int64_t angle = params[0] ;
-    LOCDOUBLE( libmod_gfx, my, COORDX ) += cos_deg( angle ) * ( *( double * ) &params[1] );
-    LOCDOUBLE( libmod_gfx, my, COORDY ) -= sin_deg( angle ) * ( *( double * ) &params[1] );
+    LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDX ) += cos_deg( angle ) * ( *( double * ) &params[1] );
+    LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDY ) -= sin_deg( angle ) * ( *( double * ) &params[1] );
     return 1 ;
 }
 
@@ -141,13 +141,13 @@ static inline int64_t __get_real_point( INSTANCE * my, int64_t * params, GRAPH *
     int64_t sx = 1, sy = -1, angle = 0, flags;
     double x, y, centerx, centery, dx = 0, dy = 0, px, py, size_x, size_y;
 
-    x = LOCDOUBLE( libmod_gfx, my, COORDX ) ;
-    y = LOCDOUBLE( libmod_gfx, my, COORDY ) ;
+    x = LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDX ) ;
+    y = LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDY ) ;
 
-    RESOLXY( libmod_gfx, my, x, y );
+    RESOLXY_NAMED( libmod_gfx, my, LOCGFX_RESOLUTION, x, y );
 
-    centerx = LOCDOUBLE( libmod_gfx, my, GRAPHCENTERX ) ;
-    centery = LOCDOUBLE( libmod_gfx, my, GRAPHCENTERY ) ;
+    centerx = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHCENTERX ) ;
+    centery = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHCENTERY ) ;
     if ( centerx == POINT_UNDEFINED || centery == POINT_UNDEFINED ) {
         if ( b->ncpoints && b->cpoints[0].x != CPOINT_UNDEFINED ) {
             centerx = b->cpoints[0].x;
@@ -158,16 +158,16 @@ static inline int64_t __get_real_point( INSTANCE * my, int64_t * params, GRAPH *
         }
     }
 
-    if ( !LOCQWORD( libmod_gfx, my, XGRAPH ) ) angle = LOCINT64( libmod_gfx, my, ANGLE );
+    if ( !LOCQWORD( libmod_gfx, my, LOCGFX_XGRAPH ) ) angle = LOCINT64( libmod_gfx, my, LOCGFX_ANGLE );
 
-    flags = LOCQWORD( libmod_gfx, my, FLAGS );
+    flags = LOCQWORD( libmod_gfx, my, LOCGFX_FLAGS );
 
     if ( flags & B_HMIRROR ) sx = -1;
     if ( flags & B_VMIRROR ) sy = 1;
 
-    size_x = LOCDOUBLE( libmod_gfx, my, GRAPHSIZEX );
-    size_y = LOCDOUBLE( libmod_gfx, my, GRAPHSIZEY );
-    if ( size_x == 100.0 && size_y == 100.0 ) size_x = size_y = LOCDOUBLE( libmod_gfx, my, GRAPHSIZE );
+    size_x = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHSIZEX );
+    size_y = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHSIZEY );
+    if ( size_x == 100.0 && size_y == 100.0 ) size_x = size_y = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHSIZE );
 
     dx = ( point_x - centerx ) * size_x;
     dy = ( point_y - centery ) * size_y;
@@ -178,7 +178,7 @@ static inline int64_t __get_real_point( INSTANCE * my, int64_t * params, GRAPH *
     px = x + ( dx * cos_angle + dy * sin_angle ) * sx / 100.0 ;
     py = y + ( dx * sin_angle - dy * cos_angle ) * sy / 100.0 ;
 
-    int64_t resolution = LOCINT64( libmod_gfx, my, RESOLUTION );
+    int64_t resolution = LOCINT64( libmod_gfx, my, LOCGFX_RESOLUTION );
 
     if ( resolution > 0 ) {
         px *= resolution;
@@ -206,8 +206,8 @@ int64_t libmod_gfx_get_real_point( INSTANCE * my, int64_t * params ) {
     if ( !( idx >= 0 && idx < b->ncpoints ) ) return 0 ;
 
     if ( !b->ncpoints || b->cpoints[idx].x == CPOINT_UNDEFINED || b->cpoints[idx].y == CPOINT_UNDEFINED ) {
-        *( double * )( intptr_t )params[1] = LOCDOUBLE( libmod_gfx, my, COORDX ) ;
-        *( double * )( intptr_t )params[2] = LOCDOUBLE( libmod_gfx, my, COORDY ) ;
+        *( double * )( intptr_t )params[1] = LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDX ) ;
+        *( double * )( intptr_t )params[2] = LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDY ) ;
         return 1;
     }
 
@@ -258,9 +258,9 @@ static inline int64_t __get_real_box_vertex( GRAPH * graph, INSTANCE * my, int64
 
     /* scale */
 
-    double scale_x = LOCDOUBLE( libmod_gfx, my, GRAPHSIZEX ) / 100.0;
-    double scale_y = LOCDOUBLE( libmod_gfx, my, GRAPHSIZEY ) / 100.0;
-    if ( scale_x == 1.0 && scale_y == 1.0 ) scale_x = scale_y = LOCDOUBLE( libmod_gfx, my, GRAPHSIZE ) / 100.0;
+    double scale_x = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHSIZEX ) / 100.0;
+    double scale_y = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHSIZEY ) / 100.0;
+    if ( scale_x == 1.0 && scale_y == 1.0 ) scale_x = scale_y = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHSIZE ) / 100.0;
 
     if ( scale_x < 0.0 ) scale_x = 0.0;
     if ( scale_y < 0.0 ) scale_y = 0.0;
@@ -269,8 +269,8 @@ static inline int64_t __get_real_box_vertex( GRAPH * graph, INSTANCE * my, int64
 
     int64_t * radius = ( int64_t * ) ( intptr_t ) params[2];
 
-    center_x = LOCDOUBLE( libmod_gfx, my, GRAPHCENTERX ) ;
-    center_y = LOCDOUBLE( libmod_gfx, my, GRAPHCENTERY ) ;
+    center_x = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHCENTERX ) ;
+    center_y = LOCDOUBLE( libmod_gfx, my, LOCGFX_GRAPHCENTERY ) ;
     if ( center_x == POINT_UNDEFINED || center_y == POINT_UNDEFINED ) {
         if ( !graph->ncpoints || graph->cpoints[0].x == CPOINT_UNDEFINED ) {
             center_x = graph->width / 2.0;
@@ -330,13 +330,13 @@ static inline int64_t __get_real_box_vertex( GRAPH * graph, INSTANCE * my, int64
 
     /* Calculate coords */
 
-    double x0 = LOCDOUBLE( libmod_gfx, my, COORDX );
-    double y0 = LOCDOUBLE( libmod_gfx, my, COORDY );
-    int64_t angle = LOCINT64( libmod_gfx, my, ANGLE );
+    double x0 = LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDX );
+    double y0 = LOCDOUBLE( libmod_gfx, my, LOCGFX_COORDY );
+    int64_t angle = LOCINT64( libmod_gfx, my, LOCGFX_ANGLE );
 
-    int64_t flags = LOCQWORD( libmod_gfx, my, FLAGS );
+    int64_t flags = LOCQWORD( libmod_gfx, my, LOCGFX_FLAGS );
 
-    int64_t resolution = LOCINT64( libmod_gfx, my, RESOLUTION );
+    int64_t resolution = LOCINT64( libmod_gfx, my, LOCGFX_RESOLUTION );
 
     double sx = ( flags & B_HMIRROR ) ? -1 :  1;
     double sy = ( flags & B_VMIRROR ) ?  1 : -1;

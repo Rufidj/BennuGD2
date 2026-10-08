@@ -208,8 +208,66 @@ void gr_wait_frame() {
 
 /* --------------------------------------------------------------------------- */
 
+#ifdef __PROSPERO__
+#include <time.h>
+/* PS5 bring-up profiling: where does one 2D frame go? Printed every 120 frames. */
+static double gp_now( void ) { struct timespec t; clock_gettime( CLOCK_MONOTONIC, &t ); return ( double ) t.tv_sec * 1000.0 + ( double ) t.tv_nsec / 1e6; }
+static double gp_acc[5], gp_last; static int gp_frames, gp_i;
+static double gp_t0 = 0;
+#define GPROF_START() do { gp_t0 = gp_now(); gp_i = 0; } while (0)
+#define GPROF(n) do { double t_ = gp_now(); gp_acc[gp_i++] += t_ - gp_t0; gp_t0 = t_; } while (0)
+static void gp_report( void ) {
+    if ( ++gp_frames % 120 ) return;
+    printf( "BGGFX per frame ms: clear=%.2f update_objects=%.2f draw_objects(3d+2d)=%.2f flip=%.2f\n", gp_acc[0] / 120, gp_acc[1] / 120, gp_acc[2] / 120, gp_acc[3] / 120 );
+    for ( int i = 0; i < 5; i++ ) gp_acc[i] = 0;
+}
+#else
+#define GPROF_START() do { } while (0)
+#define GPROF(n) do { } while (0)
+#define gp_report() do { } while (0)
+#endif
+
+/* PS5 bring-up: tiny tuning file /app0/data/gfx.cfg ("key=value" lines, read once).
+   Keys: linear (bilinear image filter), intscale (integer pixel scale + letterbox),
+   noclip (ignore GPU clip rects), flushblit (flush the blit batch after every blit). */
+int gfx_dev_cfg( const char *key, int def ) {
+    static int loaded = 0, n = 0;
+    static char keys[8][16]; static int vals[8];
+    if ( !loaded ) {
+        loaded = 1;
+        FILE *f = fopen( "/app0/data/gfx.cfg", "rb" );
+        if ( f ) {
+            char line[64];
+            while ( n < 8 && fgets( line, sizeof line, f ) ) {
+                char *eq = strchr( line, '=' );
+                if ( !eq || line[0] == '#' ) continue;
+                *eq = 0;
+                snprintf( keys[n], sizeof keys[n], "%s", line );
+                vals[n] = atoi( eq + 1 );
+                printf( "BGGFX cfg %s=%d\n", keys[n], vals[n] );
+                n++;
+            }
+            fclose( f );
+        }
+    }
+    for ( int i = 0; i < n; i++ ) if ( !strcmp( keys[i], key ) ) return vals[i];
+    return def;
+}
+
+/* PS5: the first touch of the screen framebuffer blocks until the previous
+   frame's present completes (~13 ms), and doing it first thing serialises that wait
+   with the whole frame's CPU work. A module that draws its own full-screen image
+   (libmod_3d's resolve) can ask for the screen clear to be done by itself, late:
+   it sets gr_defer_clear at the end of its draw; gr_draw_frame then skips the clear
+   for the next frame and records that in gr_clear_was_deferred. */
+extern void gr_clip_reset( void );
+extern void glFinish( void );
+int gr_defer_clear = 0;
+int gr_clear_was_deferred = 0;
+
 void gr_draw_frame() {
     if ( jump ) return;
+    GPROF_START();
 
     /* Set Viewport */
 //    SDL_RenderSetViewport( gRenderer, NULL );
@@ -220,8 +278,23 @@ void gr_draw_frame() {
     SDL_RenderClear( gRenderer );
 #endif
 #ifdef USE_SDL2_GPU
-    GPU_Clear( gRenderer );
+    /* GPU_Clear() scopes to the target's clip rect if one is still active
+       (GPU_SetClip()/GPU_SetClipRect() set it for a scrolled/clipped region
+       - a starfield, a parallax layer - and something along the way skips
+       the matching GPU_UnsetClip()). The clear for a brand new frame must
+       always cover the whole target: a clip left over from last frame means
+       everything outside it (letterbox/pillarbox bars on a scaled display,
+       most visibly) never gets cleared and old content just piles up there
+       frame after frame. */
+    gr_clear_was_deferred = gr_defer_clear;
+    gr_defer_clear = 0;
+    if ( !gr_clear_was_deferred ) {
+        GPU_UnsetClip( gRenderer );
+        GPU_Clear( gRenderer );
+    }
+    gr_clip_reset();
 #endif
+    GPROF("clear");
 
     GRAPH * background = NULL;
     int64_t background_graph = GLOQWORD( libbggfx, BACKGROUND_GRAPH );
@@ -259,9 +332,11 @@ void gr_draw_frame() {
 
     /* Update the object list */
     gr_update_objects();
+    GPROF("update");
 
     /* Dump everything */
     gr_draw_objects();
+    GPROF("draw");
 
 //    if ( fade_on || fade_set ) gr_fade_step();
 
@@ -271,8 +346,11 @@ void gr_draw_frame() {
     SDL_RenderSetClipRect( gRenderer, NULL );
 #endif
 #ifdef USE_SDL2_GPU
+    if ( gfx_dev_cfg( "finish", 0 ) ) glFinish();   /* test: present only after the GPU completed the frame */
     GPU_Flip( gRenderer );
 #endif
+    GPROF("flip");
+    gp_report();
 }
 
 /* --------------------------------------------------------------------------- */
