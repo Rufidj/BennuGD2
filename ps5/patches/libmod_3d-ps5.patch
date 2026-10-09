@@ -628,7 +628,7 @@ index a3bab53..5ba0f16 100644
  /* Toggle X/Z re-centering of loaded models (default on). Turn OFF before loading
     world/map sectors whose geometry is baked at absolute world coordinates. */
 diff --git a/libmod_3d_ibl.c b/libmod_3d_ibl.c
-index a9012c6..f74224a 100644
+index a9012c6..349305e 100644
 --- a/libmod_3d_ibl.c
 +++ b/libmod_3d_ibl.c
 @@ -18,8 +18,11 @@
@@ -690,6 +690,195 @@ index a9012c6..f74224a 100644
      printf("G3D: IBL initialised (env %d², irradiance %d², prefilter %d² x%d mips, BRDF LUT %d²)\n",
             ENV_SIZE, IRR_SIZE, PREF_SIZE, PREF_MIPS, BRDF_SIZE);
      return 1;
+@@ -355,26 +366,90 @@ static void draw_cube(void) {
+     glBindVertexArray(0);
+ }
+ 
++/* ---- Incremental bake -----------------------------------------------------------------------
++   One full bake is ~43 render passes (6 sky faces, mipmaps, 6 irradiance faces, PREF_MIPS x 6
++   prefilter faces): ~30 ms on the PS5, i.e. a visible hitch every time the day/night cycle makes the
++   environment dirty. The bake is therefore a list of small steps that g3d_ibl_update() runs a few
++   at a time (IBL_STEPS_PER_UPDATE), so the cost is spread over several frames. The very first bake (no
++   usable IBL yet) still runs all at once. Desktop keeps the old behaviour: all steps in one call. */
++#define IBL_STEPS (6 + 1 + 6 + PREF_MIPS * 6)
++#ifdef __PROSPERO__
++#  define IBL_STEPS_PER_UPDATE 6
++#  define IBL_INTERVAL_MS 400
++#else
++#  define IBL_STEPS_PER_UPDATE IBL_STEPS
++#  define IBL_INTERVAL_MS G3D_IBL_MIN_INTERVAL_MS
++#endif
++static int g_ibl_step = 0;            /* next step of a running bake; 0 = idle */
++static int g_ibl_running = 0;
++
++/* Returns 0 if the sky is not ready yet (the bake is abandoned and retried later). */
++static int ibl_run_step(int s, const Mat4 *views, Mat4 proj) {
++    if (s < 6) {                                         /* 1. sky -> environment cubemap */
++        glViewport(0, 0, ENV_SIZE, ENV_SIZE);
++        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + s, g_ibl.env_cube, 0);
++        glClear(GL_COLOR_BUFFER_BIT);
++        return g3d_sky_render_env(views[s], proj) ? 1 : 0;
++    }
++    s -= 6;
++    glDisable(GL_DEPTH_TEST);
++    if (s == 0) {                                        /* env mips: the prefilter samples them */
++        glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl.env_cube);
++        glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
++        return 1;
++    }
++    s -= 1;
++    if (s < 6) {                                         /* 2. diffuse irradiance */
++        g3d_shader_use(g_ibl.sh_irr);
++        g3d_shader_set_mat4(g_ibl.sh_irr, "uProjection", proj);
++        glActiveTexture(GL_TEXTURE0);
++        glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl.env_cube);
++        g3d_shader_set_int(g_ibl.sh_irr, "uEnv", 0);
++        glViewport(0, 0, IRR_SIZE, IRR_SIZE);
++        g3d_shader_set_mat4(g_ibl.sh_irr, "uViewRot", views[s]);
++        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + s, g_ibl.irr_cube, 0);
++        glClear(GL_COLOR_BUFFER_BIT);
++        draw_cube();
++        return 1;
++    }
++    s -= 6;                                              /* 3. specular prefilter, (mip, face) */
++    int mip = s / 6, f = s % 6;
++    int msize = PREF_SIZE >> mip;
++    if (msize < 1) msize = 1;
++    g3d_shader_use(g_ibl.sh_pref);
++    g3d_shader_set_mat4(g_ibl.sh_pref, "uProjection", proj);
++    g3d_shader_set_float(g_ibl.sh_pref, "uEnvSize", (float)ENV_SIZE);
++    glActiveTexture(GL_TEXTURE0);
++    glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl.env_cube);
++    g3d_shader_set_int(g_ibl.sh_pref, "uEnv", 0);
++    glViewport(0, 0, msize, msize);
++    g3d_shader_set_float(g_ibl.sh_pref, "uRoughness", (float)mip / (float)(PREF_MIPS - 1));
++    g3d_shader_set_mat4(g_ibl.sh_pref, "uViewRot", views[f]);
++    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
++                           GL_TEXTURE_CUBE_MAP_POSITIVE_X + f, g_ibl.pref_cube, mip);
++    glClear(GL_COLOR_BUFFER_BIT);
++    draw_cube();
++    return 1;
++}
++
+ void g3d_ibl_update(void) {
+     if (!g_ibl.enabled || !g_ibl.dirty)
+         return;
+     if (!ibl_init())
+         return;
+ 
+-    /* RITMO MAXIMO. Recapturar el entorno son seis caras de cubemap mas dos
+-       convoluciones: del orden de 20 ms. Un ciclo dia/noche cambia el cielo en
+-       CADA frame, y hacerlo entero cada vez hundia el juego de 2600 a 47 fps
+-       (medido). La luz ambiental de un amanecer cambia despacio, asi que basta
+-       con rehacerla unas veces por segundo: el ojo no distingue la diferencia y
+-       el coste deja de existir.
+-       Un cambio brusco -- entrar en una cueva, cambiar de escena -- se ve igual
+-       de rapido porque el retraso maximo es una fraccion de segundo. */
+-    {
++    /* RITMO MAXIMO (see the interval note below): not more than one bake per IBL_INTERVAL_MS. A bake
++       that is already running keeps going every frame until its steps are done. */
++    if (!g_ibl_running) {
+         static unsigned int last_ms = 0;
+         unsigned int now = SDL_GetTicks();
+-        if (last_ms != 0 && (now - last_ms) < G3D_IBL_MIN_INTERVAL_MS)
+-            return;              /* sigue sucio: se rehara en cuanto toque */
++        if (last_ms != 0 && g_ibl.ready && (now - last_ms) < IBL_INTERVAL_MS)
++            return;              /* still dirty: it will be redone as soon as it is due */
+         last_ms = now;
++        g_ibl_running = 1;
++        g_ibl_step = 0;
+     }
+ 
+     GLint prev_fbo = 0, prev_vp[4];
+@@ -389,73 +464,26 @@ void g3d_ibl_update(void) {
+     glDisable(GL_BLEND);
+     glDisable(GL_CULL_FACE);
+ 
+-    /* 1. Capture the sky into the environment cubemap. If the sky isn't up yet
+-       (no scene has configured it), leave the capture dirty and retry next
+-       frame rather than baking a black environment permanently. */
+-    glViewport(0, 0, ENV_SIZE, ENV_SIZE);
++    int budget = g_ibl.ready ? IBL_STEPS_PER_UPDATE : IBL_STEPS;   /* first bake: all at once */
+     int sky_ok = 1;
+-    for (int f = 0; f < 6; f++) {
+-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+-                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + f, g_ibl.env_cube, 0);
+-        glClear(GL_COLOR_BUFFER_BIT);
+-        if (!g3d_sky_render_env(views[f], proj))
+-            sky_ok = 0;
+-    }
+-    if (!sky_ok) {
+-        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+-        glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+-        glEnable(GL_DEPTH_TEST);
+-        return;   /* still dirty: retry once the sky exists */
+-    }
+-    glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl.env_cube);
+-    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);   /* prefilter samples these mips */
+-
+-    glDisable(GL_DEPTH_TEST);
+-
+-    /* 2. Diffuse irradiance. */
+-    g3d_shader_use(g_ibl.sh_irr);
+-    g3d_shader_set_mat4(g_ibl.sh_irr, "uProjection", proj);
+-    glActiveTexture(GL_TEXTURE0);
+-    glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl.env_cube);
+-    g3d_shader_set_int(g_ibl.sh_irr, "uEnv", 0);
+-    glViewport(0, 0, IRR_SIZE, IRR_SIZE);
+-    for (int f = 0; f < 6; f++) {
+-        g3d_shader_set_mat4(g_ibl.sh_irr, "uViewRot", views[f]);
+-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+-                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + f, g_ibl.irr_cube, 0);
+-        glClear(GL_COLOR_BUFFER_BIT);
+-        draw_cube();
+-    }
+-
+-    /* 3. Specular prefilter: one mip per roughness step. */
+-    g3d_shader_use(g_ibl.sh_pref);
+-    g3d_shader_set_mat4(g_ibl.sh_pref, "uProjection", proj);
+-    g3d_shader_set_float(g_ibl.sh_pref, "uEnvSize", (float)ENV_SIZE);
+-    glActiveTexture(GL_TEXTURE0);
+-    glBindTexture(GL_TEXTURE_CUBE_MAP, g_ibl.env_cube);
+-    g3d_shader_set_int(g_ibl.sh_pref, "uEnv", 0);
+-    for (int mip = 0; mip < PREF_MIPS; mip++) {
+-        int msize = PREF_SIZE >> mip;
+-        if (msize < 1) msize = 1;
+-        glViewport(0, 0, msize, msize);
+-        float rough = (float)mip / (float)(PREF_MIPS - 1);
+-        g3d_shader_set_float(g_ibl.sh_pref, "uRoughness", rough);
+-        for (int f = 0; f < 6; f++) {
+-            g3d_shader_set_mat4(g_ibl.sh_pref, "uViewRot", views[f]);
+-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+-                                   GL_TEXTURE_CUBE_MAP_POSITIVE_X + f, g_ibl.pref_cube, mip);
+-            glClear(GL_COLOR_BUFFER_BIT);
+-            draw_cube();
+-        }
++    while (budget-- > 0 && g_ibl_step < IBL_STEPS) {
++        if (!ibl_run_step(g_ibl_step, views, proj)) { sky_ok = 0; break; }
++        g_ibl_step++;
+     }
+ 
+     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+     glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+     glEnable(GL_DEPTH_TEST);
+ 
+-    g_ibl.dirty = 0;
+-    g_ibl.ready = 1;
+-
++    if (!sky_ok) {               /* the sky isn't up yet: stay dirty and retry later */
++        g_ibl_running = 0; g_ibl_step = 0;
++        return;
++    }
++    if (g_ibl_step >= IBL_STEPS) {
++        g_ibl_running = 0; g_ibl_step = 0;
++        g_ibl.dirty = 0;
++        g_ibl.ready = 1;
++    }
+ }
+ 
+ int g3d_ibl_bind(int unit_irradiance, int unit_prefilter, int unit_brdf) {
 diff --git a/libmod_3d_instance.c b/libmod_3d_instance.c
 index 122b28c..9a87d94 100644
 --- a/libmod_3d_instance.c
@@ -821,18 +1010,32 @@ index 0157ec6..890ae61 100644
             mesh->vbo, mesh->ebo);
  
 diff --git a/libmod_3d_renderer.c b/libmod_3d_renderer.c
-index 62d5f1c..ddeea0d 100644
+index 62d5f1c..d521757 100644
 --- a/libmod_3d_renderer.c
 +++ b/libmod_3d_renderer.c
-@@ -4,6 +4,7 @@
+@@ -4,6 +4,13 @@
   * Core rendering: frustum culling, shadow pass, forward rendering
   */
  
++/* PS5: refresh shadow maps every 2nd frame by default (same look at 50+ fps, ~3 fps cheaper); desktop: every frame. */
++#ifdef __PROSPERO__
++#define G3D_SHADOW_EVERY_DEFAULT 2
++#else
++#define G3D_SHADOW_EVERY_DEFAULT 1
++#endif
 +static int g3d_dev_cfg(const char *key, int def);
  #include "libmod_3d_renderer.h"
  #include "libmod_3d_sprite.h"
  #include "libmod_3d_glcaps.h"
-@@ -47,6 +48,10 @@
+@@ -16,6 +23,7 @@
+ #include "libmod_3d_light.h"
+ #include "libmod_3d_water.h"
+ #include "libmod_3d_watersim.h"
++#include "libmod_3d_water_field.h"
+ #include "libmod_3d_voxterrain.h"
+ #include "libmod_3d_flow.h"
+ #include <SDL.h>
+@@ -47,6 +55,10 @@
  #define GL_GLEXT_PROTOTYPES
  #include <GL/gl.h>
  #include <GL/glext.h>
@@ -843,7 +1046,7 @@ index 62d5f1c..ddeea0d 100644
  #endif
  
  /* ============================================================================
-@@ -221,6 +226,8 @@ int g3d_renderer_init(uint32_t width, uint32_t height) {
+@@ -221,6 +233,8 @@ int g3d_renderer_init(uint32_t width, uint32_t height) {
      g_renderer.initialized = 1;
  
  #ifndef VITA
@@ -852,7 +1055,7 @@ index 62d5f1c..ddeea0d 100644
      g3d_glcaps_print();   /* GL version, feature flags and the chosen quality tier */
  #endif
      printf("G3D: Renderer initialized\n");
-@@ -317,6 +324,7 @@ void g3d_renderer_set_viewport_size(uint32_t w, uint32_t h) {
+@@ -317,6 +331,7 @@ void g3d_renderer_set_viewport_size(uint32_t w, uint32_t h) {
     1.0 = native. Only useful with an upscaler enabled (see libmod_3d_fsr.c),
     otherwise the image is just stretched. */
  void g3d_renderer_set_render_scale(float scale) {
@@ -860,7 +1063,7 @@ index 62d5f1c..ddeea0d 100644
      if (scale <= 0.0f || scale > 1.0f) scale = 1.0f;
      g_renderer.render_scale = scale;
      update_render_size();
-@@ -343,13 +351,45 @@ void g3d_renderer_set_viewport_physical(uint32_t x, uint32_t y, uint32_t w, uint
+@@ -343,13 +358,45 @@ void g3d_renderer_set_viewport_physical(uint32_t x, uint32_t y, uint32_t w, uint
      g_renderer.vp_h = h;
  }
  
@@ -906,7 +1109,7 @@ index 62d5f1c..ddeea0d 100644
      g_renderer.shadow_enabled = enabled;
  }
  
-@@ -359,6 +399,7 @@ void g3d_renderer_set_shadows(int enabled) {
+@@ -359,6 +406,7 @@ void g3d_renderer_set_shadows(int enabled) {
     almacenamiento mutable (se creo con glTexImage2D), asi que basta reasignarla al
     nuevo tamano; el framebuffer sigue apuntando a la misma id. */
  void g3d_renderer_set_shadow_resolution(uint32_t resolution) {
@@ -914,31 +1117,31 @@ index 62d5f1c..ddeea0d 100644
      if (resolution < 512) resolution = 512;
      if (resolution > 8192) resolution = 8192;
      if (resolution == g_renderer.shadow_map_width) return;
-@@ -539,6 +580,11 @@ void g3d_renderer_begin_frame(void) {
+@@ -539,6 +587,11 @@ void g3d_renderer_begin_frame(void) {
  }
  
  void g3d_renderer_shadow_pass(void) {
 +    {   /* dev tuning: refresh the sun shadow map only every Nth frame (map + matrix are kept) */
 +        static unsigned int n_ = 0;
-+        int ev_ = g3d_dev_cfg("shadow_every", 1);
++        int ev_ = g3d_dev_cfg("shadow_every", G3D_SHADOW_EVERY_DEFAULT);
 +        if (ev_ > 1 && (n_++ % (unsigned)ev_)) return;
 +    }
      if (!g_renderer.initialized || !g_renderer.shadow_enabled)
          return;
  
-@@ -620,6 +666,11 @@ void g3d_renderer_shadow_pass(void) {
+@@ -620,6 +673,11 @@ void g3d_renderer_shadow_pass(void) {
  /* Render scene depth from the first spot light's point of view, so its lit cone
     can be tested for occlusion (moving shadows that follow the flashlight). */
  void g3d_renderer_spot_shadow_pass(void) {
 +    {   /* same for the torch/spot shadow maps (the caster list is kept between refreshes) */
 +        static unsigned int n_ = 0;
-+        int ev_ = g3d_dev_cfg("spotshadow_every", 1);
++        int ev_ = g3d_dev_cfg("spotshadow_every", G3D_SHADOW_EVERY_DEFAULT);
 +        if (ev_ > 1 && (n_++ % (unsigned)ev_)) return;
 +    }
      g_renderer.num_shadow_casters = 0;
      if (!g_renderer.initialized || !g_renderer.shadow_enabled)
          return;
-@@ -639,9 +690,9 @@ void g3d_renderer_spot_shadow_pass(void) {
+@@ -639,9 +697,9 @@ void g3d_renderer_spot_shadow_pass(void) {
          float dd;
          if (l->type == G3D_LIGHT_TYPE_SPOT) dd = -1.0f;   /* spots always included */
          else { Vec3 v = vec3_sub(l->position, cam); dd = v.x*v.x + v.y*v.y + v.z*v.z; }
@@ -950,7 +1153,7 @@ index 62d5f1c..ddeea0d 100644
              if (dd < cand_d[worst]) { cand_id[worst] = light_ids[i]; cand_d[worst] = dd; }
          }
      }
-@@ -746,9 +797,16 @@ uint32_t g3d_renderer_capture_scene(void) {
+@@ -746,9 +804,16 @@ uint32_t g3d_renderer_capture_scene(void) {
      }
      glBindTexture(GL_TEXTURE_2D, g_renderer.scene_texture);
      /* Copy the current colour buffer (the opaque scene) into the texture. */
@@ -969,7 +1172,7 @@ index 62d5f1c..ddeea0d 100644
      } else {
          glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, cx, cy, (GLsizei)w, (GLsizei)h);
      }
-@@ -936,8 +994,21 @@ static void ensure_hdr_targets(uint32_t w, uint32_t h) {
+@@ -936,8 +1001,21 @@ static void ensure_hdr_targets(uint32_t w, uint32_t h) {
      g_renderer.hdr_ready = 1;
  }
  
@@ -991,10 +1194,67 @@ index 62d5f1c..ddeea0d 100644
      if (!g_renderer.tonemap_shader) {
          g_renderer.tonemap_shader = g3d_shader_create(post_vert, hdr_resolve_frag);
          g_renderer.bright_shader  = g3d_shader_create(post_vert, hdr_bright_frag);
-@@ -1596,10 +1667,54 @@ void g3d_renderer_end_frame(void) {
+@@ -1596,10 +1674,112 @@ void g3d_renderer_end_frame(void) {
  #endif
  }
  
++/* Is any of the live height-field water inside the camera's view? The water pass, the scene/depth
++   capture it needs (a 1080p copy the PS5 driver does on the CPU) and the surface draw cost ~7-10 ms a
++   frame even when the lake is behind the camera. The wet cells are grouped in 16x16-cell blocks, each with
++   its own box (one box for a whole lake + river is nearly always partly in view); the blocks are rebuilt a
++   few times a second (the field moves slowly). A sea reaches the horizon and is always "in view". */
++#define WV_BLOCK 16
++#define WV_MAX   256
++static int g_wv_in = 0, g_wv_out = 0, g_wv_n = 0; static float g_wv_boxes[WV_MAX][6];
++static int g3d_waterfield_in_view(G3DCamera *cam) {
++    static unsigned int last_ms = 0;
++    if (!g3d_waterfield_active()) return 0;
++    if (g3d_waterfield_get_sea_level() > G3D_NO_WATER_TEST) return 1;
++    if (g3d_dev_cfg("nowatercull", 0)) return 1;
++    unsigned int now = SDL_GetTicks();
++    if (!last_ms || now - last_ms > 400) {
++        last_ms = now;
++        g_wv_n = 0;
++        int S = g3d_waterfield_side(), grid = S - 1;
++        float ws = g3d_waterfield_world_size(), cell = ws / (float)grid;
++        const float *dep = g3d_waterfield_depth_array(), *ter = g3d_waterfield_terrain_array();
++        int ci0, cj0, ci1, cj1;
++        if (g3d_waterfield_wet_bounds(&ci0, &cj0, &ci1, &cj1)) {
++            for (int bj = cj0 / WV_BLOCK; bj <= cj1 / WV_BLOCK; bj++)
++                for (int bi = ci0 / WV_BLOCK; bi <= ci1 / WV_BLOCK; bi++) {
++                    int i0 = bi * WV_BLOCK, j0 = bj * WV_BLOCK;
++                    int i1 = i0 + WV_BLOCK - 1, j1 = j0 + WV_BLOCK - 1;
++                    if (i1 > grid) i1 = grid;
++                    if (j1 > grid) j1 = grid;
++                    int wi0 = 1 << 30, wi1 = -1, wj0 = 1 << 30, wj1 = -1;
++                    float y0 = 1e30f, y1 = -1e30f;
++                    for (int j = j0; j <= j1; j++)
++                        for (int i = i0; i <= i1; i++) {
++                            int c = j * S + i;
++                            if (dep[c] <= 0.004f) continue;
++                            if (i < wi0) wi0 = i;  if (i > wi1) wi1 = i;
++                            if (j < wj0) wj0 = j;  if (j > wj1) wj1 = j;
++                            if (ter[c] < y0) y0 = ter[c];
++                            if (ter[c] + dep[c] > y1) y1 = ter[c] + dep[c];
++                        }
++                    if (wi1 < 0 || g_wv_n >= WV_MAX) continue;
++                    float *bx = g_wv_boxes[g_wv_n++];
++                    bx[0] = ((float)wi0 / (float)grid - 0.5f) * ws - cell - 3;  bx[3] = ((float)wi1 / (float)grid - 0.5f) * ws + cell + 3;
++                    bx[2] = ((float)wj0 / (float)grid - 0.5f) * ws - cell - 3;  bx[5] = ((float)wj1 / (float)grid - 0.5f) * ws + cell + 3;   /* +3: waves, foam */
++                    bx[1] = y0 - 3; bx[4] = y1 + 3;
++                }
++        }
++    }
++    if (g_wv_n == 0) { g_wv_out++; return 0; }
++    if (!cam) { g_wv_in++; return 1; }
++    for (int k = 0; k < g_wv_n; k++) {
++        const float *bx = g_wv_boxes[k];
++        if (g3d_camera_frustum_contains_aabb(cam, vec3_make(bx[0], bx[1], bx[2]), vec3_make(bx[3], bx[4], bx[5]))) { g_wv_in++; return 1; }
++    }
++    g_wv_out++;
++    return 0;
++}
++
 +/* Cheap per-pass CPU timing: G3D_STG(name) charges the time since the previous
 +   mark to `name`; the table is printed once every 120 frames (one printf, no GL
 +   calls). Compile with -DG3D_STAGE_TRACE for the old glGetError-per-pass trace. */
@@ -1029,6 +1289,7 @@ index 62d5f1c..ddeea0d 100644
 +    for (int i = 0; i < g_stg_n; i++) { if (g_stg_acc[i] / 120.0 >= 0.05) printf(" %s=%.2f", g_stg_name[i], g_stg_acc[i] / 120.0); g_stg_acc[i] = 0; }
 +    { extern unsigned int g3d_uloc_gl_calls, g3d_uloc_full; static unsigned int last_ = 0;
 +      printf(" | glGetUniformLocation/frame=%.1f cache_full_misses=%u", (g3d_uloc_gl_calls - last_) / 120.0, g3d_uloc_full); last_ = g3d_uloc_gl_calls; }
++    printf(" | water in_view=%d culled=%d blocks=%d", g_wv_in, g_wv_out, g_wv_n); g_wv_in = g_wv_out = 0;
 +    printf("\n"); g_stg_t0 = now;
 +}
 +#endif
@@ -1046,7 +1307,7 @@ index 62d5f1c..ddeea0d 100644
      if (g3d_water_reflection_enabled()) {
          g3d_renderer_reflection_pass_plane(0.0f, g3d_water_get_level(), 0.0f,
                                             0.0f, 1.0f, 0.0f,
-@@ -1609,40 +1724,53 @@ void g3d_renderer_render(void) {
+@@ -1609,40 +1789,54 @@ void g3d_renderer_render(void) {
      }
      /* Visible/near mirrors render the scene mirrored into their textures */
      g3d_mirror_render_reflections(g_renderer.active_camera);
@@ -1088,7 +1349,8 @@ index 62d5f1c..ddeea0d 100644
      g3d_water_tick();   /* re-emit ripples at registered sources (river mouths) */
      g3d_water_update_underwater(g_renderer.active_camera); /* camera-submerged? */
 -    if (g3d_water_is_enabled() || g3d_fluid_count() > 0 || g3d_watersim_active() || g3d_voxwater_active()) {
-+    if (!g3d_dev_cfg("nocapture", 0) && (g3d_water_is_enabled() || g3d_fluid_count() > 0 || g3d_watersim_active() || g3d_voxwater_active())) {
++    int field_in_view = g3d_watersim_active() ? g3d_waterfield_in_view(g_renderer.active_camera) : 0;
++    if (!g3d_dev_cfg("nocapture", 0) && (g3d_water_is_enabled() || g3d_fluid_count() > 0 || (g3d_watersim_active() && field_in_view) || g3d_voxwater_active())) {
          g3d_renderer_capture_scene();
 +        G3D_STG("capture_scene");
          g3d_renderer_capture_depth();   /* for screen-space reflections in the water */
@@ -1102,7 +1364,7 @@ index 62d5f1c..ddeea0d 100644
      /* live height-field water sim (unified lakes+rivers): advance + draw.
         On voxel terrain the 3D voxel water owns everything -> don't draw the 2.5D. */
      if (g3d_watersim_active() && !g3d_voxterrain_active()) {
-@@ -1652,11 +1780,13 @@ void g3d_renderer_render(void) {
+@@ -1652,11 +1846,13 @@ void g3d_renderer_render(void) {
          wsim_last = now;
          if (dt > 0.1f) dt = 0.1f;
          g3d_watersim_step(dt);
@@ -1111,12 +1373,13 @@ index 62d5f1c..ddeea0d 100644
             moving water. Before the particle pass below, so they are drawn the
             same frame they are born. */
          g3d_water_splash_tick(dt);
-         g3d_watersim_render(g_renderer.active_camera, g_renderer.flip_y);
+-        g3d_watersim_render(g_renderer.active_camera, g_renderer.flip_y);
++        if (field_in_view) g3d_watersim_render(g_renderer.active_camera, g_renderer.flip_y);
 +    G3D_STG("watersim_render");
      }
      /* 3D voxel water (fills caves, waterfalls): advance + draw */
      if (g3d_voxwater_active()) {
-@@ -1669,11 +1799,21 @@ void g3d_renderer_render(void) {
+@@ -1669,11 +1865,21 @@ void g3d_renderer_render(void) {
          g3d_voxwater_render(g_renderer.active_camera, g_renderer.flip_y);
      }
      g3d_flow_render_pass(g_renderer.active_camera, g_renderer.flip_y);
@@ -1474,8 +1737,20 @@ index 6a878ea..3eb5c20 100644
  #include <math.h>
  
  #include <SDL.h>
+diff --git a/libmod_3d_water_field.c b/libmod_3d_water_field.c
+index dc00473..421432d 100644
+--- a/libmod_3d_water_field.c
++++ b/libmod_3d_water_field.c
+@@ -253,6 +253,7 @@ void g3d_waterfield_flow_arrays(const float **vx, const float **vz) {
+ }
+ unsigned int g3d_waterfield_revision(void)      { return W.revision; }
+ 
++
+ /* --------------------------------------------------------------------------
+    Sources
+    -------------------------------------------------------------------------- */
 diff --git a/libmod_3d_water_render.c b/libmod_3d_water_render.c
-index ed38785..3f9d8f7 100644
+index ed38785..88348b2 100644
 --- a/libmod_3d_water_render.c
 +++ b/libmod_3d_water_render.c
 @@ -763,11 +763,13 @@ static void wr_swash(G3DCamera *camera, Mat4 invvp, float t, int flip_y) {
@@ -1492,12 +1767,28 @@ index ed38785..3f9d8f7 100644
          /* Spectral waves where the hardware can run them. This must happen
             BEFORE the shaders are built, because whether the spectrum exists is
             compiled into them as WATER_SPECTRUM. */
-@@ -816,7 +818,7 @@ void g3d_water_render(G3DCamera *camera, int flip_y) {
+@@ -811,12 +813,22 @@ void g3d_water_render(G3DCamera *camera, int flip_y) {
+        passes bind their own programs, so running them mid-setup would leave a
+        compute shader active and send every uniform after this point to the wrong
+        program -- which silently draws nothing at all. */
+-    if (g3d_water_spectrum_ready())
++    /* The FFT cascades and the foam pass are the water's CPU/driver-heavy part (~6 ms on the PS5). Their
++       state is time-based, so running them every 2nd frame (default on PS5) only halves the update rate. */
++    static unsigned int wr_tick = 0;
++#ifdef __PROSPERO__
++    int wr_every = g3d_dev_cfg_pub("water_every", 2);
++#else
++    int wr_every = g3d_dev_cfg_pub("water_every", 1);
++#endif
++    int wr_run = (wr_every <= 1) || ((wr_tick++ % (unsigned)wr_every) == 0);
++
++    if (wr_run && g3d_water_spectrum_ready())
+         g3d_water_spectrum_update(t);
  
      /* Same rule for the foam pass, and it must come before the surface reads
         the field it just wrote. */
 -    wr_foam_update(t);
-+    if (!g3d_dev_cfg_pub("nofoam", 0)) wr_foam_update(t);
++    if (wr_run && !g3d_dev_cfg_pub("nofoam", 0)) wr_foam_update(t);
  
      G3DShaderProgram *sh = R.prog;
      g3d_shader_use(sh);

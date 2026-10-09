@@ -17,7 +17,7 @@ Street of Rage Remake, Galaxian, Joselkiller, Pac-Man, a 3D scene on `libmod_3d`
 
 ## Not in this branch (kept as patches in `ps5/patches/`)
 Nested/submodule repos can't be carried by this repo, so their PS5 changes are saved as patches:
-- `libmod_3d-ps5.patch` — against `Rufidj/libmod_3d@940cf53` (PS5 sampler/uniform limits, shadow/FSR/water tuning, perf instrumentation).
+- `libmod_3d-ps5.patch` — against `Rufidj/libmod_3d@940cf53` (PS5 sampler/uniform limits, water culling by visible block, FFT/foam/shadows every 2nd frame, incremental IBL bake, perf instrumentation).
 - `sdl-gpu-ps5.patch` — against `vendor/sdl-gpu@69532af` (PS5 context, rotating blit VBOs).
 - `theoraplay-ps5.patch` — against `vendor/theoraplay@c93be85`.
 - `optional-sysprof-interpreter.patch` — optional native-call profiler for `core/bgdrtm/interpreter.c` (enabled by a `sysprof.on` file).
@@ -31,3 +31,8 @@ The FFmpeg video module is a separate project (`libmod_video`), not part of Benn
 - Each write to a log file costs ~60 ms: keep stdout/stderr fully buffered.
 - `.dcb` files must be recompiled with the current `bgdc` (an old `z` as int vs the current `DOUBLE z` breaks draw order).
 - PS5 GL limits: 16 samplers per fragment shader, 1024 uniform components per vertex shader.
+
+## Tools
+`ps5/tools/build-title.sh` is a copy of the script that builds the eboot for one title in the native-app-boilerplate
+packager (link order matters: engine -> FFmpeg and deps -> libz -> GL driver -> libc gaps LAST). It lives in
+`native-app-boilerplate/apps/bennugd2/` next to the app's `main.c`.
