@@ -23,15 +23,11 @@ file(GLOB SOURCES_LIBBGGFX
      "${CMAKE_SOURCE_DIR}/vendor/theoraplay/theoraplay.c"
      )
 
-# PS5: theoraplay (and the libogg/libtheora/libvorbis chain it needs) isn't
-# cross-compiled for this target - swap the real g_media_theora.c for a
-# stand-in that satisfies the same interface (see g_media_theora_stub.c).
+# PS5: the real decoder is built too (libogg/libvorbis/libtheoradec come from
+# the PacBrew sysroot). g_media_theora_stub.c is no longer used.
+list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora_stub.c")
 if(PROSPERO)
-    list(REMOVE_ITEM SOURCES_LIBBGGFX
-         "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora.c"
-         "${CMAKE_SOURCE_DIR}/vendor/theoraplay/theoraplay.c")
-else()
-    list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora_stub.c")
+    include_directories(/home/ruben/ps5-payload-sdk-pacbrew/target/user/homebrew/include)
 endif()
 
 if(MINGW)
