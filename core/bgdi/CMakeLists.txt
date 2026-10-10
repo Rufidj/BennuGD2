@@ -24,12 +24,6 @@ if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
     foreach(module ${MODULE_HEADERS})
         get_filename_component(lib_name ${module} NAME)
 
-        # PS5: this module's own CMakeLists.txt returns before add_library()
-        # (see modules/libmod_net/CMakeLists.txt) - there's no libmod_net.a
-        # to link here.
-        if(PROSPERO AND lib_name STREQUAL "libmod_net")
-            continue()
-        endif()
 
         string(REGEX REPLACE "^lib" "" lib_name ${lib_name})
 

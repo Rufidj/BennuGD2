@@ -1,15 +1,5 @@
 project(mod_net)
 
-# PS5: net.c/net.h use plain BSD sockets (sys/socket.h, netinet/in.h...), which
-# this payload SDK's libkernel doesn't expose that way - PS5 networking needs
-# its own sockets shim (and sandbox entitlements for listen/bind), which is
-# separate work from porting the rest of the engine. Skip the module for now;
-# __fake_dl just won't have a libmod_net entry, same as any other module a
-# platform doesn't build (see core/make-fakedl.sh: SCOPE is just `ls modules/`,
-# so this is the only place that needs to know).
-if(PROSPERO)
-    return()
-endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/build/${TARGET}/bin/")

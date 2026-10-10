@@ -163,6 +163,9 @@ _net *net_open(enum net_mode mode, enum net_proto proto, char *addr, int port) {
 
 #if _WIN32
         ioctlsocket(neth->sock, FIONBIO, &(unsigned long){1});
+#elif defined(__PROSPERO__)
+        /* The console refuses FIONBIO/fcntl; its own non-blocking option is 0x1200. */
+        setsockopt(neth->sock, SOL_SOCKET, 0x1200, &(int){1}, sizeof(int));
 #else
         ioctl(neth->sock, FIONBIO, &(unsigned long){1});
 #endif
@@ -345,7 +348,7 @@ int net_getavailablebytes(_net *neth) {
     long unsigned int availableBytes;
     ioctlsocket(neth->sock, FIONREAD, &availableBytes);
 #else
-    int availableBytes;
+    int availableBytes = 0;
     ioctl(neth->sock, FIONREAD, &availableBytes);
 #endif
     return availableBytes;

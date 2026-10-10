@@ -49,6 +49,11 @@ TODO: PS3
         #include <ws2tcpip.h>
         #pragma comment(lib, "ws2_32.lib")
     #else
+        #include <sys/types.h>
+        #include <sys/socket.h>
+        #include <netinet/in.h>
+        #include <sys/ioctl.h>
+        #include <sys/select.h>
         #include <arpa/inet.h>
         #include <netdb.h>
         #include <unistd.h>

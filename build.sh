@@ -169,7 +169,6 @@ build_target() {
                 TARGET=x86_64-sie-ps5
                 COMPILER=""
                 STATIC_ENABLED=1 # force STATIC, same as switch/ps3
-                EXCLUDE_FAKEDL_MODULES="libmod_net" # see modules/libmod_net/CMakeLists.txt
                 USE_SDL2=0
                 USE_SDL2_GPU=1 # vendor/sdl-gpu/build/x86_64-sie-ps5 (built once, see its own
                                 # README note below) - the real 2D renderer, matching what

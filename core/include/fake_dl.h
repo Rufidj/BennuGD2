@@ -43,6 +43,7 @@
 #include "libmod_iap_exports.h"
 #include "libmod_input_exports.h"
 #include "libmod_misc_exports.h"
+#include "libmod_net_exports.h"
 #include "libmod_sound_exports.h"
 #endif
  
@@ -73,6 +74,7 @@ extern DLSYSFUNCS libmod_gfx_functions_exports[];
 extern DLSYSFUNCS libmod_iap_functions_exports[];
 extern DLSYSFUNCS libmod_input_functions_exports[];
 extern DLSYSFUNCS libmod_misc_functions_exports[];
+extern DLSYSFUNCS libmod_net_functions_exports[];
 extern DLSYSFUNCS libmod_sound_functions_exports[];
  
 /* ---------- module_initialize ---------- */
@@ -86,6 +88,7 @@ extern void libmod_debug_module_initialize();
 extern void libmod_gfx_module_initialize();
 extern void libmod_iap_module_initialize();
 extern void libmod_misc_module_initialize();
+extern void libmod_net_module_initialize();
 extern void libmod_sound_module_initialize();
 extern void libsdlhandler_module_initialize();
  
@@ -100,6 +103,7 @@ extern void libmod_debug_module_finalize();
 extern void libmod_gfx_module_finalize();
 extern void libmod_iap_module_finalize();
 extern void libmod_misc_module_finalize();
+extern void libmod_net_module_finalize();
 extern void libmod_sound_module_finalize();
 extern void libsdlhandler_module_finalize();
  
@@ -166,7 +170,7 @@ typedef struct __FAKE_DL
 
 /* ---------- FAKE DYNAMIC LIBRARY ---------- */
  
-__FAKE_DL __fake_dl[17];
+__FAKE_DL __fake_dl[19];
  
 /* ------------------------------------------ */
  
@@ -693,13 +697,13 @@ void fake_dl_init()
 #endif
     __fake_dl[12].modules_dependency           = NULL;
   
-    /* -------------------- libmod_sound -------------------- */
+    /* -------------------- libmod_net -------------------- */
  
-    __fake_dl[13].dlname                       = "libmod_sound";
+    __fake_dl[13].dlname                       = "libmod_net";
 #ifdef __BGDC__
-    __fake_dl[13].constants_def                = libmod_sound_constants_def;
+    __fake_dl[13].constants_def                = libmod_net_constants_def;
     __fake_dl[13].types_def                    = NULL;
-    __fake_dl[13].globals_def                  = &libmod_sound_globals_def;
+    __fake_dl[13].globals_def                  = NULL;
     __fake_dl[13].locals_def                   = NULL;
     __fake_dl[13].globals_fixup                = NULL;
     __fake_dl[13].locals_fixup                 = NULL;
@@ -708,10 +712,10 @@ void fake_dl_init()
     __fake_dl[13].types_def                    = NULL;
     __fake_dl[13].globals_def                  = NULL;
     __fake_dl[13].locals_def                   = NULL;
-    __fake_dl[13].globals_fixup                = libmod_sound_globals_fixup;
+    __fake_dl[13].globals_fixup                = NULL;
     __fake_dl[13].locals_fixup                 = NULL;
 #endif
-    __fake_dl[13].functions_exports            = libmod_sound_functions_exports;
+    __fake_dl[13].functions_exports            = libmod_net_functions_exports;
 #ifdef __BGDC__
     __fake_dl[13].module_initialize            = NULL;
     __fake_dl[13].module_finalize              = NULL;
@@ -722,8 +726,8 @@ void fake_dl_init()
     __fake_dl[13].process_exec_hook            = NULL;
     __fake_dl[13].handler_hooks                = NULL;
 #else
-    __fake_dl[13].module_initialize            = libmod_sound_module_initialize;
-    __fake_dl[13].module_finalize              = libmod_sound_module_finalize;
+    __fake_dl[13].module_initialize            = libmod_net_module_initialize;
+    __fake_dl[13].module_finalize              = libmod_net_module_finalize;
     __fake_dl[13].instance_create_hook         = NULL;
     __fake_dl[13].instance_destroy_hook        = NULL;
     __fake_dl[13].instance_pre_execute_hook    = NULL;
@@ -733,13 +737,13 @@ void fake_dl_init()
 #endif
     __fake_dl[13].modules_dependency           = NULL;
   
-    /* -------------------- libsdlhandler -------------------- */
+    /* -------------------- libmod_sound -------------------- */
  
-    __fake_dl[14].dlname                       = "libsdlhandler";
+    __fake_dl[14].dlname                       = "libmod_sound";
 #ifdef __BGDC__
-    __fake_dl[14].constants_def                = NULL;
+    __fake_dl[14].constants_def                = libmod_sound_constants_def;
     __fake_dl[14].types_def                    = NULL;
-    __fake_dl[14].globals_def                  = NULL;
+    __fake_dl[14].globals_def                  = &libmod_sound_globals_def;
     __fake_dl[14].locals_def                   = NULL;
     __fake_dl[14].globals_fixup                = NULL;
     __fake_dl[14].locals_fixup                 = NULL;
@@ -748,10 +752,10 @@ void fake_dl_init()
     __fake_dl[14].types_def                    = NULL;
     __fake_dl[14].globals_def                  = NULL;
     __fake_dl[14].locals_def                   = NULL;
-    __fake_dl[14].globals_fixup                = NULL;
+    __fake_dl[14].globals_fixup                = libmod_sound_globals_fixup;
     __fake_dl[14].locals_fixup                 = NULL;
 #endif
-    __fake_dl[14].functions_exports            = NULL;
+    __fake_dl[14].functions_exports            = libmod_sound_functions_exports;
 #ifdef __BGDC__
     __fake_dl[14].module_initialize            = NULL;
     __fake_dl[14].module_finalize              = NULL;
@@ -762,20 +766,18 @@ void fake_dl_init()
     __fake_dl[14].process_exec_hook            = NULL;
     __fake_dl[14].handler_hooks                = NULL;
 #else
-    __fake_dl[14].module_initialize            = libsdlhandler_module_initialize;
-    __fake_dl[14].module_finalize              = libsdlhandler_module_finalize;
+    __fake_dl[14].module_initialize            = libmod_sound_module_initialize;
+    __fake_dl[14].module_finalize              = libmod_sound_module_finalize;
     __fake_dl[14].instance_create_hook         = NULL;
     __fake_dl[14].instance_destroy_hook        = NULL;
     __fake_dl[14].instance_pre_execute_hook    = NULL;
     __fake_dl[14].instance_pos_execute_hook    = NULL;
     __fake_dl[14].process_exec_hook            = NULL;
-    __fake_dl[14].handler_hooks                = libsdlhandler_handler_hooks;
+    __fake_dl[14].handler_hooks                = NULL;
 #endif
     __fake_dl[14].modules_dependency           = NULL;
   
-    /* -------------------- run7.log -------------------- */
  
-    __fake_dl[15].dlname                       = "run7.log";
 #ifdef __BGDC__
     __fake_dl[15].constants_def                = NULL;
     __fake_dl[15].types_def                    = NULL;
@@ -791,7 +793,6 @@ void fake_dl_init()
     __fake_dl[15].globals_fixup                = NULL;
     __fake_dl[15].locals_fixup                 = NULL;
 #endif
-    __fake_dl[15].functions_exports            = NULL;
 #ifdef __BGDC__
     __fake_dl[15].module_initialize            = NULL;
     __fake_dl[15].module_finalize              = NULL;
@@ -802,8 +803,6 @@ void fake_dl_init()
     __fake_dl[15].process_exec_hook            = NULL;
     __fake_dl[15].handler_hooks                = NULL;
 #else
-    __fake_dl[15].module_initialize            = NULL;
-    __fake_dl[15].module_finalize              = NULL;
     __fake_dl[15].instance_create_hook         = NULL;
     __fake_dl[15].instance_destroy_hook        = NULL;
     __fake_dl[15].instance_pre_execute_hook    = NULL;
@@ -812,17 +811,27 @@ void fake_dl_init()
     __fake_dl[15].handler_hooks                = NULL;
 #endif
     __fake_dl[15].modules_dependency           = NULL;
+  
+    /* -------------------- libsdlhandler -------------------- */
  
-    /* -------------------- LAST -------------------- */
- 
-    __fake_dl[16].dlname                       = NULL;
+    __fake_dl[16].dlname                       = "libsdlhandler";
+#ifdef __BGDC__
     __fake_dl[16].constants_def                = NULL;
     __fake_dl[16].types_def                    = NULL;
     __fake_dl[16].globals_def                  = NULL;
     __fake_dl[16].locals_def                   = NULL;
     __fake_dl[16].globals_fixup                = NULL;
     __fake_dl[16].locals_fixup                 = NULL;
+#else
+    __fake_dl[16].constants_def                = NULL;
+    __fake_dl[16].types_def                    = NULL;
+    __fake_dl[16].globals_def                  = NULL;
+    __fake_dl[16].locals_def                   = NULL;
+    __fake_dl[16].globals_fixup                = NULL;
+    __fake_dl[16].locals_fixup                 = NULL;
+#endif
     __fake_dl[16].functions_exports            = NULL;
+#ifdef __BGDC__
     __fake_dl[16].module_initialize            = NULL;
     __fake_dl[16].module_finalize              = NULL;
     __fake_dl[16].instance_create_hook         = NULL;
@@ -831,7 +840,77 @@ void fake_dl_init()
     __fake_dl[16].instance_pos_execute_hook    = NULL;
     __fake_dl[16].process_exec_hook            = NULL;
     __fake_dl[16].handler_hooks                = NULL;
+#else
+    __fake_dl[16].module_initialize            = libsdlhandler_module_initialize;
+    __fake_dl[16].module_finalize              = libsdlhandler_module_finalize;
+    __fake_dl[16].instance_create_hook         = NULL;
+    __fake_dl[16].instance_destroy_hook        = NULL;
+    __fake_dl[16].instance_pre_execute_hook    = NULL;
+    __fake_dl[16].instance_pos_execute_hook    = NULL;
+    __fake_dl[16].process_exec_hook            = NULL;
+    __fake_dl[16].handler_hooks                = libsdlhandler_handler_hooks;
+#endif
     __fake_dl[16].modules_dependency           = NULL;
+  
+    /* -------------------- run7.log -------------------- */
+ 
+    __fake_dl[17].dlname                       = "run7.log";
+#ifdef __BGDC__
+    __fake_dl[17].constants_def                = NULL;
+    __fake_dl[17].types_def                    = NULL;
+    __fake_dl[17].globals_def                  = NULL;
+    __fake_dl[17].locals_def                   = NULL;
+    __fake_dl[17].globals_fixup                = NULL;
+    __fake_dl[17].locals_fixup                 = NULL;
+#else
+    __fake_dl[17].constants_def                = NULL;
+    __fake_dl[17].types_def                    = NULL;
+    __fake_dl[17].globals_def                  = NULL;
+    __fake_dl[17].locals_def                   = NULL;
+    __fake_dl[17].globals_fixup                = NULL;
+    __fake_dl[17].locals_fixup                 = NULL;
+#endif
+    __fake_dl[17].functions_exports            = NULL;
+#ifdef __BGDC__
+    __fake_dl[17].module_initialize            = NULL;
+    __fake_dl[17].module_finalize              = NULL;
+    __fake_dl[17].instance_create_hook         = NULL;
+    __fake_dl[17].instance_destroy_hook        = NULL;
+    __fake_dl[17].instance_pre_execute_hook    = NULL;
+    __fake_dl[17].instance_pos_execute_hook    = NULL;
+    __fake_dl[17].process_exec_hook            = NULL;
+    __fake_dl[17].handler_hooks                = NULL;
+#else
+    __fake_dl[17].module_initialize            = NULL;
+    __fake_dl[17].module_finalize              = NULL;
+    __fake_dl[17].instance_create_hook         = NULL;
+    __fake_dl[17].instance_destroy_hook        = NULL;
+    __fake_dl[17].instance_pre_execute_hook    = NULL;
+    __fake_dl[17].instance_pos_execute_hook    = NULL;
+    __fake_dl[17].process_exec_hook            = NULL;
+    __fake_dl[17].handler_hooks                = NULL;
+#endif
+    __fake_dl[17].modules_dependency           = NULL;
+ 
+    /* -------------------- LAST -------------------- */
+ 
+    __fake_dl[18].dlname                       = NULL;
+    __fake_dl[18].constants_def                = NULL;
+    __fake_dl[18].types_def                    = NULL;
+    __fake_dl[18].globals_def                  = NULL;
+    __fake_dl[18].locals_def                   = NULL;
+    __fake_dl[18].globals_fixup                = NULL;
+    __fake_dl[18].locals_fixup                 = NULL;
+    __fake_dl[18].functions_exports            = NULL;
+    __fake_dl[18].module_initialize            = NULL;
+    __fake_dl[18].module_finalize              = NULL;
+    __fake_dl[18].instance_create_hook         = NULL;
+    __fake_dl[18].instance_destroy_hook        = NULL;
+    __fake_dl[18].instance_pre_execute_hook    = NULL;
+    __fake_dl[18].instance_pos_execute_hook    = NULL;
+    __fake_dl[18].process_exec_hook            = NULL;
+    __fake_dl[18].handler_hooks                = NULL;
+    __fake_dl[18].modules_dependency           = NULL;
  
 }
  
