@@ -174,6 +174,8 @@ build_target() {
                                 # README note below) - the real 2D renderer, matching what
                                 # already runs on-console today.
                 PS5_OPENGL_ROOT="/home/ruben/Escritorio/ps5-opengl"
+                # PacBrew sysroot prefix: FFmpeg (libmod_video) and libogg/libvorbis/libtheoradec (Theora in libbggfx)
+                PS5_PACBREW_PREFIX="${PS5_PACBREW_PREFIX:-/home/ruben/ps5-payload-sdk-pacbrew/target/user/homebrew}"
                 CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ps5.cmake -DBUILD_TARGET=interpreter -DPROSPERO=ON \
                     -DZLIB_INCLUDE_DIR=${PWD}/vendor/ps5/include -DZLIB_LIBRARY=${PWD}/vendor/ps5/lib/libz.a \
                     -DSDL2_INCLUDE_DIR=${PS5_OPENGL_ROOT}/native-app-boilerplate/vendor/sdl2-real/include/SDL2 \
@@ -181,6 +183,9 @@ build_target() {
                     -DSDL2_IMAGE_INCLUDE_DIR=${PWD}/vendor/ps5/include -DSDL2_IMAGE_LIBRARY=${PWD}/vendor/ps5/lib/libSDL2_image.a \
                     -DSDLMIXER_INCLUDE_DIR=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/include -DSDLMIXER_LIBRARY=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/libSDL2_mixer.a \
                     -DSDL2_mixer_INCLUDE_DIRS=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/include -DSDL2_mixer_LIBRARIES=${PS5_OPENGL_ROOT}/integration/sdl2_mixer/libSDL2_mixer.a \
+                    -DPS5_PACBREW_PREFIX=${PS5_PACBREW_PREFIX} \
+                    -DFFMPEG_INCLUDE_DIRS=${PS5_PACBREW_PREFIX}/include \
+                    -DFFMPEG_LIBRARIES=${PS5_PACBREW_PREFIX}/lib/libavformat.a;${PS5_PACBREW_PREFIX}/lib/libavcodec.a;${PS5_PACBREW_PREFIX}/lib/libswscale.a;${PS5_PACBREW_PREFIX}/lib/libswresample.a;${PS5_PACBREW_PREFIX}/lib/libavutil.a \
                     -DPS5_OPENGL_SDK_ROOT=${PS5_OPENGL_ROOT}/native-app-boilerplate/vendor/ps5-opengl-sdk \
                     -DSDL_GPU_INCLUDE_DIR=${PWD}/vendor/sdl-gpu/include -DSDL_GPU_LIBRARY=${PWD}/vendor/sdl-gpu/build/x86_64-sie-ps5/SDL_gpu/lib/libSDL2_gpu.a"
                 # zlib.h (and anything else under vendor/ps5/include) isn't found via any

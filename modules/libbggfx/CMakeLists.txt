@@ -27,7 +27,7 @@ file(GLOB SOURCES_LIBBGGFX
 # the PacBrew sysroot). g_media_theora_stub.c is no longer used.
 list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora_stub.c")
 if(PROSPERO)
-    include_directories(/home/ruben/ps5-payload-sdk-pacbrew/target/user/homebrew/include)
+    include_directories(${PS5_PACBREW_PREFIX}/include)
 endif()
 
 if(MINGW)

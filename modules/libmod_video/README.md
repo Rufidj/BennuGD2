@@ -1,0 +1,64 @@
+# libmod_video
+
+FFmpeg video playback for BennuGD2, as an independent module (BennuGD2's own sources are not modified).
+
+```
+import "libmod_video";
+
+PROCESS main()
+PRIVATE int v, g;
+BEGIN
+    set_mode(1280, 720);
+    v = video_open("intro.mp4");        // mp4/h264, webm/vp9, mkv, avi, ogv(theora)... whatever FFmpeg decodes
+    g = video_graph(v);                 // a graph that always shows the current frame
+    video_play(v, 0);                   // 0 = once, 1 = loop
+    graph = g; x = 640; y = 360;
+    WHILE (!video_is_finished(v)) FRAME; END
+    video_close(v);
+END
+```
+
+Functions: VIDEO_OPEN, VIDEO_GRAPH, VIDEO_PLAY(h,loop), VIDEO_PAUSE(h,paused), VIDEO_STOP, VIDEO_SEEK(h,ms),
+VIDEO_CLOSE, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_DURATION, VIDEO_POSITION (ms), VIDEO_IS_PLAYING,
+VIDEO_IS_FINISHED, VIDEO_VOLUME(h,0..128).
+
+Audio goes through SDL_mixer's music hook (Mix_HookMusic), so it shares the device BennuGD already opened;
+a video that owns the audio replaces MUSIC_PLAY while it plays. Software decoding only.
+
+Licensing: FFmpeg is LGPL/GPL depending on how it was built; check your FFmpeg build before shipping.
+
+## Building
+
+### PC (Linux)
+```
+# FFmpeg dev headers: apt install libavcodec-dev libavformat-dev libswscale-dev libswresample-dev libavutil-dev
+# (or, without root, extract the .deb files into third_party/ffmpeg_pc/sysroot as done here)
+gcc -shared -fPIC -O2 -DUSE_SDL2_GPU=1 $(sdl2-config --cflags) \
+    -I$BENNU/core/include -I$BENNU/core/bgdrtm -I$BENNU/modules/libbggfx -I$BENNU/modules/libsdlhandler \
+    -I$BENNU/vendor/sdl-gpu/include -I. $(pkg-config --cflags libavformat libavcodec libswscale libswresample libavutil) \
+    libmod_video.c -o libmod_video.so -L$BENNU/build/linux-gnu/bin -lbggfx -lbgdrtm -lSDL2_mixer \
+    $(pkg-config --libs libavformat libavcodec libswscale libswresample libavutil)
+```
+Put `libmod_video.so` next to the other module libraries, then `import "libmod_video";`.
+Or symlink this directory into `BennuGD2/modules/` and let BennuGD2's CMake build it
+(`-DFFMPEG_INCLUDE_DIRS=... -DFFMPEG_LIBRARIES=...` if pkg-config cannot find FFmpeg).
+
+### PS5 (static, native-app-boilerplate)
+1. Symlink into `BennuGD2/modules/libmod_video` and regenerate `core/include/fake_dl.h`
+   (`core/make-fakedl.sh`, needs `find -L` to follow the symlink).
+2. Configure `build/x86_64-sie-ps5` with `-DFFMPEG_INCLUDE_DIRS` / `-DFFMPEG_LIBRARIES` pointing at the
+   pacbrew FFmpeg (`ps5-payload-sdk-pacbrew/target/user/homebrew`), `make mod_video`.
+3. Link `libmod_video.a`, then `libavformat libavcodec libswscale libswresample libavutil libssl libcrypto
+   libiconv liblzma libbz2` (copy them into the app's `libs/`; the packager only accepts in-repo `.a` paths),
+   and keep `libps5_runtime_gaps.a` LAST (it supplies `gmtime_r`, `localtime_r`, `nl_langinfo`, `_setjmp`,
+   `sendmmsg`, `dladdr`... that OpenSSL/iconv pull in).
+4. The packaging layer must map relative paths to `/app0` for `open()` (FFmpeg opens files with it).
+
+## Notes / limits
+- Software decoding only (the PS5 has no hardware decoder exposed here); 640x360 H.264 and 320x240 VP9/Theora
+  run in real time on the console. Heavier streams depend on the CPU.
+- A closed video's graph is freed ~30 frames later: freeing and recreating a texture back to back left the new
+  video black on the PS5 (the GPU executes draw calls after the CPU queued them).
+- Audio: one video at a time owns the SDL_mixer music hook. Looping restarts the audio ring.
+- Test material: `test/` (regenerate with the ffmpeg lavfi commands in the history; `video_test.prg` plays one,
+  `video_test_seq.prg` plays three in a row).

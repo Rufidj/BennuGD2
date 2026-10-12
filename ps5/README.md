@@ -12,6 +12,8 @@ Street of Rage Remake, Galaxian, Joselkiller, Pac-Man, a 3D scene on `libmod_3d`
 - `modules/libbggfx`: letterbox-correct scissor for scrolls (`gr_screen_clip`), screen clear deferred for modules that draw a
   full-screen image (PS5 blocks ~13 ms on the first touch of the screen buffer), stable sort of scroll processes,
   `gfx.cfg` tuning switches; the real Theora decoder (`g_media_theora.c` + theoraplay over PacBrew libogg/libvorbis/libtheoradec) is built for PS5 (`MEDIA_LOAD`/`MEDIA_PLAY` verified on hardware).
+- `modules/libmod_video`: FFmpeg video module (`VIDEO_OPEN/GRAPH/PLAY/...`, H.264/VP9/Theora + audio); needs FFmpeg static libs from the PacBrew
+  sysroot (`PS5_PACBREW_PREFIX` in `build.sh`). Also usable on PC (see its README). Its sources are the same as the standalone project.
 - `modules/libmod_net`: built for PS5 (BSD sockets). The console's libc has null `getaddrinfo`, so `ps5/tools/ps5_net_shim.c`
   (IPv4 via `sceNetResolver`) must be archived into `libps5_runtime_gaps.a`; sockets are made non-blocking with the console's
   own option (0x1200). TCP client and server verified on hardware.

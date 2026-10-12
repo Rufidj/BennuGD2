@@ -45,6 +45,7 @@
 #include "libmod_misc_exports.h"
 #include "libmod_net_exports.h"
 #include "libmod_sound_exports.h"
+#include "libmod_video_exports.h"
 #endif
  
 #ifndef __BGDC__
@@ -76,6 +77,7 @@ extern DLSYSFUNCS libmod_input_functions_exports[];
 extern DLSYSFUNCS libmod_misc_functions_exports[];
 extern DLSYSFUNCS libmod_net_functions_exports[];
 extern DLSYSFUNCS libmod_sound_functions_exports[];
+extern DLSYSFUNCS libmod_video_functions_exports[];
  
 /* ---------- module_initialize ---------- */
  
@@ -90,6 +92,8 @@ extern void libmod_iap_module_initialize();
 extern void libmod_misc_module_initialize();
 extern void libmod_net_module_initialize();
 extern void libmod_sound_module_initialize();
+extern void libmod_video_module_initialize();
+extern void libmod_video_module_initialize();
 extern void libsdlhandler_module_initialize();
  
 /* ---------- module_finalize ---------- */
@@ -105,6 +109,8 @@ extern void libmod_iap_module_finalize();
 extern void libmod_misc_module_finalize();
 extern void libmod_net_module_finalize();
 extern void libmod_sound_module_finalize();
+extern void libmod_video_module_finalize();
+extern void libmod_video_module_finalize();
 extern void libsdlhandler_module_finalize();
  
 /* ---------- instance_create_hook ---------- */
@@ -777,7 +783,9 @@ void fake_dl_init()
 #endif
     __fake_dl[14].modules_dependency           = NULL;
   
+    /* -------------------- libmod_video -------------------- */
  
+    __fake_dl[15].dlname                       = "libmod_video";
 #ifdef __BGDC__
     __fake_dl[15].constants_def                = NULL;
     __fake_dl[15].types_def                    = NULL;
@@ -793,6 +801,7 @@ void fake_dl_init()
     __fake_dl[15].globals_fixup                = NULL;
     __fake_dl[15].locals_fixup                 = NULL;
 #endif
+    __fake_dl[15].functions_exports            = libmod_video_functions_exports;
 #ifdef __BGDC__
     __fake_dl[15].module_initialize            = NULL;
     __fake_dl[15].module_finalize              = NULL;
@@ -803,6 +812,8 @@ void fake_dl_init()
     __fake_dl[15].process_exec_hook            = NULL;
     __fake_dl[15].handler_hooks                = NULL;
 #else
+    __fake_dl[15].module_initialize            = libmod_video_module_initialize;
+    __fake_dl[15].module_finalize              = libmod_video_module_finalize;
     __fake_dl[15].instance_create_hook         = NULL;
     __fake_dl[15].instance_destroy_hook        = NULL;
     __fake_dl[15].instance_pre_execute_hook    = NULL;
