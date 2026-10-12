@@ -27,6 +27,19 @@ a video that owns the audio replaces MUSIC_PLAY while it plays. Software decodin
 
 Licensing: FFmpeg is LGPL/GPL depending on how it was built; check your FFmpeg build before shipping.
 
+## Subtitles
+Text tracks (SRT, ASS/SSA, WebVTT, mov_text) embedded in the container, or an external file loaded with
+`VIDEO_SUBTITLE_LOAD`. The module does not draw them; the script shows `VIDEO_SUBTITLE_TEXT(handle)` with its own
+fonts (so any charset/style BennuGD can print works). Image-based tracks (PGS, DVB) are ignored.
+```
+n = video_subtitle_tracks(v);            // embedded + external
+say(video_subtitle_lang(v, 0));          // "spa - Castellano"
+video_subtitle_select(v, 0);             // -1 = off (default)
+video_subtitle_load(v, "movie.es.srt");  // extra track, becomes selected
+write(font, x, y, 4, video_subtitle_text(v));   // "" when nothing is due
+```
+Test: `test/video_subtitles.prg` (+ `test_subs.mkv`, `test_subs.srt`).
+
 ## Building
 
 ### PC (Linux)

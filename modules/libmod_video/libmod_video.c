@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
 
 #include <SDL.h>
 #include <SDL_mixer.h>
@@ -32,6 +33,7 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/dict.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
@@ -50,6 +52,14 @@ typedef struct {
     uint8_t * rgba;
     double    pts;                     /* seconds                               */
 } VFRAME;
+
+#define MAX_SUBS     8                 /* embedded text subtitle tracks kept   */
+
+typedef struct {
+    double    start, end;              /* seconds                               */
+    int       track;                   /* 0..nsub-1 embedded, nsub external     */
+    char    * text;                    /* UTF-8, '\n' between lines             */
+} CUE;
 
 typedef struct {
     int             used;
@@ -88,6 +98,15 @@ typedef struct {
     double          clk_base;          /* media time at clk_t0                  */
     Uint32          clk_t0;
     double          last_time;         /* last media time reported              */
+
+    /* subtitles (text only: SRT / ASS / SSA / WebVTT / mov_text), guarded by mx */
+    int             nsub;                      /* embedded text tracks          */
+    int             sub_stream[MAX_SUBS];      /* stream index of each track    */
+    AVCodecContext  * sub_ctx[MAX_SUBS];
+    int             sub_sel;                   /* selected track, -1 = off      */
+    int             sub_ext;                   /* 1 once an external file loaded*/
+    CUE             * cues;
+    int             ncues, capcues;
 
     SDL_Thread      * thr;
 } VIDEO;
@@ -171,6 +190,85 @@ static void audio_release( VIDEO * v ) {
 }
 
 /* ---- decoder thread ---------------------------------------------------- */
+
+/* ---- subtitles ---------------------------------------------------------- */
+
+/* strip ASS override blocks {...}, <tags> and turn \N / \n / \h into text; returns malloc'd UTF-8 */
+static char * sub_clean( const char * in ) {
+    size_t n = strlen( in );
+    char * out = ( char * ) malloc( n + 1 );
+    if ( !out ) return NULL;
+    size_t o = 0;
+    for ( size_t i = 0; i < n; i++ ) {
+        char c = in[i];
+        if ( c == '{' ) { while ( i < n && in[i] != '}' ) i++; continue; }
+        if ( c == '<' ) { size_t j = i; while ( j < n && in[j] != '>' ) j++; if ( j < n ) { i = j; continue; } }
+        if ( c == '\\' && i + 1 < n ) {
+            if ( in[i+1] == 'N' || in[i+1] == 'n' ) { out[o++] = '\n'; i++; continue; }
+            if ( in[i+1] == 'h' ) { out[o++] = ' '; i++; continue; }
+        }
+        if ( c == '\r' ) continue;
+        out[o++] = c;
+    }
+    while ( o > 0 && ( out[o-1] == '\n' || out[o-1] == ' ' ) ) o--;
+    out[o] = 0;
+    return out;
+}
+
+static void cue_add( VIDEO * v, int track, double start, double end, char * text ) {
+    SDL_LockMutex( v->mx );
+    /* a looped / re-demuxed packet gives the same cue again */
+    for ( int i = v->ncues - 1, k = 0; i >= 0 && k < 64; i--, k++ )
+        if ( v->cues[i].track == track && fabs( v->cues[i].start - start ) < 0.001 && !strcmp( v->cues[i].text, text ) ) {
+            SDL_UnlockMutex( v->mx ); free( text ); return;
+        }
+    if ( v->ncues == v->capcues ) {
+        int nc = v->capcues ? v->capcues * 2 : 64;
+        CUE * p = ( CUE * ) realloc( v->cues, ( size_t ) nc * sizeof( CUE ) );
+        if ( !p ) { SDL_UnlockMutex( v->mx ); free( text ); return; }
+        v->cues = p; v->capcues = nc;
+    }
+    v->cues[v->ncues].start = start; v->cues[v->ncues].end = end;
+    v->cues[v->ncues].track = track; v->cues[v->ncues].text = text;
+    v->ncues++;
+    SDL_UnlockMutex( v->mx );
+}
+
+/* decode one subtitle packet into cues of 'track' */
+static void sub_packet( VIDEO * v, AVCodecContext * c, AVPacket * pkt, double tb, int track ) {
+    AVSubtitle sub; int got = 0;
+    memset( &sub, 0, sizeof( sub ) );
+    if ( avcodec_decode_subtitle2( c, &sub, &got, pkt ) < 0 || !got ) return;
+
+    double base = pkt->pts != AV_NOPTS_VALUE ? pkt->pts * tb : ( sub.pts != AV_NOPTS_VALUE ? sub.pts / ( double ) AV_TIME_BASE : 0 );
+    double start = base + sub.start_display_time / 1000.0;
+    double end   = base + sub.end_display_time / 1000.0;
+    if ( end <= start && pkt->duration > 0 ) end = start + pkt->duration * tb;
+    if ( end <= start ) end = start + 3.0;
+
+    for ( unsigned i = 0; i < sub.num_rects; i++ ) {
+        AVSubtitleRect * r = sub.rects[i];
+        const char * raw = NULL;
+        if ( r->type == SUBTITLE_ASS && r->ass ) {
+            raw = r->ass;                                   /* ReadOrder,Layer,Style,Name,ML,MR,MV,Effect,Text */
+            for ( int k = 0; k < 8 && raw; k++ ) { raw = strchr( raw, ',' ); if ( raw ) raw++; }
+        } else if ( r->type == SUBTITLE_TEXT && r->text ) raw = r->text;
+        if ( !raw ) continue;
+        char * t = sub_clean( raw );
+        if ( t && *t ) cue_add( v, track, start, end, t ); else free( t );
+    }
+    avsubtitle_free( &sub );
+}
+
+static const char * sub_lang( AVFormatContext * f, int stream, char * buf, size_t n ) {
+    AVDictionaryEntry * l = av_dict_get( f->streams[stream]->metadata, "language", NULL, 0 );
+    AVDictionaryEntry * t = av_dict_get( f->streams[stream]->metadata, "title", NULL, 0 );
+    if ( l && t ) snprintf( buf, n, "%s - %s", l->value, t->value );
+    else if ( l ) snprintf( buf, n, "%s", l->value );
+    else if ( t ) snprintf( buf, n, "%s", t->value );
+    else buf[0] = 0;
+    return buf;
+}
 
 static void vq_clear( VIDEO * v ) {
     v->vq_r = 0; v->vq_n = 0;
@@ -285,6 +383,12 @@ static int decode_thread( void * arg ) {
 
         } else if ( pkt->stream_index == v->astream && v->actx && v->has_audio ) {
             if ( avcodec_send_packet( v->actx, pkt ) >= 0 ) drain_decoder( v, v->actx, 0 );
+        } else {
+            for ( int i = 0; i < v->nsub; i++ )
+                if ( pkt->stream_index == v->sub_stream[i] && v->sub_ctx[i] ) {
+                    sub_packet( v, v->sub_ctx[i], pkt, av_q2d( v->fmt->streams[pkt->stream_index]->time_base ), i );
+                    break;
+                }
         }
         av_packet_unref( pkt );
     }
@@ -360,6 +464,9 @@ static void vid_free( VIDEO * v ) {
     if ( v->frame ) av_frame_free( &v->frame );
     if ( v->vctx ) avcodec_free_context( &v->vctx );
     if ( v->actx ) avcodec_free_context( &v->actx );
+    for ( int i = 0; i < MAX_SUBS; i++ ) if ( v->sub_ctx[i] ) avcodec_free_context( &v->sub_ctx[i] );
+    for ( int i = 0; i < v->ncues; i++ ) free( v->cues[i].text );
+    free( v->cues );
     if ( v->fmt ) avformat_close_input( &v->fmt );
     if ( v->graph_code ) zombie_add( v->graph_code );
     if ( v->cond ) SDL_DestroyCond( v->cond );
@@ -423,6 +530,18 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
             }
             av_channel_layout_uninit( &out_l );
         }
+    }
+
+    /* embedded text subtitle tracks (decoded as the demuxer reaches them) */
+    v->sub_sel = -1;
+    for ( unsigned i = 0; i < v->fmt->nb_streams && v->nsub < MAX_SUBS; i++ ) {
+        AVCodecParameters * par = v->fmt->streams[i]->codecpar;
+        if ( par->codec_type != AVMEDIA_TYPE_SUBTITLE ) continue;
+        const AVCodecDescriptor * d = avcodec_descriptor_get( par->codec_id );
+        if ( !d || !( d->props & AV_CODEC_PROP_TEXT_SUB ) ) continue;
+        AVCodecContext * c = open_codec( v->fmt, i );
+        if ( !c ) continue;
+        v->sub_stream[v->nsub] = i; v->sub_ctx[v->nsub] = c; v->nsub++;
     }
 
     /* the graph that shows the video */
@@ -519,6 +638,108 @@ int64_t libmod_video_close( INSTANCE * my, int64_t * params ) {
     VIDEO * v = vid_get( params[0] ); if ( !v ) return 0;
     vid_free( v );
     return 1;
+}
+
+/* ---- subtitle API ------------------------------------------------------- */
+
+int64_t libmod_video_subtitle_tracks( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] ); if ( !v ) return 0;
+    return v->nsub + ( v->sub_ext ? 1 : 0 );
+}
+
+int64_t libmod_video_subtitle_lang( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] );
+    char buf[256] = "";
+    int i = ( int ) params[1];
+    if ( v && i >= 0 && i < v->nsub ) sub_lang( v->fmt, v->sub_stream[i], buf, sizeof( buf ) );
+    else if ( v && v->sub_ext && i == v->nsub ) snprintf( buf, sizeof( buf ), "external" );
+    int64_t str = string_new( buf );
+    string_use( str );
+    return str;
+}
+
+int64_t libmod_video_subtitle_select( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] ); if ( !v ) return 0;
+    int t = ( int ) params[1];
+    int max = v->nsub + ( v->sub_ext ? 1 : 0 );
+    SDL_LockMutex( v->mx );
+    v->sub_sel = ( t >= 0 && t < max ) ? t : -1;
+    SDL_UnlockMutex( v->mx );
+    return v->sub_sel >= 0;
+}
+
+/* load an external subtitle file (.srt .ass .ssa .vtt ...) as an extra track, which becomes selected */
+int64_t libmod_video_subtitle_load( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] );
+    const char * path = ( const char * ) string_get( params[1] );
+    int ok = 0;
+    AVFormatContext * f = NULL;
+    AVCodecContext * c = NULL;
+    AVPacket * pkt = NULL;
+
+    if ( !v ) goto done;
+    if ( avformat_open_input( &f, path, NULL, NULL ) < 0 ) { fprintf( stderr, "VIDEO_SUBTITLE_LOAD: cannot open %s\n", path ); goto done; }
+    if ( avformat_find_stream_info( f, NULL ) < 0 ) goto done;
+    int si = av_find_best_stream( f, AVMEDIA_TYPE_SUBTITLE, -1, -1, NULL, 0 );
+    if ( si < 0 ) { fprintf( stderr, "VIDEO_SUBTITLE_LOAD: no subtitle stream in %s\n", path ); goto done; }
+    c = open_codec( f, si );
+    if ( !c ) goto done;
+
+    /* replace a previously loaded external track */
+    SDL_LockMutex( v->mx );
+    int w = 0;
+    for ( int i = 0; i < v->ncues; i++ ) {
+        if ( v->cues[i].track == v->nsub ) free( v->cues[i].text ); else v->cues[w++] = v->cues[i];
+    }
+    v->ncues = w;
+    SDL_UnlockMutex( v->mx );
+
+    pkt = av_packet_alloc();
+    double tb = av_q2d( f->streams[si]->time_base );
+    while ( av_read_frame( f, pkt ) >= 0 ) {
+        if ( pkt->stream_index == si ) sub_packet( v, c, pkt, tb, v->nsub );
+        av_packet_unref( pkt );
+    }
+    SDL_LockMutex( v->mx );
+    v->sub_ext = 1;
+    v->sub_sel = v->nsub;
+    SDL_UnlockMutex( v->mx );
+    ok = 1;
+
+done:
+    if ( pkt ) av_packet_free( &pkt );
+    if ( c ) avcodec_free_context( &c );
+    if ( f ) avformat_close_input( &f );
+    string_discard( params[1] );
+    return ok;
+}
+
+/* text due at the current playback time ("" if none) */
+int64_t libmod_video_subtitle_text( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] );
+    char * out = NULL;
+    size_t n = 0;
+    if ( v ) {
+        SDL_LockMutex( v->mx );
+        if ( v->sub_sel >= 0 ) {
+            double now = vid_clock( v );
+            for ( int i = 0; i < v->ncues; i++ ) {
+                CUE * q = &v->cues[i];
+                if ( q->track != v->sub_sel || now < q->start || now >= q->end ) continue;
+                size_t l = strlen( q->text );
+                char * p = ( char * ) realloc( out, n + l + 2 );
+                if ( !p ) break;
+                out = p;
+                if ( n ) out[n++] = '\n';
+                memcpy( out + n, q->text, l ); n += l; out[n] = 0;
+            }
+        }
+        SDL_UnlockMutex( v->mx );
+    }
+    int64_t str = string_new( out ? out : "" );
+    free( out );
+    string_use( str );
+    return str;
 }
 
 /* ------------------------------------------------------------------------ */

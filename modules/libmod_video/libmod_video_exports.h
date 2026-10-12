@@ -24,6 +24,12 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "VIDEO_IS_FINISHED" , "I"   , TYPE_INT, libmod_video_is_finished ),
     FUNC( "VIDEO_VOLUME"      , "II"  , TYPE_INT, libmod_video_volume      ),
 
+    FUNC( "VIDEO_SUBTITLE_TRACKS", "I"  , TYPE_INT   , libmod_video_subtitle_tracks ),
+    FUNC( "VIDEO_SUBTITLE_LANG"  , "II" , TYPE_STRING, libmod_video_subtitle_lang   ),
+    FUNC( "VIDEO_SUBTITLE_SELECT", "II" , TYPE_INT   , libmod_video_subtitle_select ),
+    FUNC( "VIDEO_SUBTITLE_LOAD"  , "IS" , TYPE_INT   , libmod_video_subtitle_load   ),
+    FUNC( "VIDEO_SUBTITLE_TEXT"  , "I"  , TYPE_STRING, libmod_video_subtitle_text   ),
+
     FUNC( 0                   , 0     , 0       , 0                        )
 };
 
