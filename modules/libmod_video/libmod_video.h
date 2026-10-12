@@ -19,6 +19,8 @@
  *    VIDEO_USE_GPU(enable)                   colour conversion (yuv420p -> RGB) on the GPU for videos opened
  *                                            afterwards; default 1, falls back to software when unavailable
  *    VIDEO_GPU(handle)                       1 if that video is converted on the GPU
+ *    VIDEO_USE_HW(enable)                    PS5: decode H.264/HEVC on the console's video decoder (default 1)
+ *    VIDEO_HW(handle)                        1 if that video is decoded by the console's decoder
  *
  *  Subtitles (text tracks: SRT, ASS/SSA, WebVTT, mov_text; image tracks are ignored). The module
  *  does not draw them: the script shows VIDEO_SUBTITLE_TEXT() with its own fonts.
@@ -48,6 +50,8 @@ extern int64_t libmod_video_position( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_is_playing( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_is_finished( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_use_gpu( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_use_hw( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_hw( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_gpu( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_volume( INSTANCE * my, int64_t * params );
 

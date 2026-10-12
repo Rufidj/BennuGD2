@@ -32,6 +32,7 @@
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavcodec/bsf.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/dict.h>
 #include <libavutil/opt.h>
@@ -41,6 +42,7 @@
 #include <libswresample/swresample.h>
 
 #include "libmod_video.h"
+#include "libmod_video_hwdec.h"
 
 /* ------------------------------------------------------------------------ */
 
@@ -81,11 +83,21 @@ typedef struct {
     /* GPU colour conversion (yuv420p only): the three planes are uploaded as packed RGBA8 textures
        (4 samples per texel) and a shader writes RGB straight into the graph's texture */
     int             gpu;
+    int             hwmode;                    /* 0 planar yuv420p, 1 NV12, 2 16-bit (10 bit) NV12   */
+    HWDEC           * hw;                      /* console decoder (PS5), NULL = libavcodec          */
+    int             fake_hw;                   /* PC test: NV12/P010 made with swscale              */
+    AVBSFContext    * bsf;                     /* mp4 -> Annex B for the console decoder            */
+    AVPacket        * bsf_pkt;
+    int             hw_wait_key, hw_skip_rasl, hw_fail, hw_errors;
+    struct SwsContext * sws_fake;
+    uint8_t         * fk_y, * fk_uv;
+    int             fk_ypitch, fk_uvpitch;
     int             ypw, cpw, cw, ch;          /* packed Y / chroma widths (texels), chroma w,h */
     size_t          slot_bytes;
     GPU_Image       * img_y, * img_u, * img_v;
     GPU_Target      * tgt;
-    float           gp[4];                     /* shader params: width, full range, bt709, -    */
+    float           gp[4];                     /* shader params: width, full range, matrix, layout */
+    float           transfer;                  /* 1 = PQ (HDR10)                                */
 
     /* shared state, guarded by mx */
     SDL_mutex       * mx;
@@ -282,6 +294,8 @@ static const char * sub_lang( AVFormatContext * f, int stream, char * buf, size_
 /* ---- GPU yuv420p -> RGB -------------------------------------------------- */
 
 static int g_use_gpu = 1;                      /* VIDEO_USE_GPU                                 */
+static int g_use_hw = 1;                       /* VIDEO_USE_HW (console decoder, PS5)            */
+static int g_fake_hw = 0;                      /* PC test: LIBMOD_VIDEO_FAKE_HW=1 (NV12/P010 via swscale) */
 static Uint32 g_yuv_prog = 0;                  /* shared program, 0 = not built / failed        */
 static int g_yuv_tried = 0;
 static GPU_ShaderBlock g_yuv_block;
@@ -291,26 +305,61 @@ static int g_loc_tex, g_loc_u, g_loc_v, g_loc_p, g_loc_w;
     "uniform sampler2D tex;\n" \
     "uniform sampler2D tex_u;\n" \
     "uniform sampler2D tex_v;\n" \
-    "uniform vec4 prm;\n"      /* x = width, y = full range, z = bt709 */ \
-    "uniform vec4 wid;\n"      /* x = Y packed width, y = chroma packed width */ \
+    "uniform vec4 prm;\n"      /* x = width, y = full range, z = matrix (0 601, 1 709, 2 2020), w = layout (0 planar, 1 NV12, 2 16-bit NV12) */ \
+    "uniform vec4 wid;\n"      /* x = Y packed width, y = chroma packed width, z = transfer (1 = PQ) */ \
     "float pick(vec4 t, float c) { return c < 0.5 ? t.r : (c < 1.5 ? t.g : (c < 2.5 ? t.b : t.a)); }\n" \
     "vec3 yuv(vec2 uv) {\n" \
     "    float px = floor(uv.x * prm.x);\n" \
-    "    float tx = floor(px / 4.0);\n" \
-    "    float y = pick(TEX(tex, vec2((tx + 0.5) / wid.x, uv.y)), px - tx * 4.0);\n" \
-    "    float cx = floor(px / 2.0);\n" \
-    "    float ctx = floor(cx / 4.0);\n" \
-    "    vec2 cuv = vec2((ctx + 0.5) / wid.y, uv.y);\n" \
-    "    float cc = cx - ctx * 4.0;\n" \
-    "    float u = pick(TEX(tex_u, cuv), cc) - 0.5019608;\n" \
-    "    float v = pick(TEX(tex_v, cuv), cc) - 0.5019608;\n" \
-    "    if (prm.y < 0.5) y = (y - 0.0627451) * 1.1643836;\n" \
-    "    float cs = prm.y < 0.5 ? 1.1383929 : 1.0;\n" \
-    "    u *= cs; v *= cs;\n" \
+    "    float y, u, v;\n" \
+    "    if (prm.w > 1.5) {\n"                                  /* 16-bit samples, 10 bits low-aligned */ \
+    "        float tx = floor(px / 2.0);\n" \
+    "        float s = px - tx * 2.0;\n" \
+    "        vec4 t = TEX(tex, vec2((tx + 0.5) / wid.x, uv.y));\n" \
+    "        float lo = s < 0.5 ? t.r : t.b;\n" \
+    "        float hi = s < 0.5 ? t.g : t.a;\n" \
+    "        y = lo * 255.0 + hi * 65280.0;\n" \
+    "        float cx = floor(px / 2.0);\n" \
+    "        vec4 c = TEX(tex_u, vec2((cx + 0.5) / wid.y, uv.y));\n" \
+    "        u = c.r * 255.0 + c.g * 65280.0;\n" \
+    "        v = c.b * 255.0 + c.a * 65280.0;\n" \
+    "        if (prm.y < 0.5) { y = (y - 64.0) / 876.0; u = (u - 512.0) / 896.0; v = (v - 512.0) / 896.0; }\n" \
+    "        else             { y = y / 1023.0;         u = (u - 512.0) / 1023.0; v = (v - 512.0) / 1023.0; }\n" \
+    "    } else {\n" \
+    "        float tx = floor(px / 4.0);\n" \
+    "        y = pick(TEX(tex, vec2((tx + 0.5) / wid.x, uv.y)), px - tx * 4.0);\n" \
+    "        float cx = floor(px / 2.0);\n" \
+    "        if (prm.w > 0.5) {\n"                              /* NV12: U,V interleaved */ \
+    "            float ctx = floor(cx / 2.0);\n" \
+    "            float s = cx - ctx * 2.0;\n" \
+    "            vec4 c = TEX(tex_u, vec2((ctx + 0.5) / wid.y, uv.y));\n" \
+    "            u = s < 0.5 ? c.r : c.b;\n" \
+    "            v = s < 0.5 ? c.g : c.a;\n" \
+    "        } else {\n" \
+    "            float ctx = floor(cx / 4.0);\n" \
+    "            vec2 cuv = vec2((ctx + 0.5) / wid.y, uv.y);\n" \
+    "            float cc = cx - ctx * 4.0;\n" \
+    "            u = pick(TEX(tex_u, cuv), cc);\n" \
+    "            v = pick(TEX(tex_v, cuv), cc);\n" \
+    "        }\n" \
+    "        u -= 0.5019608; v -= 0.5019608;\n" \
+    "        if (prm.y < 0.5) { y = (y - 0.0627451) * 1.1643836; u *= 1.1383929; v *= 1.1383929; }\n" \
+    "    }\n" \
     "    vec3 c;\n" \
-    "    if (prm.z > 0.5) c = vec3(y + 1.5748 * v, y - 0.1873 * u - 0.4681 * v, y + 1.8556 * u);\n" \
-    "    else             c = vec3(y + 1.402 * v, y - 0.344136 * u - 0.714136 * v, y + 1.772 * u);\n" \
-    "    return clamp(c, 0.0, 1.0);\n" \
+    "    if (prm.z > 1.5)      c = vec3(y + 1.4746 * v, y - 0.16455 * u - 0.57135 * v, y + 1.8814 * u);\n" \
+    "    else if (prm.z > 0.5) c = vec3(y + 1.5748 * v, y - 0.1873 * u - 0.4681 * v, y + 1.8556 * u);\n" \
+    "    else                  c = vec3(y + 1.402 * v, y - 0.344136 * u - 0.714136 * v, y + 1.772 * u);\n" \
+    "    c = clamp(c, 0.0, 1.0);\n" \
+    "    if (wid.z > 0.5) {\n"                                  /* PQ (HDR10) -> SDR: EOTF, Reinhard, BT.2020 -> BT.709, gamma */ \
+    "        vec3 p = pow(c, vec3(1.0 / 78.84375));\n" \
+    "        vec3 l = pow(max(p - 0.8359375, 0.0) / (18.8515625 - 18.6875 * p), vec3(1.0 / 0.1593017578125));\n" \
+    "        vec3 x = l * 10000.0 / 203.0;\n" \
+    "        x = x * (1.0 + x / 24.0) / (1.0 + x);\n" \
+    "        vec3 r = vec3(1.6605 * x.r - 0.5876 * x.g - 0.0728 * x.b,\n" \
+    "                      -0.1246 * x.r + 1.1329 * x.g - 0.0083 * x.b,\n" \
+    "                      -0.0182 * x.r - 0.1006 * x.g + 1.1187 * x.b);\n" \
+    "        c = pow(clamp(r, 0.0, 1.0), vec3(1.0 / 2.2));\n" \
+    "    }\n" \
+    "    return c;\n" \
     "}\n"
 
 static void yuv_program_build( void ) {
@@ -392,12 +441,13 @@ static void zimg_tick( int all ) {
 static void yuv_render( VIDEO * v, const uint8_t * base ) {
     GPU_UpdateImageBytes( v->img_y, NULL, base, v->ypw * 4 );
     GPU_UpdateImageBytes( v->img_u, NULL, base + ( size_t ) v->ypw * 4 * v->h, v->cpw * 4 );
-    GPU_UpdateImageBytes( v->img_v, NULL, base + ( size_t ) v->ypw * 4 * v->h + ( size_t ) v->cpw * 4 * v->ch, v->cpw * 4 );
+    if ( v->hwmode == 0 )
+        GPU_UpdateImageBytes( v->img_v, NULL, base + ( size_t ) v->ypw * 4 * v->h + ( size_t ) v->cpw * 4 * v->ch, v->cpw * 4 );
 
-    float wid[4] = { ( float ) v->ypw, ( float ) v->cpw, 0, 0 };
+    float wid[4] = { ( float ) v->ypw, ( float ) v->cpw, v->transfer, 0 };
     GPU_ActivateShaderProgram( g_yuv_prog, &g_yuv_block );
     GPU_SetShaderImage( v->img_u, g_loc_u, 1 );
-    GPU_SetShaderImage( v->img_v, g_loc_v, 2 );
+    GPU_SetShaderImage( v->hwmode == 0 ? v->img_v : v->img_u, g_loc_v, 2 );
     GPU_SetUniformi( g_loc_tex, 0 );
     GPU_SetUniformfv( g_loc_p, 4, 1, v->gp );
     GPU_SetUniformfv( g_loc_w, 4, 1, wid );
@@ -412,6 +462,83 @@ static void vq_clear( VIDEO * v ) {
     v->an = 0; v->ar = 0;
 }
 
+/* NV12 / 16-bit NV12 rows into a slot (Y then interleaved UV); source pitches in bytes */
+static void pack_nv( VIDEO * v, uint8_t * d, const uint8_t * y, int ypitch, const uint8_t * uv, int uvpitch ) {
+    size_t ys = ( size_t ) v->ypw * 4, cs = ( size_t ) v->cpw * 4;
+    size_t yb = v->hwmode == 2 ? ( size_t ) v->w * 2 : ( size_t ) v->w;
+    size_t cb = ( size_t ) v->cw * ( v->hwmode == 2 ? 4 : 2 );
+    for ( int r = 0; r < v->h; r++ ) memcpy( d + r * ys, y + ( size_t ) r * ypitch, yb );
+    uint8_t * du = d + ys * v->h;
+    for ( int r = 0; r < v->ch; r++ ) memcpy( du + r * cs, uv + ( size_t ) r * uvpitch, cb );
+}
+
+static int vq_reserve( VIDEO * v ) {                      /* free slot, or -1 (quit / seek) */
+    SDL_LockMutex( v->mx );
+    while ( !v->quit && !v->seek_req && v->vq_n >= VQ_SIZE ) SDL_CondWaitTimeout( v->cond, v->mx, 10 );
+    int slot = ( v->quit || v->seek_req ) ? -1 : ( v->vq_r + v->vq_n ) % VQ_SIZE;
+    SDL_UnlockMutex( v->mx );
+    return slot;
+}
+static void vq_commit( VIDEO * v, int slot, double pts ) {
+    v->vq[slot].pts = pts;
+    SDL_LockMutex( v->mx );
+    if ( !v->seek_req ) v->vq_n++;
+    SDL_UnlockMutex( v->mx );
+}
+
+/* a picture from the console's decoder */
+static void hw_picture( void * ud, const HWPIC * p ) {
+    VIDEO * v = ( VIDEO * ) ud;
+    int slot = vq_reserve( v );
+    if ( slot < 0 ) return;
+    pack_nv( v, v->vq[slot].rgba, p->y, p->pitch, p->uv, p->pitch );
+    vq_commit( v, slot, p->pts == INT64_MIN ? 0.0 : p->pts * v->vtb );
+}
+
+/* HEVC: type of the first picture slice of an Annex B access unit (-1 none) */
+static int hevc_slice_type( const uint8_t * p, size_t n ) {
+    for ( size_t i = 0; i + 4 < n; i++ )
+        if ( p[i] == 0 && p[i+1] == 0 && p[i+2] == 1 ) {
+            unsigned t = ( p[i+3] >> 1 ) & 0x3f;
+            if ( t < 32 ) return ( int ) t;
+            i += 2;
+        }
+    return -1;
+}
+
+/* give up on the console decoder and go on in software from the current position */
+static void hw_give_up( VIDEO * v, const char * why ) {
+    fprintf( stderr, "libmod_video: hardware decoding off (%s), using software\n", why );
+    v->hw_fail = 1;
+}
+
+static void hw_feed( VIDEO * v, AVPacket * pkt ) {
+    if ( v->hw_wait_key && !( pkt->flags & AV_PKT_FLAG_KEY ) ) return;
+    if ( av_bsf_send_packet( v->bsf, pkt ) < 0 ) return;
+    while ( av_bsf_receive_packet( v->bsf, v->bsf_pkt ) >= 0 ) {
+        AVPacket * o = v->bsf_pkt;
+        int64_t ts = o->pts != AV_NOPTS_VALUE ? o->pts : o->dts;
+        if ( ts == AV_NOPTS_VALUE ) ts = INT64_MIN;
+        int skip = 0;
+        if ( v->hw_skip_rasl && v->vctx->codec_id == AV_CODEC_ID_HEVC ) {
+            int t = hevc_slice_type( o->data, o->size );
+            if ( t == 8 || t == 9 ) skip = 1;                 /* RASL: refers to pictures before the restart point */
+            else if ( t >= 0 && !( t >= 16 && t <= 21 ) ) v->hw_skip_rasl = 0;
+        }
+        if ( !skip ) {
+            int rc = hwdec_decode( v->hw, o->data, o->size, ts, hw_picture, v );
+            if ( rc < 0 ) {
+                if ( rc <= -2 || ++v->hw_errors > 30 ) { hw_give_up( v, "decoder error" ); av_packet_unref( o ); return; }
+                hwdec_reset( v->hw );                         /* stream error: restart from the next keyframe */
+                v->hw_wait_key = 1; v->hw_skip_rasl = 1;
+                av_packet_unref( o );
+                return;
+            } else v->hw_errors = 0;
+        }
+        av_packet_unref( o );
+    }
+}
+
 static int push_video_frame( VIDEO * v, AVFrame * f ) {
     double pts = ( f->best_effort_timestamp == AV_NOPTS_VALUE ) ? 0.0 : f->best_effort_timestamp * v->vtb;
 
@@ -421,7 +548,17 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
     int slot = ( v->vq_r + v->vq_n ) % VQ_SIZE;
     SDL_UnlockMutex( v->mx );
 
-    if ( v->gpu ) {
+    if ( v->fake_hw ) {
+        /* PC test of the NV12 / 16-bit paths: swscale makes what the console decoder would give */
+        uint8_t * dstp[4] = { v->fk_y, v->fk_uv, NULL, NULL };
+        int dstl[4] = { v->fk_ypitch, v->fk_uvpitch, 0, 0 };
+        sws_scale( v->sws_fake, ( const uint8_t * const * ) f->data, f->linesize, 0, f->height, dstp, dstl );
+        if ( v->hwmode == 2 ) {                               /* P010 is high-aligned, the console gives low-aligned */
+            for ( int r = 0; r < v->h; r++ ) { uint16_t * q = ( uint16_t * ) ( v->fk_y + ( size_t ) r * v->fk_ypitch ); for ( int i = 0; i < v->w; i++ ) q[i] >>= 6; }
+            for ( int r = 0; r < v->ch; r++ ) { uint16_t * q = ( uint16_t * ) ( v->fk_uv + ( size_t ) r * v->fk_uvpitch ); for ( int i = 0; i < v->cw * 2; i++ ) q[i] >>= 6; }
+        }
+        pack_nv( v, v->vq[slot].rgba, v->fk_y, v->fk_ypitch, v->fk_uv, v->fk_uvpitch );
+    } else if ( v->gpu ) {
         /* planes copied as they are; the GPU does the colour conversion */
         uint8_t * d = v->vq[slot].rgba;
         size_t ys = ( size_t ) v->ypw * 4, cs = ( size_t ) v->cpw * 4;
@@ -485,11 +622,32 @@ static void drain_decoder( VIDEO * v, AVCodecContext * c, int is_video ) {
     }
 }
 
+/* the console decoder failed: go on with libavcodec + swscale (decode thread) */
+static void hw_switch_software( VIDEO * v ) {
+    SDL_LockMutex( v->mx );
+    double at = v->last_time;
+    vq_clear( v );
+    for ( int i = 0; i < VQ_SIZE; i++ ) {
+        free( v->vq[i].rgba );
+        v->vq[i].rgba = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 );
+    }
+    if ( v->sws ) sws_freeContext( v->sws );
+    v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
+    HWDEC * h = v->hw;
+    v->gpu = 0; v->hwmode = 0; v->fake_hw = 0; v->hw = NULL;
+    avcodec_flush_buffers( v->vctx );
+    v->shown_first = 0;
+    v->seek_req = 1; v->seek_to = at;                  /* decode again from where it was */
+    SDL_UnlockMutex( v->mx );
+    if ( h ) hwdec_close( h );
+}
+
 static int decode_thread( void * arg ) {
     VIDEO * v = ( VIDEO * ) arg;
     AVPacket * pkt = av_packet_alloc();
 
     while ( !v->quit ) {
+        if ( v->hw && v->hw_fail ) hw_switch_software( v );
         /* seek requests */
         SDL_LockMutex( v->mx );
         if ( v->seek_req ) {
@@ -497,6 +655,7 @@ static int decode_thread( void * arg ) {
             SDL_UnlockMutex( v->mx );
             int64_t ts = ( int64_t ) ( to * AV_TIME_BASE );
             avformat_seek_file( v->fmt, -1, INT64_MIN, ts, ts, 0 );
+            if ( v->hw && !v->hw_fail ) { hwdec_reset( v->hw ); if ( v->bsf ) av_bsf_flush( v->bsf ); v->hw_skip_rasl = 1; }
             if ( v->vctx ) avcodec_flush_buffers( v->vctx );
             if ( v->actx ) avcodec_flush_buffers( v->actx );
             SDL_LockMutex( v->mx );
@@ -518,7 +677,8 @@ static int decode_thread( void * arg ) {
         int r = av_read_frame( v->fmt, pkt );
         if ( r < 0 ) {
             /* flush decoders, then end / loop */
-            if ( v->vctx ) { avcodec_send_packet( v->vctx, NULL ); drain_decoder( v, v->vctx, 1 ); avcodec_flush_buffers( v->vctx ); }
+            if ( v->hw && !v->hw_fail ) { hwdec_flush( v->hw, hw_picture, v ); hwdec_reset( v->hw ); if ( v->bsf ) av_bsf_flush( v->bsf ); v->hw_skip_rasl = 1; }
+            else if ( v->vctx ) { avcodec_send_packet( v->vctx, NULL ); drain_decoder( v, v->vctx, 1 ); avcodec_flush_buffers( v->vctx ); }
             if ( v->actx ) { avcodec_send_packet( v->actx, NULL ); drain_decoder( v, v->actx, 0 ); avcodec_flush_buffers( v->actx ); }
             SDL_LockMutex( v->mx );
             if ( v->loop && v->playing ) { v->seek_req = 1; v->seek_to = 0; }
@@ -526,7 +686,9 @@ static int decode_thread( void * arg ) {
             SDL_UnlockMutex( v->mx );
             continue;
         }
-        if ( pkt->stream_index == v->vstream && v->vctx ) {
+        if ( pkt->stream_index == v->vstream && v->hw && !v->hw_fail ) {
+            hw_feed( v, pkt );
+        } else if ( pkt->stream_index == v->vstream && v->vctx ) {
             int sr = avcodec_send_packet( v->vctx, pkt );
             if ( sr >= 0 ) drain_decoder( v, v->vctx, 1 );
 
@@ -611,6 +773,11 @@ static void vid_free( VIDEO * v ) {
     for ( int i = 0; i < VQ_SIZE; i++ ) free( v->vq[i].rgba );
     free( v->abuf );
     if ( v->sws ) sws_freeContext( v->sws );
+    if ( v->sws_fake ) sws_freeContext( v->sws_fake );
+    free( v->fk_y ); free( v->fk_uv );
+    if ( v->hw ) hwdec_close( v->hw );
+    if ( v->bsf ) av_bsf_free( &v->bsf );
+    if ( v->bsf_pkt ) av_packet_free( &v->bsf_pkt );
     if ( v->swr ) swr_free( &v->swr );
     if ( v->frame ) av_frame_free( &v->frame );
     if ( v->vctx ) avcodec_free_context( &v->vctx );
@@ -661,17 +828,63 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
     v->vtb = av_q2d( v->fmt->streams[v->vstream]->time_base );
     v->duration = v->fmt->duration > 0 ? v->fmt->duration / ( double ) AV_TIME_BASE : 0;
 
-    /* GPU conversion needs 8-bit 4:2:0 and row pitches that are a multiple of 4 */
-    if ( g_use_gpu && ( v->vctx->pix_fmt == AV_PIX_FMT_YUV420P || v->vctx->pix_fmt == AV_PIX_FMT_YUVJ420P ) ) {
-        if ( !g_yuv_tried ) yuv_program_build();
-        if ( g_yuv_prog ) v->gpu = 1;
+    /* colour conversion on the GPU: 8-bit 4:2:0 from libavcodec, or NV12 / 16-bit NV12 from the console's decoder */
+    {
+        enum AVPixelFormat pf = v->vctx->pix_fmt;
+        int fmt8 = pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_YUVJ420P;
+        int fmt10 = pf == AV_PIX_FMT_YUV420P10LE;
+        int is_h264 = v->vctx->codec_id == AV_CODEC_ID_H264, is_hevc = v->vctx->codec_id == AV_CODEC_ID_HEVC;
+        int want_hw = g_use_hw && ( ( is_h264 && fmt8 ) || ( is_hevc && ( fmt8 || fmt10 ) ) );
+        if ( ( g_use_gpu && fmt8 ) || want_hw || ( g_fake_hw && ( fmt8 || fmt10 ) ) ) {
+            if ( !g_yuv_tried ) yuv_program_build();
+        }
+        if ( g_yuv_prog ) {
+            if ( want_hw && hwdec_available() ) {
+                v->hw = hwdec_open( is_hevc, v->w, v->h );
+                if ( v->hw ) {
+                    const AVBitStreamFilter * bf = av_bsf_get_by_name( is_hevc ? "hevc_mp4toannexb" : "h264_mp4toannexb" );
+                    if ( bf && av_bsf_alloc( bf, &v->bsf ) >= 0 ) {
+                        avcodec_parameters_copy( v->bsf->par_in, v->fmt->streams[v->vstream]->codecpar );
+                        v->bsf->time_base_in = v->fmt->streams[v->vstream]->time_base;
+                        if ( av_bsf_init( v->bsf ) < 0 ) av_bsf_free( &v->bsf );
+                    }
+                    v->bsf_pkt = av_packet_alloc();
+                    if ( !v->bsf || !v->bsf_pkt ) {
+                        if ( v->bsf ) av_bsf_free( &v->bsf );
+                        if ( v->bsf_pkt ) av_packet_free( &v->bsf_pkt );
+                        hwdec_close( v->hw ); v->hw = NULL;
+                    } else {
+                        v->hwmode = fmt10 ? 2 : 1;
+                        v->hw_skip_rasl = 1;
+                    }
+                }
+            }
+            if ( !v->hw && g_fake_hw && ( fmt8 || fmt10 ) ) { v->fake_hw = 1; v->hwmode = fmt10 ? 2 : 1; }
+            if ( v->hw || v->fake_hw ) v->gpu = 1;
+            else if ( g_use_gpu && fmt8 ) { v->gpu = 1; v->hwmode = 0; }
+        }
     }
     if ( v->gpu ) {
-        v->ypw = ( v->w + 3 ) / 4; v->cw = ( v->w + 1 ) / 2; v->ch = ( v->h + 1 ) / 2; v->cpw = ( v->cw + 3 ) / 4;
-        v->slot_bytes = ( size_t ) v->ypw * 4 * v->h + 2 * ( size_t ) v->cpw * 4 * v->ch;
+        v->cw = ( v->w + 1 ) / 2; v->ch = ( v->h + 1 ) / 2;
+        if ( v->hwmode == 0 )      { v->ypw = ( v->w + 3 ) / 4;     v->cpw = ( v->cw + 3 ) / 4; }
+        else if ( v->hwmode == 1 ) { v->ypw = ( v->w + 3 ) / 4;     v->cpw = ( v->cw * 2 + 3 ) / 4; }
+        else                       { v->ypw = ( v->w * 2 + 3 ) / 4; v->cpw = v->cw; }
+        v->slot_bytes = ( size_t ) v->ypw * 4 * v->h + ( size_t ) v->cpw * 4 * v->ch * ( v->hwmode == 0 ? 2 : 1 );
         v->gp[0] = ( float ) v->w;
         v->gp[1] = ( v->vctx->pix_fmt == AV_PIX_FMT_YUVJ420P || v->vctx->color_range == AVCOL_RANGE_JPEG ) ? 1.0f : 0.0f;
-        v->gp[2] = ( v->vctx->colorspace == AVCOL_SPC_BT709 || ( v->vctx->colorspace == AVCOL_SPC_UNSPECIFIED && v->h >= 720 ) ) ? 1.0f : 0.0f;
+        v->gp[2] = ( v->vctx->colorspace == AVCOL_SPC_BT2020_NCL || v->vctx->colorspace == AVCOL_SPC_BT2020_CL ) ? 2.0f
+                 : ( v->vctx->colorspace == AVCOL_SPC_BT709 || ( v->vctx->colorspace == AVCOL_SPC_UNSPECIFIED && v->h >= 720 ) ) ? 1.0f : 0.0f;
+        v->gp[3] = ( float ) v->hwmode;
+        v->transfer = v->vctx->color_trc == AVCOL_TRC_SMPTE2084 ? 1.0f : 0.0f;
+        if ( v->fake_hw ) {
+            enum AVPixelFormat dst = v->hwmode == 2 ? AV_PIX_FMT_P010LE : AV_PIX_FMT_NV12;
+            v->sws_fake = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, dst, SWS_BILINEAR, NULL, NULL, NULL );
+            v->fk_ypitch = ( v->hwmode == 2 ? v->w * 2 : v->w ) + 64;
+            v->fk_uvpitch = v->cw * ( v->hwmode == 2 ? 4 : 2 ) + 64;
+            v->fk_y = ( uint8_t * ) calloc( 1, ( size_t ) v->fk_ypitch * v->h );
+            v->fk_uv = ( uint8_t * ) calloc( 1, ( size_t ) v->fk_uvpitch * v->ch );
+            if ( !v->sws_fake || !v->fk_y || !v->fk_uv ) goto fail;
+        }
     } else {
         v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
         if ( !v->sws ) goto fail;
@@ -725,11 +938,11 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
     if ( v->gpu ) {
         v->img_y = GPU_CreateImage( v->ypw, v->h,  GPU_FORMAT_RGBA );
         v->img_u = GPU_CreateImage( v->cpw, v->ch, GPU_FORMAT_RGBA );
-        v->img_v = GPU_CreateImage( v->cpw, v->ch, GPU_FORMAT_RGBA );
-        if ( v->img_y && v->img_u && v->img_v && v->graph->tex ) {
+        if ( v->hwmode == 0 ) v->img_v = GPU_CreateImage( v->cpw, v->ch, GPU_FORMAT_RGBA );
+        if ( v->img_y && v->img_u && ( v->hwmode != 0 || v->img_v ) && v->graph->tex ) {
             GPU_SetImageFilter( v->img_y, GPU_FILTER_NEAREST );
             GPU_SetImageFilter( v->img_u, GPU_FILTER_NEAREST );
-            GPU_SetImageFilter( v->img_v, GPU_FILTER_NEAREST );
+            if ( v->img_v ) GPU_SetImageFilter( v->img_v, GPU_FILTER_NEAREST );
             GPU_SetBlending( v->img_y, 0 );
             v->tgt = GPU_LoadTarget( v->graph->tex );
         }
@@ -737,6 +950,8 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
             fprintf( stderr, "libmod_video: GPU conversion unavailable, using software\n" );
             zimg_add( v->img_y, NULL ); zimg_add( v->img_u, NULL ); zimg_add( v->img_v, NULL );
             v->img_y = v->img_u = v->img_v = NULL;
+            if ( v->hw ) { HWDEC * h = v->hw; v->hw = NULL; hwdec_close( h ); }
+            v->fake_hw = 0; v->hwmode = 0;
             v->gpu = 0;
             v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
             if ( !v->sws ) goto fail;
@@ -764,6 +979,10 @@ fail:
 
 /* VIDEO_USE_GPU(enable): colour conversion on the GPU for videos opened afterwards (default 1) */
 int64_t libmod_video_use_gpu( INSTANCE * my, int64_t * params ) { g_use_gpu = params[0] ? 1 : 0; return g_use_gpu; }
+/* VIDEO_USE_HW(enable): console video decoder (PS5) for videos opened afterwards (default 1) */
+int64_t libmod_video_use_hw( INSTANCE * my, int64_t * params ) { g_use_hw = params[0] ? 1 : 0; return g_use_hw; }
+/* VIDEO_HW(handle): 1 if that video is decoded by the console's decoder block */
+int64_t libmod_video_hw( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? ( v->hw ? 1 : ( v->fake_hw ? 2 : 0 ) ) : 0; }
 /* VIDEO_GPU(handle): 1 if that video converts on the GPU */
 int64_t libmod_video_gpu( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? v->gpu : 0; }
 
@@ -945,6 +1164,9 @@ void __bgdexport( libmod_video, module_initialize )() {
     av_register_all();
 #endif
     av_log_set_level( AV_LOG_ERROR );
+#ifndef __PROSPERO__
+    { const char * e = getenv( "LIBMOD_VIDEO_FAKE_HW" ); g_fake_hw = e && *e == '1'; }
+#endif
 }
 
 void __bgdexport( libmod_video, module_finalize )() {

@@ -36,6 +36,22 @@ or a renderer that cannot do it, fall back to the software converter automatical
 `VIDEO_USE_GPU(0)` forces software for videos opened afterwards; `VIDEO_GPU(handle)` tells which one is in use.
 Tests: `test/video_gpu_pc.prg` (identical output either way), `test/video_gpu_compare.prg` (fps GPU vs software).
 
+## Hardware decoding (PS5)
+H.264 and HEVC (8 and 10 bit, up to 3840x2176) are decoded by the console's video decoder block
+(`libSceVideodec2`, `libmod_video_hwdec.c`) and converted to RGB by the same GPU shader (NV12 / 16-bit NV12 input;
+PQ/HDR10 gets a basic tone map and BT.2020 is handled). Anything it cannot take, or a decoder error, falls back to
+libavcodec transparently (it resumes from the current position). `VIDEO_USE_HW(0)` disables it, `VIDEO_HW(handle)`
+tells which decoder a video uses.
+
+Build notes (PS5): `ps5/tools/build-videodec2-stub.sh <native-app-boilerplate>` installs a link stub for
+`libSceVideodec2` into the payload SDK's `target/lib`. The library is loaded at run time with
+`sceSysmoduleLoadModule(207)` from the title (no elevated privileges needed). The API facts (structure layouts,
+call order, NV12/P010 output, memory rules) come from the console and from the `ps5vdec.c` plugin in
+github.com/ZiZc3/VLC (GPL-2.0+), which was used as a reference only; no code was copied.
+
+On PC the NV12 / 16-bit paths can be exercised without a console: `LIBMOD_VIDEO_FAKE_HW=1` makes swscale produce
+what the decoder block would (`VIDEO_HW` returns 2). Test: `test/video_hw_ps5.prg` (needs the clips named inside).
+
 ## Subtitles
 Text tracks (SRT, ASS/SSA, WebVTT, mov_text) embedded in the container, or an external file loaded with
 `VIDEO_SUBTITLE_LOAD`. The module does not draw them; the script shows `VIDEO_SUBTITLE_TEXT(handle)` with its own

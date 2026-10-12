@@ -26,6 +26,8 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
 
     FUNC( "VIDEO_USE_GPU"     , "I"   , TYPE_INT, libmod_video_use_gpu     ),
     FUNC( "VIDEO_GPU"         , "I"   , TYPE_INT, libmod_video_gpu         ),
+    FUNC( "VIDEO_USE_HW"      , "I"   , TYPE_INT, libmod_video_use_hw      ),
+    FUNC( "VIDEO_HW"          , "I"   , TYPE_INT, libmod_video_hw          ),
     FUNC( "VIDEO_SUBTITLE_TRACKS", "I"  , TYPE_INT   , libmod_video_subtitle_tracks ),
     FUNC( "VIDEO_SUBTITLE_LANG"  , "II" , TYPE_STRING, libmod_video_subtitle_lang   ),
     FUNC( "VIDEO_SUBTITLE_SELECT", "II" , TYPE_INT   , libmod_video_subtitle_select ),
