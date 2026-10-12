@@ -23,9 +23,18 @@ VIDEO_CLOSE, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_DURATION, VIDEO_POSITION (ms), VID
 VIDEO_IS_FINISHED, VIDEO_VOLUME(h,0..128).
 
 Audio goes through SDL_mixer's music hook (Mix_HookMusic), so it shares the device BennuGD already opened;
-a video that owns the audio replaces MUSIC_PLAY while it plays. Software decoding only.
+a video that owns the audio replaces MUSIC_PLAY while it plays. Decoding is in software; for 8-bit 4:2:0 video
+(H.264/VP9/Theora... `yuv420p`) the colour conversion runs on the GPU, see below.
 
 Licensing: FFmpeg is LGPL/GPL depending on how it was built; check your FFmpeg build before shipping.
+
+## GPU colour conversion
+`yuv420p` / `yuvj420p` frames are not converted to RGB on the CPU: the decoder thread only copies the three planes,
+which are uploaded as packed RGBA8 textures (four samples per texel, works on GL 3 / GLES2 alike) and a small
+shader writes RGB into the video's graph (BT.601/709, limited/full range read from the stream). Other pixel formats,
+or a renderer that cannot do it, fall back to the software converter automatically.
+`VIDEO_USE_GPU(0)` forces software for videos opened afterwards; `VIDEO_GPU(handle)` tells which one is in use.
+Tests: `test/video_gpu_pc.prg` (identical output either way), `test/video_gpu_compare.prg` (fps GPU vs software).
 
 ## Subtitles
 Text tracks (SRT, ASS/SSA, WebVTT, mov_text) embedded in the container, or an external file loaded with
@@ -68,7 +77,7 @@ Or symlink this directory into `BennuGD2/modules/` and let BennuGD2's CMake buil
 4. The packaging layer must map relative paths to `/app0` for `open()` (FFmpeg opens files with it).
 
 ## Notes / limits
-- Software decoding only (the PS5 has no hardware decoder exposed here); 640x360 H.264 and 320x240 VP9/Theora
+- Software decoding only, with GPU colour conversion (the PS5 has no hardware decoder exposed here); 640x360 H.264 and 320x240 VP9/Theora
   run in real time on the console. Heavier streams depend on the CPU.
 - A closed video's graph is freed ~30 frames later: freeing and recreating a texture back to back left the new
   video black on the PS5 (the GPU executes draw calls after the CPU queued them).

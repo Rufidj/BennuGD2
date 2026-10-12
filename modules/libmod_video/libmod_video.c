@@ -78,6 +78,15 @@ typedef struct {
     GRAPH           * graph;
     int64_t         graph_code;
 
+    /* GPU colour conversion (yuv420p only): the three planes are uploaded as packed RGBA8 textures
+       (4 samples per texel) and a shader writes RGB straight into the graph's texture */
+    int             gpu;
+    int             ypw, cpw, cw, ch;          /* packed Y / chroma widths (texels), chroma w,h */
+    size_t          slot_bytes;
+    GPU_Image       * img_y, * img_u, * img_v;
+    GPU_Target      * tgt;
+    float           gp[4];                     /* shader params: width, full range, bt709, -    */
+
     /* shared state, guarded by mx */
     SDL_mutex       * mx;
     SDL_cond        * cond;
@@ -270,6 +279,134 @@ static const char * sub_lang( AVFormatContext * f, int stream, char * buf, size_
     return buf;
 }
 
+/* ---- GPU yuv420p -> RGB -------------------------------------------------- */
+
+static int g_use_gpu = 1;                      /* VIDEO_USE_GPU                                 */
+static Uint32 g_yuv_prog = 0;                  /* shared program, 0 = not built / failed        */
+static int g_yuv_tried = 0;
+static GPU_ShaderBlock g_yuv_block;
+static int g_loc_tex, g_loc_u, g_loc_v, g_loc_p, g_loc_w;
+
+#define YUV_FRAG_BODY \
+    "uniform sampler2D tex;\n" \
+    "uniform sampler2D tex_u;\n" \
+    "uniform sampler2D tex_v;\n" \
+    "uniform vec4 prm;\n"      /* x = width, y = full range, z = bt709 */ \
+    "uniform vec4 wid;\n"      /* x = Y packed width, y = chroma packed width */ \
+    "float pick(vec4 t, float c) { return c < 0.5 ? t.r : (c < 1.5 ? t.g : (c < 2.5 ? t.b : t.a)); }\n" \
+    "vec3 yuv(vec2 uv) {\n" \
+    "    float px = floor(uv.x * prm.x);\n" \
+    "    float tx = floor(px / 4.0);\n" \
+    "    float y = pick(TEX(tex, vec2((tx + 0.5) / wid.x, uv.y)), px - tx * 4.0);\n" \
+    "    float cx = floor(px / 2.0);\n" \
+    "    float ctx = floor(cx / 4.0);\n" \
+    "    vec2 cuv = vec2((ctx + 0.5) / wid.y, uv.y);\n" \
+    "    float cc = cx - ctx * 4.0;\n" \
+    "    float u = pick(TEX(tex_u, cuv), cc) - 0.5019608;\n" \
+    "    float v = pick(TEX(tex_v, cuv), cc) - 0.5019608;\n" \
+    "    if (prm.y < 0.5) y = (y - 0.0627451) * 1.1643836;\n" \
+    "    float cs = prm.y < 0.5 ? 1.1383929 : 1.0;\n" \
+    "    u *= cs; v *= cs;\n" \
+    "    vec3 c;\n" \
+    "    if (prm.z > 0.5) c = vec3(y + 1.5748 * v, y - 0.1873 * u - 0.4681 * v, y + 1.8556 * u);\n" \
+    "    else             c = vec3(y + 1.402 * v, y - 0.344136 * u - 0.714136 * v, y + 1.772 * u);\n" \
+    "    return clamp(c, 0.0, 1.0);\n" \
+    "}\n"
+
+static void yuv_program_build( void ) {
+    g_yuv_tried = 1;
+    GPU_Renderer * r = GPU_GetCurrentRenderer();
+    if ( !r ) return;
+
+    const char * vs, * fs;
+    static const char vs_es[] =
+        "#version 100\nprecision highp float;\nprecision mediump int;\n"
+        "attribute vec2 gpu_Vertex; attribute vec2 gpu_TexCoord; attribute mediump vec4 gpu_Color;\n"
+        "uniform mat4 gpu_ModelViewProjectionMatrix; varying vec2 texCoord;\n"
+        "void main(void) { texCoord = gpu_TexCoord; gl_Position = gpu_ModelViewProjectionMatrix * vec4(gpu_Vertex, 0.0, 1.0); }\n";
+    static const char fs_es[] =
+        "#version 100\nprecision highp float;\nprecision mediump int;\n"
+        "#define TEX texture2D\nvarying vec2 texCoord;\n" YUV_FRAG_BODY
+        "void main(void) { gl_FragColor = vec4(yuv(texCoord), 1.0); }\n";
+    static const char vs_gl[] =
+        "#version 150\n"
+        "in vec2 gpu_Vertex; in vec2 gpu_TexCoord; in vec4 gpu_Color;\n"
+        "uniform mat4 gpu_ModelViewProjectionMatrix; out vec2 texCoord;\n"
+        "void main(void) { texCoord = gpu_TexCoord; gl_Position = gpu_ModelViewProjectionMatrix * vec4(gpu_Vertex, 0.0, 1.0); }\n";
+    static const char fs_gl[] =
+        "#version 150\n"
+        "#define TEX texture\nin vec2 texCoord; out vec4 fragColor;\n" YUV_FRAG_BODY
+        "void main(void) { fragColor = vec4(yuv(texCoord), 1.0); }\n";
+    static const char vs_gl130[] =
+        "#version 130\n"
+        "in vec2 gpu_Vertex; in vec2 gpu_TexCoord; in vec4 gpu_Color;\n"
+        "uniform mat4 gpu_ModelViewProjectionMatrix; out vec2 texCoord;\n"
+        "void main(void) { texCoord = gpu_TexCoord; gl_Position = gpu_ModelViewProjectionMatrix * vec4(gpu_Vertex, 0.0, 1.0); }\n";
+    static const char fs_gl130[] =
+        "#version 130\n"
+        "#define TEX texture\nin vec2 texCoord; out vec4 fragColor;\n" YUV_FRAG_BODY
+        "void main(void) { fragColor = vec4(yuv(texCoord), 1.0); }\n";
+
+    if ( r->shader_language == GPU_LANGUAGE_GLSLES ) { vs = vs_es; fs = fs_es; }
+    else if ( r->id.major_version > 3 || ( r->id.major_version == 3 && r->id.minor_version >= 2 ) ) { vs = vs_gl; fs = fs_gl; }
+    else { vs = vs_gl130; fs = fs_gl130; }
+
+    Uint32 v = GPU_CompileShader( GPU_VERTEX_SHADER, vs );
+    if ( !v ) { fprintf( stderr, "libmod_video: GPU vertex shader: %s\n", GPU_GetShaderMessage() ); return; }
+    Uint32 f = GPU_CompileShader( GPU_FRAGMENT_SHADER, fs );
+    if ( !f ) { fprintf( stderr, "libmod_video: GPU fragment shader: %s\n", GPU_GetShaderMessage() ); GPU_FreeShader( v ); return; }
+    Uint32 p = GPU_LinkShaders( v, f );
+    if ( !p ) { fprintf( stderr, "libmod_video: GPU link: %s\n", GPU_GetShaderMessage() ); GPU_FreeShader( v ); GPU_FreeShader( f ); return; }
+    g_yuv_block = GPU_LoadShaderBlock( p, "gpu_Vertex", "gpu_TexCoord", "gpu_Color", "gpu_ModelViewProjectionMatrix" );
+    g_loc_tex = GPU_GetUniformLocation( p, "tex" );
+    g_loc_u   = GPU_GetUniformLocation( p, "tex_u" );
+    g_loc_v   = GPU_GetUniformLocation( p, "tex_v" );
+    g_loc_p   = GPU_GetUniformLocation( p, "prm" );
+    g_loc_w   = GPU_GetUniformLocation( p, "wid" );
+    g_yuv_prog = p;
+}
+
+/* images / graph textures freed a few frames after VIDEO_CLOSE (see ZOMBIE_FRAMES) */
+#define MAX_ZIMG 24
+static struct { GPU_Image * img; GPU_Target * tgt; int frames; } g_zimg[MAX_ZIMG];
+
+static void zimg_free( int i ) {
+    if ( g_zimg[i].tgt ) GPU_FreeTarget( g_zimg[i].tgt );
+    if ( g_zimg[i].img ) GPU_FreeImage( g_zimg[i].img );
+    memset( &g_zimg[i], 0, sizeof( g_zimg[i] ) );
+}
+static void zimg_add( GPU_Image * img, GPU_Target * tgt ) {
+    if ( !img && !tgt ) return;
+    for ( int i = 0; i < MAX_ZIMG; i++ ) if ( !g_zimg[i].img && !g_zimg[i].tgt ) {
+        g_zimg[i].img = img; g_zimg[i].tgt = tgt; g_zimg[i].frames = 30; return;
+    }
+    if ( tgt ) GPU_FreeTarget( tgt );
+    if ( img ) GPU_FreeImage( img );
+}
+static void zimg_tick( int all ) {
+    for ( int i = 0; i < MAX_ZIMG; i++ )
+        if ( ( g_zimg[i].img || g_zimg[i].tgt ) && ( all || --g_zimg[i].frames <= 0 ) ) zimg_free( i );
+}
+
+/* convert one queued slot into the graph's texture, on the GPU */
+static void yuv_render( VIDEO * v, const uint8_t * base ) {
+    GPU_UpdateImageBytes( v->img_y, NULL, base, v->ypw * 4 );
+    GPU_UpdateImageBytes( v->img_u, NULL, base + ( size_t ) v->ypw * 4 * v->h, v->cpw * 4 );
+    GPU_UpdateImageBytes( v->img_v, NULL, base + ( size_t ) v->ypw * 4 * v->h + ( size_t ) v->cpw * 4 * v->ch, v->cpw * 4 );
+
+    float wid[4] = { ( float ) v->ypw, ( float ) v->cpw, 0, 0 };
+    GPU_ActivateShaderProgram( g_yuv_prog, &g_yuv_block );
+    GPU_SetShaderImage( v->img_u, g_loc_u, 1 );
+    GPU_SetShaderImage( v->img_v, g_loc_v, 2 );
+    GPU_SetUniformi( g_loc_tex, 0 );
+    GPU_SetUniformfv( g_loc_p, 4, 1, v->gp );
+    GPU_SetUniformfv( g_loc_w, 4, 1, wid );
+    GPU_UnsetClip( v->tgt );
+    GPU_BlitScale( v->img_y, NULL, v->tgt, v->w / 2.0f, v->h / 2.0f, v->w / ( float ) ( v->ypw ), 1.0f );
+    GPU_FlushBlitBuffer();
+    GPU_ActivateShaderProgram( 0, NULL );
+}
+
 static void vq_clear( VIDEO * v ) {
     v->vq_r = 0; v->vq_n = 0;
     v->an = 0; v->ar = 0;
@@ -284,9 +421,21 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
     int slot = ( v->vq_r + v->vq_n ) % VQ_SIZE;
     SDL_UnlockMutex( v->mx );
 
-    uint8_t * dst[4] = { v->vq[slot].rgba, NULL, NULL, NULL };
-    int dst_ls[4] = { v->w * 4, 0, 0, 0 };
-    sws_scale( v->sws, ( const uint8_t * const * ) f->data, f->linesize, 0, f->height, dst, dst_ls );
+    if ( v->gpu ) {
+        /* planes copied as they are; the GPU does the colour conversion */
+        uint8_t * d = v->vq[slot].rgba;
+        size_t ys = ( size_t ) v->ypw * 4, cs = ( size_t ) v->cpw * 4;
+        for ( int y = 0; y < v->h; y++ ) memcpy( d + y * ys, f->data[0] + ( size_t ) y * f->linesize[0], v->w );
+        uint8_t * du = d + ys * v->h, * dv = du + cs * v->ch;
+        for ( int y = 0; y < v->ch; y++ ) {
+            memcpy( du + y * cs, f->data[1] + ( size_t ) y * f->linesize[1], v->cw );
+            memcpy( dv + y * cs, f->data[2] + ( size_t ) y * f->linesize[2], v->cw );
+        }
+    } else {
+        uint8_t * dst[4] = { v->vq[slot].rgba, NULL, NULL, NULL };
+        int dst_ls[4] = { v->w * 4, 0, 0, 0 };
+        sws_scale( v->sws, ( const uint8_t * const * ) f->data, f->linesize, 0, f->height, dst, dst_ls );
+    }
     v->vq[slot].pts = pts;
 
     SDL_LockMutex( v->mx );
@@ -399,8 +548,9 @@ static int decode_thread( void * arg ) {
 /* ---- per-frame hook (main / GL thread) --------------------------------- */
 
 static void vid_upload_slot( VIDEO * v, int slot ) {
-    if ( v->graph && v->graph->tex )
-        GPU_UpdateImageBytes( v->graph->tex, NULL, v->vq[slot].rgba, v->w * 4 );
+    if ( !v->graph || !v->graph->tex ) return;
+    if ( v->gpu ) yuv_render( v, v->vq[slot].rgba );
+    else GPU_UpdateImageBytes( v->graph->tex, NULL, v->vq[slot].rgba, v->w * 4 );
 }
 
 static void vid_tick( VIDEO * v ) {
@@ -437,6 +587,7 @@ static int obj_info( void * what, REGION * clip, int64_t * key, int64_t * ready 
     *key = 0; *ready = 0;                               /* never drawn by the object system */
     for ( int i = 1; i <= MAX_VIDEOS; i++ ) if ( g_vid[i].used ) vid_tick( &g_vid[i] );
     zombie_tick( 0 );
+    zimg_tick( 0 );
     return 1;
 }
 
@@ -469,6 +620,7 @@ static void vid_free( VIDEO * v ) {
     free( v->cues );
     if ( v->fmt ) avformat_close_input( &v->fmt );
     if ( v->graph_code ) zombie_add( v->graph_code );
+    zimg_add( v->img_y, v->tgt ); zimg_add( v->img_u, NULL ); zimg_add( v->img_v, NULL );
     if ( v->cond ) SDL_DestroyCond( v->cond );
     if ( v->mx ) SDL_DestroyMutex( v->mx );
     memset( v, 0, sizeof( *v ) );
@@ -509,9 +661,23 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
     v->vtb = av_q2d( v->fmt->streams[v->vstream]->time_base );
     v->duration = v->fmt->duration > 0 ? v->fmt->duration / ( double ) AV_TIME_BASE : 0;
 
-    v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
-    if ( !v->sws ) goto fail;
-    for ( int i = 0; i < VQ_SIZE; i++ ) { v->vq[i].rgba = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 ); if ( !v->vq[i].rgba ) goto fail; }
+    /* GPU conversion needs 8-bit 4:2:0 and row pitches that are a multiple of 4 */
+    if ( g_use_gpu && ( v->vctx->pix_fmt == AV_PIX_FMT_YUV420P || v->vctx->pix_fmt == AV_PIX_FMT_YUVJ420P ) ) {
+        if ( !g_yuv_tried ) yuv_program_build();
+        if ( g_yuv_prog ) v->gpu = 1;
+    }
+    if ( v->gpu ) {
+        v->ypw = ( v->w + 3 ) / 4; v->cw = ( v->w + 1 ) / 2; v->ch = ( v->h + 1 ) / 2; v->cpw = ( v->cw + 3 ) / 4;
+        v->slot_bytes = ( size_t ) v->ypw * 4 * v->h + 2 * ( size_t ) v->cpw * 4 * v->ch;
+        v->gp[0] = ( float ) v->w;
+        v->gp[1] = ( v->vctx->pix_fmt == AV_PIX_FMT_YUVJ420P || v->vctx->color_range == AVCOL_RANGE_JPEG ) ? 1.0f : 0.0f;
+        v->gp[2] = ( v->vctx->colorspace == AVCOL_SPC_BT709 || ( v->vctx->colorspace == AVCOL_SPC_UNSPECIFIED && v->h >= 720 ) ) ? 1.0f : 0.0f;
+    } else {
+        v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
+        if ( !v->sws ) goto fail;
+        v->slot_bytes = ( size_t ) v->w * v->h * 4;
+    }
+    for ( int i = 0; i < VQ_SIZE; i++ ) { v->vq[i].rgba = ( uint8_t * ) calloc( 1, v->slot_bytes ); if ( !v->vq[i].rgba ) goto fail; }
     v->frame = av_frame_alloc();
 
     /* audio, if SDL_mixer is up */
@@ -556,6 +722,31 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
         v->graph_code = v->graph->code;
         grlib_add_map( 0, v->graph );
     }
+    if ( v->gpu ) {
+        v->img_y = GPU_CreateImage( v->ypw, v->h,  GPU_FORMAT_RGBA );
+        v->img_u = GPU_CreateImage( v->cpw, v->ch, GPU_FORMAT_RGBA );
+        v->img_v = GPU_CreateImage( v->cpw, v->ch, GPU_FORMAT_RGBA );
+        if ( v->img_y && v->img_u && v->img_v && v->graph->tex ) {
+            GPU_SetImageFilter( v->img_y, GPU_FILTER_NEAREST );
+            GPU_SetImageFilter( v->img_u, GPU_FILTER_NEAREST );
+            GPU_SetImageFilter( v->img_v, GPU_FILTER_NEAREST );
+            GPU_SetBlending( v->img_y, 0 );
+            v->tgt = GPU_LoadTarget( v->graph->tex );
+        }
+        if ( !v->tgt ) {                              /* GPU path unavailable: back to the CPU converter */
+            fprintf( stderr, "libmod_video: GPU conversion unavailable, using software\n" );
+            zimg_add( v->img_y, NULL ); zimg_add( v->img_u, NULL ); zimg_add( v->img_v, NULL );
+            v->img_y = v->img_u = v->img_v = NULL;
+            v->gpu = 0;
+            v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
+            if ( !v->sws ) goto fail;
+            for ( int i = 0; i < VQ_SIZE; i++ ) {
+                free( v->vq[i].rgba );
+                v->vq[i].rgba = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 );
+                if ( !v->vq[i].rgba ) goto fail;
+            }
+        }
+    }
 
     v->mx = SDL_CreateMutex(); v->cond = SDL_CreateCond();
     if ( !g_obj_id ) g_obj_id = gr_new_object( 0, obj_info, NULL, NULL );
@@ -570,6 +761,11 @@ fail:
     vid_free( v );
     return 0;
 }
+
+/* VIDEO_USE_GPU(enable): colour conversion on the GPU for videos opened afterwards (default 1) */
+int64_t libmod_video_use_gpu( INSTANCE * my, int64_t * params ) { g_use_gpu = params[0] ? 1 : 0; return g_use_gpu; }
+/* VIDEO_GPU(handle): 1 if that video converts on the GPU */
+int64_t libmod_video_gpu( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? v->gpu : 0; }
 
 int64_t libmod_video_graph( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? v->graph_code : 0; }
 int64_t libmod_video_width( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? v->w : 0; }
@@ -754,6 +950,8 @@ void __bgdexport( libmod_video, module_initialize )() {
 void __bgdexport( libmod_video, module_finalize )() {
     for ( int i = 1; i <= MAX_VIDEOS; i++ ) if ( g_vid[i].used ) vid_free( &g_vid[i] );
     zombie_tick( 1 );
+    zimg_tick( 1 );
+    if ( g_yuv_prog ) { GPU_FreeShaderProgram( g_yuv_prog ); g_yuv_prog = 0; }
     if ( g_obj_id ) { gr_destroy_object( g_obj_id ); g_obj_id = 0; }
 }
 

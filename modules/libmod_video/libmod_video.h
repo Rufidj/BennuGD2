@@ -16,6 +16,9 @@
  *    VIDEO_DURATION / VIDEO_POSITION(handle)   milliseconds
  *    VIDEO_IS_PLAYING / VIDEO_IS_FINISHED(handle)
  *    VIDEO_VOLUME(handle, 0..128)
+ *    VIDEO_USE_GPU(enable)                   colour conversion (yuv420p -> RGB) on the GPU for videos opened
+ *                                            afterwards; default 1, falls back to software when unavailable
+ *    VIDEO_GPU(handle)                       1 if that video is converted on the GPU
  *
  *  Subtitles (text tracks: SRT, ASS/SSA, WebVTT, mov_text; image tracks are ignored). The module
  *  does not draw them: the script shows VIDEO_SUBTITLE_TEXT() with its own fonts.
@@ -44,6 +47,8 @@ extern int64_t libmod_video_duration( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_position( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_is_playing( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_is_finished( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_use_gpu( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_gpu( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_volume( INSTANCE * my, int64_t * params );
 
 extern int64_t libmod_video_subtitle_tracks( INSTANCE * my, int64_t * params );
