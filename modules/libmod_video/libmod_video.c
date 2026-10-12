@@ -965,7 +965,11 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
 
     v->mx = SDL_CreateMutex(); v->cond = SDL_CreateCond();
     if ( !g_obj_id ) g_obj_id = gr_new_object( 0, obj_info, NULL, NULL );
+    #if SDL_VERSION_ATLEAST( 2, 0, 9 )
+    v->thr = SDL_CreateThreadWithStackSize( decode_thread, "video", ( size_t ) 8 << 20, v );   /* the console's decoder needs a big stack */
+#else
     v->thr = SDL_CreateThread( decode_thread, "video", v );
+#endif
     if ( !v->thr ) goto fail;
 
     string_discard( params[0] );

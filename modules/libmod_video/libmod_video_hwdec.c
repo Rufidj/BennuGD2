@@ -16,6 +16,8 @@ void     hwdec_reset( HWDEC * d ) { ( void ) d; }
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <libavutil/sha.h>
+#include <libavutil/mem.h>
 
 /* ---- the console's API ---------------------------------------------------- */
 
@@ -85,15 +87,22 @@ _Static_assert( sizeof( VdecInput ) == 0x30, "VdecInput" );
 _Static_assert( sizeof( VdecOutput ) == 0x38, "VdecOutput" );
 _Static_assert( sizeof( VdecFrameBuffer ) == 0x20, "VdecFrameBuffer" );
 
-int sceSysmoduleLoadModule( uint16_t id );
-int sceVideodec2QueryComputeMemoryInfo( VdecComputeMemory * info );
-int sceVideodec2AllocateComputeQueue( const VdecComputeConfig * config, const VdecComputeMemory * memory, void ** queue );
-int sceVideodec2QueryDecoderMemoryInfo( const VdecConfig * config, VdecMemory * memory );
-int sceVideodec2CreateDecoder( const VdecConfig * config, const VdecMemory * memory, void ** decoder );
-int sceVideodec2DeleteDecoder( void * decoder );
-int sceVideodec2Decode( void * decoder, const VdecInput * input, VdecFrameBuffer * frame, VdecOutput * output );
-int sceVideodec2Flush( void * decoder, VdecFrameBuffer * frame, VdecOutput * output );
-int sceVideodec2Reset( void * decoder );
+/* libSceVideodec2 is NOT linked and no sysmodule library is imported: the title must start without them.
+   The module is loaded on request with sceKernelLoadStartModule and its functions are looked up in it. */
+static int ( * sceVideodec2QueryComputeMemoryInfo )( VdecComputeMemory * info );
+static int ( * sceVideodec2AllocateComputeQueue )( const VdecComputeConfig * config, const VdecComputeMemory * memory, void ** queue );
+static int ( * sceVideodec2QueryDecoderMemoryInfo )( const VdecConfig * config, VdecMemory * memory );
+static int ( * sceVideodec2CreateDecoder )( const VdecConfig * config, const VdecMemory * memory, void ** decoder );
+static int ( * sceVideodec2DeleteDecoder )( void * decoder );
+static int ( * sceVideodec2Decode )( void * decoder, const VdecInput * input, VdecFrameBuffer * frame, VdecOutput * output );
+static int ( * sceVideodec2Flush )( void * decoder, VdecFrameBuffer * frame, VdecOutput * output );
+static int ( * sceVideodec2Reset )( void * decoder );
+
+int sceKernelGetModuleList( int * handles, size_t max, size_t * num );
+int sceKernelGetModuleInfo( int handle, void * info );
+int sceKernelDlsym( int handle, const char * name, void ** addr );
+const char * sceKernelGetFsSandboxRandomWord( void );
+int sceKernelLoadStartModule( const char * path, size_t args, const void * argp, unsigned flags, const void * opt, int * res );
 
 int     sceKernelAllocateDirectMemory( int64_t search_start, int64_t search_end, size_t len, size_t alignment, int type, int64_t * start );
 int     sceKernelMapDirectMemory( void ** addr, size_t len, int prot, int flags, int64_t start, size_t alignment );
@@ -103,7 +112,6 @@ int     sceKernelMapFlexibleMemory( void ** addr, size_t len, int prot, int flag
 int     sceKernelReleaseFlexibleMemory( void * addr, size_t len );
 int     sceKernelMunmap( void * addr, size_t len );
 
-#define SYSMODULE_VIDEODEC2 207
 #define PROT_CPU_RW   0x03
 #define PROT_GPU_RW   0x30
 #define DIRECT_TYPE   12            /* the memory type the decoder is known to accept */
@@ -148,11 +156,109 @@ static int   g_state = 0;          /* 0 untried, 1 usable, -1 not available */
 static void * g_queue = NULL;
 static MEM   g_queue_mem = { NULL, 0, -1 };
 
+/* NID of a function name: first 8 bytes of SHA-1(name + salt), read little-endian, base64 big-endian ('/' -> '-') */
+static void nid_of( const char * name, char out[16] ) {
+    static const uint8_t salt[16] = { 0x51, 0x8D, 0x64, 0xA6, 0x35, 0xDE, 0xD8, 0xC1, 0xE6, 0xB0, 0x39, 0xB1, 0xC3, 0xE5, 0x52, 0x30 };
+    static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+    uint8_t d[20]; uint64_t v = 0;
+    struct AVSHA * c = av_sha_alloc();
+    av_sha_init( c, 160 );
+    av_sha_update( c, ( const uint8_t * ) name, strlen( name ) );
+    av_sha_update( c, salt, sizeof( salt ) );
+    av_sha_final( c, d );
+    av_free( c );
+    for ( int i = 7; i >= 0; i-- ) v = ( v << 8 ) | d[i];            /* little-endian read */
+    uint8_t be[8];
+    for ( int i = 0; i < 8; i++ ) be[i] = ( uint8_t ) ( v >> ( 56 - 8 * i ) );   /* written big-endian */
+    int o = 0;
+    for ( int i = 0; i < 8; i += 3 ) {
+        uint32_t n = ( uint32_t ) be[i] << 16 | ( i + 1 < 8 ? ( uint32_t ) be[i+1] << 8 : 0 ) | ( i + 2 < 8 ? be[i+2] : 0 );
+        out[o++] = b64[( n >> 18 ) & 63]; out[o++] = b64[( n >> 12 ) & 63];
+        if ( i + 1 < 8 ) out[o++] = b64[( n >> 6 ) & 63];
+        if ( i + 2 < 8 ) out[o++] = b64[n & 63];
+    }
+    out[o] = 0;
+}
+
+/* handle of the loaded libSceVideodec2 module, or -1 */
+static int find_module( void ) {
+    int h[256]; size_t n = 0;
+    if ( sceKernelGetModuleList( h, 256, &n ) != 0 ) { LOG( "module list unavailable\n" ); return -1; }
+    LOG( "%zu modules loaded\n", n );
+    for ( size_t i = 0; i < n && i < 256; i++ ) {
+        uint8_t info[0x160];                       /* SceKernelModuleInfo: size, char name[256], ... */
+        memset( info, 0, sizeof( info ) );
+        *( uint64_t * ) info = sizeof( info );
+        if ( sceKernelGetModuleInfo( h[i], info ) != 0 ) continue;
+        const char * name = ( const char * ) info + 8;
+        if ( strstr( name, "Videodec2" ) ) { LOG( "module %s (handle %d)\n", name, h[i] ); return h[i]; }
+    }
+    return -1;
+}
+
+static int resolve_functions( void ) {
+    int h = find_module();
+    if ( h < 0 ) {
+        /* titles are sandboxed: system paths are "/<random word>/common/lib/..." */
+        char sandboxed[160] = "", sandboxed_priv[160] = "";
+        const char * word = sceKernelGetFsSandboxRandomWord();
+        if ( word ) {
+            snprintf( sandboxed, sizeof( sandboxed ), "/%s/common/lib/libSceVideodec2.sprx", word );
+            snprintf( sandboxed_priv, sizeof( sandboxed_priv ), "/%s/priv/lib/libSceVideodec2.sprx", word );
+        }
+        const char * paths[] = { sandboxed, sandboxed_priv, "/system/common/lib/libSceVideodec2.sprx", "libSceVideodec2.sprx" };
+        for ( unsigned i = 0; i < sizeof( paths ) / sizeof( paths[0] ) && h < 0; i++ ) {
+            if ( !paths[i][0] ) continue;
+            int res = 0;
+            int r = sceKernelLoadStartModule( paths[i], 0, NULL, 0, NULL, &res );
+            LOG( "LoadStartModule(%s) -> %#x\n", paths[i], ( unsigned ) r );
+            if ( r > 0 ) h = r;
+        }
+        if ( h < 0 ) return 0;
+    }
+    struct { const char * name; void ** slot; } f[] = {
+        { "sceVideodec2QueryComputeMemoryInfo", ( void ** ) &sceVideodec2QueryComputeMemoryInfo },
+        { "sceVideodec2AllocateComputeQueue",   ( void ** ) &sceVideodec2AllocateComputeQueue },
+        { "sceVideodec2QueryDecoderMemoryInfo", ( void ** ) &sceVideodec2QueryDecoderMemoryInfo },
+        { "sceVideodec2CreateDecoder",          ( void ** ) &sceVideodec2CreateDecoder },
+        { "sceVideodec2DeleteDecoder",          ( void ** ) &sceVideodec2DeleteDecoder },
+        { "sceVideodec2Decode",                 ( void ** ) &sceVideodec2Decode },
+        { "sceVideodec2Flush",                  ( void ** ) &sceVideodec2Flush },
+        { "sceVideodec2Reset",                  ( void ** ) &sceVideodec2Reset },
+    };
+    static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+    int suffix_a = -1, suffix_b = -1;            /* library / module id characters that worked, -1 = none */
+    int have_suffix = 0;
+    for ( unsigned i = 0; i < sizeof( f ) / sizeof( f[0] ); i++ ) {
+        void * p = NULL;
+        char nid[16], key[64];
+        nid_of( f[i].name, nid );
+        int rc = sceKernelDlsym( h, f[i].name, &p );                   /* plain name */
+        if ( rc != 0 || !p ) { p = NULL; rc = sceKernelDlsym( h, nid, &p ); }          /* NID alone */
+        if ( ( rc != 0 || !p ) && have_suffix ) {
+            snprintf( key, sizeof( key ), "%s#%c#%c", nid, suffix_a < 0 ? 'A' : b64[suffix_a], suffix_b < 0 ? 'A' : b64[suffix_b] );
+            p = NULL; rc = sceKernelDlsym( h, key, &p );
+        }
+        if ( ( rc != 0 || !p ) && !have_suffix ) {                      /* NID#lib#mod: search the ids once */
+            for ( int la = 0; la < 64 && !have_suffix; la++ )
+                for ( int lb = 0; lb < 64 && !have_suffix; lb++ ) {
+                    snprintf( key, sizeof( key ), "%s#%c#%c", nid, b64[la], b64[lb] );
+                    p = NULL;
+                    if ( sceKernelDlsym( h, key, &p ) == 0 && p ) { suffix_a = la; suffix_b = lb; have_suffix = 1; rc = 0; LOG( "symbol form %s#%c#%c\n", "NID", b64[la], b64[lb] ); }
+                }
+        }
+        if ( rc != 0 || !p ) { LOG( "%s (%s) not found (%#x)\n", f[i].name, nid, ( unsigned ) rc ); return 0; }
+        *f[i].slot = p;
+        LOG( "%s -> %p\n", f[i].name, p );
+    }
+    return 1;
+}
+
 int hwdec_available( void ) {
     if ( g_state ) return g_state > 0;
     g_state = -1;
-    int rc = sceSysmoduleLoadModule( SYSMODULE_VIDEODEC2 );
-    if ( rc != 0 ) { LOG( "libSceVideodec2 not loaded (%#x)\n", ( unsigned ) rc ); return 0; }
+    if ( !resolve_functions() ) { LOG( "libSceVideodec2 not available\n" ); return 0; }
+    int rc;
 
     VdecComputeMemory info = { .this_size = sizeof( info ) };
     rc = sceVideodec2QueryComputeMemoryInfo( &info );
