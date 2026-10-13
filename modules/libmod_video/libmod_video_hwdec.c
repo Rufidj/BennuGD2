@@ -17,6 +17,9 @@ void     hwdec_reset( HWDEC * d ) { ( void ) d; }
 #include <string.h>
 #include <stdbool.h>
 #include <libavutil/sha.h>
+#include <signal.h>
+#include <pthread.h>
+#include <ucontext.h>
 #include <libavutil/mem.h>
 
 /* ---- the console's API ---------------------------------------------------- */
@@ -89,14 +92,26 @@ _Static_assert( sizeof( VdecFrameBuffer ) == 0x20, "VdecFrameBuffer" );
 
 /* libSceVideodec2 is NOT linked and no sysmodule library is imported: the title must start without them.
    The module is loaded on request with sceKernelLoadStartModule and its functions are looked up in it. */
-static int ( * sceVideodec2QueryComputeMemoryInfo )( VdecComputeMemory * info );
-static int ( * sceVideodec2AllocateComputeQueue )( const VdecComputeConfig * config, const VdecComputeMemory * memory, void ** queue );
-static int ( * sceVideodec2QueryDecoderMemoryInfo )( const VdecConfig * config, VdecMemory * memory );
-static int ( * sceVideodec2CreateDecoder )( const VdecConfig * config, const VdecMemory * memory, void ** decoder );
-static int ( * sceVideodec2DeleteDecoder )( void * decoder );
-static int ( * sceVideodec2Decode )( void * decoder, const VdecInput * input, VdecFrameBuffer * frame, VdecOutput * output );
-static int ( * sceVideodec2Flush )( void * decoder, VdecFrameBuffer * frame, VdecOutput * output );
-static int ( * sceVideodec2Reset )( void * decoder );
+static int ( * vd_QueryComputeMemoryInfo )( VdecComputeMemory * info );
+static int ( * vd_AllocateComputeQueue )( const VdecComputeConfig * config, const VdecComputeMemory * memory, void ** queue );
+static int ( * vd_QueryDecoderMemoryInfo )( const VdecConfig * config, VdecMemory * memory );
+static int ( * vd_CreateDecoder )( const VdecConfig * config, const VdecMemory * memory, void ** decoder );
+static int ( * vd_DeleteDecoder )( void * decoder );
+static int ( * vd_Decode )( void * decoder, const VdecInput * input, VdecFrameBuffer * frame, VdecOutput * output );
+static int ( * vd_Flush )( void * decoder, VdecFrameBuffer * frame, VdecOutput * output );
+static int ( * vd_Reset )( void * decoder );
+
+/* static imports (libSceVideodec2 stub): bound by the loader once the library is loaded the sysmodule way */
+extern int imp_QueryComputeMemoryInfo( VdecComputeMemory * info ) __asm__( "sceVideodec2QueryComputeMemoryInfo" );
+extern int imp_AllocateComputeQueue( const VdecComputeConfig * config, const VdecComputeMemory * memory, void ** queue ) __asm__( "sceVideodec2AllocateComputeQueue" );
+extern int imp_QueryDecoderMemoryInfo( const VdecConfig * config, VdecMemory * memory ) __asm__( "sceVideodec2QueryDecoderMemoryInfo" );
+extern int imp_CreateDecoder( const VdecConfig * config, const VdecMemory * memory, void ** decoder ) __asm__( "sceVideodec2CreateDecoder" );
+extern int imp_DeleteDecoder( void * decoder ) __asm__( "sceVideodec2DeleteDecoder" );
+extern int imp_Decode( void * decoder, const VdecInput * input, VdecFrameBuffer * frame, VdecOutput * output ) __asm__( "sceVideodec2Decode" );
+extern int imp_Flush( void * decoder, VdecFrameBuffer * frame, VdecOutput * output ) __asm__( "sceVideodec2Flush" );
+extern int imp_Reset( void * decoder ) __asm__( "sceVideodec2Reset" );
+int sceKernelLoadStartModuleForSysmodule( const char * path, size_t args, const void * argp, unsigned flags, const void * opt, int * res );
+int sceSysmoduleLoadModule( uint16_t id );
 
 int sceKernelGetModuleList( int * handles, size_t max, size_t * num );
 int sceKernelGetModuleInfo( int handle, void * info );
@@ -123,6 +138,35 @@ int     sceKernelMunmap( void * addr, size_t len );
 #define MAX_PENDING   64
 
 #define LOG( ... ) do { fprintf( stderr, "libmod_video hw: " __VA_ARGS__ ); fflush( stderr ); } while ( 0 )
+
+/* The console's decoder functions use a lot of stack; the interpreter's own threads have small ones
+   (a call from there faulted on its own stack pointer). Everything that calls it runs on a thread
+   with a big stack. */
+#define BIG_STACK ( ( size_t ) 8 << 20 )
+
+typedef struct { void * ( * fn )( void * ); void * arg; void * ret; } BIGCALL;
+
+static void * big_trampoline( void * p ) {
+    BIGCALL * c = ( BIGCALL * ) p;
+    c->ret = c->fn( c->arg );
+    return NULL;
+}
+
+static void * call_big( void * ( * fn )( void * ), void * arg ) {
+    BIGCALL c = { fn, arg, NULL };
+    pthread_attr_t at;
+    pthread_t th;
+    pthread_attr_init( &at );
+    pthread_attr_setstacksize( &at, BIG_STACK );
+    if ( pthread_create( &th, &at, big_trampoline, &c ) != 0 ) {
+        pthread_attr_destroy( &at );
+        LOG( "no big-stack thread, calling directly\n" );
+        return fn( arg );
+    }
+    pthread_join( th, NULL );
+    pthread_attr_destroy( &at );
+    return c.ret;
+}
 
 /* ---- memory --------------------------------------------------------------- */
 
@@ -189,84 +233,103 @@ static int find_module( void ) {
         uint8_t info[0x160];                       /* SceKernelModuleInfo: size, char name[256], ... */
         memset( info, 0, sizeof( info ) );
         *( uint64_t * ) info = sizeof( info );
-        if ( sceKernelGetModuleInfo( h[i], info ) != 0 ) continue;
+        int ir = sceKernelGetModuleInfo( h[i], info );
         const char * name = ( const char * ) info + 8;
-        if ( strstr( name, "Videodec2" ) ) { LOG( "module %s (handle %d)\n", name, h[i] ); return h[i]; }
+        LOG( "  module handle %d info=%#x name=[%.60s]\n", h[i], ( unsigned ) ir, ir == 0 ? name : "?" );
+        if ( ir == 0 && strstr( name, "Videodec2" ) ) { LOG( "module %s (handle %d)\n", name, h[i] ); return h[i]; }
+        if ( ir == 0 ) {                           /* does Dlsym work on this module for a function it exports? */
+            void * q = NULL;
+            int r1 = sceKernelDlsym( h[i], "malloc", &q );
+            void * q2 = NULL;
+            int r2 = sceKernelDlsym( h[i], "gQX+4GDQjpM", &q2 );
+            void * q3 = NULL;
+            int r3 = sceKernelDlsym( h[i], "gQX+4GDQjpM#libc#libc", &q3 );
+            void * q4 = NULL;
+            int r4 = sceKernelDlsym( h[i], "gQX+4GDQjpM#A#A", &q4 );
+            LOG( "    Dlsym(malloc)=%#x %p NID=%#x %p NID#libc#libc=%#x %p NID#A#A=%#x %p\n", ( unsigned ) r1, q, ( unsigned ) r2, q2, ( unsigned ) r3, q3, ( unsigned ) r4, q4 );
+        }
     }
     return -1;
 }
 
+static void module_map( int handle ) {
+    uint8_t inf[0x160];
+    memset( inf, 0, sizeof( inf ) );
+    *( uint64_t * ) inf = sizeof( inf );
+    if ( sceKernelGetModuleInfo( handle, inf ) != 0 ) { LOG( "module %d: no info\n", handle ); return; }
+    LOG( "module %d [%.40s]:", handle, ( const char * ) inf + 8 );
+    for ( int i = 0; i < 4; i++ ) {
+        const uint8_t * sg = inf + 264 + i * 16;
+        LOG( " seg%d %p+%#x prot%d", i, *( void * const * ) sg, *( const uint32_t * ) ( sg + 8 ), *( const int32_t * ) ( sg + 12 ) );
+    }
+    LOG( "\n" );
+}
+
+static void crash_report( int sig, siginfo_t * si, void * uc_ ) {
+    ucontext_t * uc = ( ucontext_t * ) uc_;
+    unsigned long rip = 0, rsp = 0;
+#if defined( __FreeBSD__ ) || defined( __PROSPERO__ )
+    rip = ( unsigned long ) uc->uc_mcontext.mc_rip; rsp = ( unsigned long ) uc->uc_mcontext.mc_rsp;
+#endif
+    fprintf( stderr, "libmod_video hw: CRASH signal %d fault addr %p rip %#lx rsp %#lx\n", sig, si ? si->si_addr : NULL, rip, rsp );
+    if ( rsp >= 0x100000 && ( rsp & 7 ) == 0 ) {
+        const unsigned long * sp = ( const unsigned long * ) rsp;
+        for ( int i = 0, found = 0; i < 512 && found < 12; i++ )
+            if ( sp[i] >= 0x400000 && sp[i] < 0x23f0000 ) { fprintf( stderr, "libmod_video hw:   stack[%d] %#lx\n", i, sp[i] ); found++; }
+    }
+    {   unsigned long long r15 = 0, rax = 0, rcx = 0, rdi = 0, rsi = 0, rbp = 0;
+#if defined( __FreeBSD__ ) || defined( __PROSPERO__ )
+        rax = uc->uc_mcontext.mc_rax; rcx = uc->uc_mcontext.mc_rcx; rdi = uc->uc_mcontext.mc_rdi;
+        rsi = uc->uc_mcontext.mc_rsi; rbp = uc->uc_mcontext.mc_rbp; r15 = uc->uc_mcontext.mc_r15;
+#endif
+        fprintf( stderr, "libmod_video hw:   rax %#llx rcx %#llx rdi %#llx rsi %#llx rbp %#llx r15 %#llx\n", rax, rcx, rdi, rsi, rbp, r15 );
+    }
+    fflush( stderr );
+    signal( sig, SIG_DFL );
+    raise( sig );
+}
+
+static void crash_handler_install( void ) {
+    struct sigaction sa;
+    memset( &sa, 0, sizeof( sa ) );
+    sa.sa_sigaction = crash_report;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction( SIGSEGV, &sa, NULL );
+    sigaction( SIGBUS, &sa, NULL );
+    sigaction( SIGILL, &sa, NULL );
+}
+
 static int resolve_functions( void ) {
-    int h = find_module();
-    if ( h < 0 ) {
-        /* titles are sandboxed: system paths are "/<random word>/common/lib/..." */
-        char sandboxed[160] = "", sandboxed_priv[160] = "";
-        const char * word = sceKernelGetFsSandboxRandomWord();
-        if ( word ) {
-            snprintf( sandboxed, sizeof( sandboxed ), "/%s/common/lib/libSceVideodec2.sprx", word );
-            snprintf( sandboxed_priv, sizeof( sandboxed_priv ), "/%s/priv/lib/libSceVideodec2.sprx", word );
-        }
-        const char * paths[] = { sandboxed, sandboxed_priv, "/system/common/lib/libSceVideodec2.sprx", "libSceVideodec2.sprx" };
-        for ( unsigned i = 0; i < sizeof( paths ) / sizeof( paths[0] ) && h < 0; i++ ) {
-            if ( !paths[i][0] ) continue;
-            int res = 0;
-            int r = sceKernelLoadStartModule( paths[i], 0, NULL, 0, NULL, &res );
-            LOG( "LoadStartModule(%s) -> %#x\n", paths[i], ( unsigned ) r );
-            if ( r > 0 ) h = r;
-        }
-        if ( h < 0 ) return 0;
-    }
-    struct { const char * name; void ** slot; } f[] = {
-        { "sceVideodec2QueryComputeMemoryInfo", ( void ** ) &sceVideodec2QueryComputeMemoryInfo },
-        { "sceVideodec2AllocateComputeQueue",   ( void ** ) &sceVideodec2AllocateComputeQueue },
-        { "sceVideodec2QueryDecoderMemoryInfo", ( void ** ) &sceVideodec2QueryDecoderMemoryInfo },
-        { "sceVideodec2CreateDecoder",          ( void ** ) &sceVideodec2CreateDecoder },
-        { "sceVideodec2DeleteDecoder",          ( void ** ) &sceVideodec2DeleteDecoder },
-        { "sceVideodec2Decode",                 ( void ** ) &sceVideodec2Decode },
-        { "sceVideodec2Flush",                  ( void ** ) &sceVideodec2Flush },
-        { "sceVideodec2Reset",                  ( void ** ) &sceVideodec2Reset },
-    };
-    static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
-    int suffix_a = -1, suffix_b = -1;            /* library / module id characters that worked, -1 = none */
-    int have_suffix = 0;
-    for ( unsigned i = 0; i < sizeof( f ) / sizeof( f[0] ); i++ ) {
-        void * p = NULL;
-        char nid[16], key[64];
-        nid_of( f[i].name, nid );
-        int rc = sceKernelDlsym( h, f[i].name, &p );                   /* plain name */
-        if ( rc != 0 || !p ) { p = NULL; rc = sceKernelDlsym( h, nid, &p ); }          /* NID alone */
-        if ( ( rc != 0 || !p ) && have_suffix ) {
-            snprintf( key, sizeof( key ), "%s#%c#%c", nid, suffix_a < 0 ? 'A' : b64[suffix_a], suffix_b < 0 ? 'A' : b64[suffix_b] );
-            p = NULL; rc = sceKernelDlsym( h, key, &p );
-        }
-        if ( ( rc != 0 || !p ) && !have_suffix ) {                      /* NID#lib#mod: search the ids once */
-            for ( int la = 0; la < 64 && !have_suffix; la++ )
-                for ( int lb = 0; lb < 64 && !have_suffix; lb++ ) {
-                    snprintf( key, sizeof( key ), "%s#%c#%c", nid, b64[la], b64[lb] );
-                    p = NULL;
-                    if ( sceKernelDlsym( h, key, &p ) == 0 && p ) { suffix_a = la; suffix_b = lb; have_suffix = 1; rc = 0; LOG( "symbol form %s#%c#%c\n", "NID", b64[la], b64[lb] ); }
-                }
-        }
-        if ( rc != 0 || !p ) { LOG( "%s (%s) not found (%#x)\n", f[i].name, nid, ( unsigned ) rc ); return 0; }
-        *f[i].slot = p;
-        LOG( "%s -> %p\n", f[i].name, p );
-    }
+    /* VLC's way: sysmodule 207 = libSceVideodec2; the static imports are bound by the console's loader */
+    int rc = sceSysmoduleLoadModule( 207 );
+    LOG( "sceSysmoduleLoadModule(207) -> %#x\n", ( unsigned ) rc );
+    if ( rc != 0 ) return 0;
+    vd_QueryComputeMemoryInfo = imp_QueryComputeMemoryInfo;
+    vd_AllocateComputeQueue   = imp_AllocateComputeQueue;
+    vd_QueryDecoderMemoryInfo = imp_QueryDecoderMemoryInfo;
+    vd_CreateDecoder          = imp_CreateDecoder;
+    vd_DeleteDecoder          = imp_DeleteDecoder;
+    vd_Decode                 = imp_Decode;
+    vd_Flush                  = imp_Flush;
+    vd_Reset                  = imp_Reset;
+    crash_handler_install();
+    LOG( "imports set, calling QueryComputeMemoryInfo\n" );
     return 1;
 }
 
-int hwdec_available( void ) {
+static int hwdec_available_impl( void ) {
     if ( g_state ) return g_state > 0;
     g_state = -1;
     if ( !resolve_functions() ) { LOG( "libSceVideodec2 not available\n" ); return 0; }
     int rc;
 
     VdecComputeMemory info = { .this_size = sizeof( info ) };
-    rc = sceVideodec2QueryComputeMemoryInfo( &info );
+    rc = vd_QueryComputeMemoryInfo( &info );
     if ( rc == 0 && mem_direct( &g_queue_mem, info.cpu_gpu_memory_size, PAGE_16K, PROT_CPU_RW | PROT_GPU_RW ) ) {
         info.cpu_gpu_memory = g_queue_mem.addr;
         info.cpu_gpu_memory_size = g_queue_mem.len;
         VdecComputeConfig cfg = { .this_size = sizeof( cfg ) };
-        rc = sceVideodec2AllocateComputeQueue( &cfg, &info, &g_queue );
+        rc = vd_AllocateComputeQueue( &cfg, &info, &g_queue );
         if ( rc != 0 ) { g_queue = NULL; mem_free( &g_queue_mem ); }
     }
     LOG( "compute queue %s (%#x)\n", g_queue ? "ready" : "FAILED", ( unsigned ) rc );
@@ -341,7 +404,7 @@ static void release_all( HWDEC * d ) {
 static int bring_up( HWDEC * d, const VdecConfig * cfg, VdecMemory * mem ) {
     memset( mem, 0, sizeof( *mem ) );
     mem->this_size = sizeof( *mem );
-    int rc = sceVideodec2QueryDecoderMemoryInfo( cfg, mem );
+    int rc = vd_QueryDecoderMemoryInfo( cfg, mem );
     if ( rc != 0 ) { LOG( "memory query %#x\n", ( unsigned ) rc ); return rc; }
     size_t align = mem->frame_buffer_alignment > PAGE_16K ? mem->frame_buffer_alignment : PAGE_16K;
     d->frame_size = ( mem->max_frame_buffer_size + align - 1 ) & ~( align - 1 );
@@ -353,7 +416,7 @@ static int bring_up( HWDEC * d, const VdecConfig * cfg, VdecMemory * mem ) {
     for ( int i = 0; ok && i < AU_SLOTS; i++ ) ok = mem_direct( &d->au[i], AU_SLOT_SIZE, PAGE_16K, PROT_CPU_RW | PROT_GPU_RW );
     if ( ok ) {
         mem->cpu_memory = d->cpu.addr; mem->gpu_memory = d->gpu.addr; mem->cpu_gpu_memory = d->cpu_gpu.addr;
-        rc = sceVideodec2CreateDecoder( cfg, mem, &d->dec );
+        rc = vd_CreateDecoder( cfg, mem, &d->dec );
         if ( rc == 0 ) return 0;
         LOG( "create decoder %#x\n", ( unsigned ) rc );
         d->dec = NULL;
@@ -367,8 +430,14 @@ static int bring_up( HWDEC * d, const VdecConfig * cfg, VdecMemory * mem ) {
     return rc;
 }
 
-HWDEC * hwdec_open( int hevc, int w, int h ) {
-    if ( !hwdec_available() ) return NULL;
+static void * available_thunk( void * a ) { ( void ) a; return ( void * ) ( intptr_t ) hwdec_available_impl(); }
+int hwdec_available( void ) {
+    if ( g_state ) return g_state > 0;
+    return ( int ) ( intptr_t ) call_big( available_thunk, NULL );
+}
+
+static HWDEC * hwdec_open_impl( int hevc, int w, int h ) {
+    if ( !hwdec_available_impl() ) return NULL;
     if ( w > 3840 || h > 2176 ) { LOG( "%dx%d is bigger than 4K\n", w, h ); return NULL; }
 
     HWDEC * d = ( HWDEC * ) calloc( 1, sizeof( *d ) );
@@ -411,12 +480,21 @@ HWDEC * hwdec_open( int hevc, int w, int h ) {
     return d;
 }
 
-void hwdec_close( HWDEC * d ) {
+typedef struct { int hevc, w, h; } OPENARGS;
+static void * open_thunk( void * p ) { OPENARGS * a = ( OPENARGS * ) p; return hwdec_open_impl( a->hevc, a->w, a->h ); }
+HWDEC * hwdec_open( int hevc, int w, int h ) {
+    OPENARGS a = { hevc, w, h };
+    return ( HWDEC * ) call_big( open_thunk, &a );
+}
+
+static void close_impl( HWDEC * d ) {
     if ( !d ) return;
-    if ( d->dec ) sceVideodec2DeleteDecoder( d->dec );
+    if ( d->dec ) vd_DeleteDecoder( d->dec );
     release_all( d );
     free( d );
 }
+static void * close_thunk( void * p ) { close_impl( ( HWDEC * ) p ); return NULL; }
+void hwdec_close( HWDEC * d ) { if ( d ) call_big( close_thunk, d ); }
 
 int hwdec_decode( HWDEC * d, const uint8_t * au, size_t size, int64_t pts, hwdec_cb cb, void * ud ) {
     MEM * slot = &d->au[d->au_next];
@@ -438,7 +516,7 @@ int hwdec_decode( HWDEC * d, const uint8_t * au, size_t size, int64_t pts, hwdec
     memset( &out, 0, sizeof( out ) );
     out.this_size = sizeof( out );
 
-    int rc = sceVideodec2Decode( d->dec, &in, &fb, &out );
+    int rc = vd_Decode( d->dec, &in, &fb, &out );
     d->au_next = ( d->au_next + 1 ) % AU_SLOTS;
     if ( fb.is_accepted ) d->held[fi] = true;
     if ( rc != 0 ) {
@@ -460,7 +538,7 @@ void hwdec_flush( HWDEC * d, hwdec_cb cb, void * ud ) {
         VdecOutput out;
         memset( &out, 0, sizeof( out ) );
         out.this_size = sizeof( out );
-        int rc = sceVideodec2Flush( d->dec, &fb, &out );
+        int rc = vd_Flush( d->dec, &fb, &out );
         if ( fb.is_accepted ) d->held[fi] = true;
         if ( rc != 0 || !out.is_valid ) break;
         if ( cb ) deliver( d, &out, cb, ud ); else { pending_take( d ); frames_release( d, out.frame_buffer ); }
@@ -469,7 +547,7 @@ void hwdec_flush( HWDEC * d, hwdec_cb cb, void * ud ) {
 
 void hwdec_reset( HWDEC * d ) {
     hwdec_flush( d, NULL, NULL );
-    int rc = sceVideodec2Reset( d->dec );
+    int rc = vd_Reset( d->dec );
     if ( rc != 0 ) LOG( "reset %#x\n", ( unsigned ) rc );
     d->npending = 0;
     memset( d->held, 0, sizeof( d->held ) );

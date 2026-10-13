@@ -43,6 +43,7 @@
 
 #include "libmod_video.h"
 #include "libmod_video_hwdec.h"
+#include <time.h>
 
 /* ------------------------------------------------------------------------ */
 
@@ -130,6 +131,7 @@ typedef struct {
     int             ncues, capcues;
 
     SDL_Thread      * thr;
+    double          cpu0, wall0;               /* process CPU / wall seconds at open (stats)          */
 } VIDEO;
 
 static VIDEO       g_vid[MAX_VIDEOS + 1];       /* handle = index, 0 unused     */
@@ -157,6 +159,12 @@ static int         g_mix_rate = 44100, g_mix_ch = 2;
 static Uint16      g_mix_fmt = AUDIO_S16SYS;
 
 /* ------------------------------------------------------------------------ */
+
+static double now_s( clockid_t id ) {
+    struct timespec t;
+    clock_gettime( id, &t );
+    return ( double ) t.tv_sec + t.tv_nsec / 1e9;
+}
 
 static VIDEO * vid_get( int64_t h ) {
     if ( h < 1 || h > MAX_VIDEOS || !g_vid[h].used ) return NULL;
@@ -764,6 +772,11 @@ static enum AVSampleFormat av_fmt_for( Uint16 f, int * bps ) {
 }
 
 static void vid_free( VIDEO * v ) {
+    if ( v->wall0 > 0 )
+        fprintf( stderr, "libmod_video: %dx%d %s: process CPU %.2f s in %.2f s wall (%.0f%% of one core)\n", v->w, v->h,
+                 v->hw ? "hardware decoder" : "software decoder",
+                 now_s( CLOCK_PROCESS_CPUTIME_ID ) - v->cpu0, now_s( CLOCK_MONOTONIC ) - v->wall0,
+                 100.0 * ( now_s( CLOCK_PROCESS_CPUTIME_ID ) - v->cpu0 ) / ( now_s( CLOCK_MONOTONIC ) - v->wall0 ) );
     if ( v->thr ) {
         SDL_LockMutex( v->mx ); v->quit = 1; SDL_CondBroadcast( v->cond ); SDL_UnlockMutex( v->mx );
         SDL_WaitThread( v->thr, NULL );
@@ -787,7 +800,8 @@ static void vid_free( VIDEO * v ) {
     free( v->cues );
     if ( v->fmt ) avformat_close_input( &v->fmt );
     if ( v->graph_code ) zombie_add( v->graph_code );
-    zimg_add( v->img_y, v->tgt ); zimg_add( v->img_u, NULL ); zimg_add( v->img_v, NULL );
+    /* the target belongs to the graph's texture: freeing that image frees it, never free it twice */
+    zimg_add( v->img_y, NULL ); zimg_add( v->img_u, NULL ); zimg_add( v->img_v, NULL );
     if ( v->cond ) SDL_DestroyCond( v->cond );
     if ( v->mx ) SDL_DestroyMutex( v->mx );
     memset( v, 0, sizeof( *v ) );
@@ -966,6 +980,7 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
     v->mx = SDL_CreateMutex(); v->cond = SDL_CreateCond();
     if ( !g_obj_id ) g_obj_id = gr_new_object( 0, obj_info, NULL, NULL );
     #if SDL_VERSION_ATLEAST( 2, 0, 9 )
+    v->cpu0 = now_s( CLOCK_PROCESS_CPUTIME_ID ); v->wall0 = now_s( CLOCK_MONOTONIC );
     v->thr = SDL_CreateThreadWithStackSize( decode_thread, "video", ( size_t ) 8 << 20, v );   /* the console's decoder needs a big stack */
 #else
     v->thr = SDL_CreateThread( decode_thread, "video", v );

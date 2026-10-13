@@ -36,28 +36,31 @@ or a renderer that cannot do it, fall back to the software converter automatical
 `VIDEO_USE_GPU(0)` forces software for videos opened afterwards; `VIDEO_GPU(handle)` tells which one is in use.
 Tests: `test/video_gpu_pc.prg` (identical output either way), `test/video_gpu_compare.prg` (fps GPU vs software).
 
-## Hardware decoding (PS5): experimental, off in practice
-The module has the whole path for the console's decoder block (`libSceVideodec2`, `libmod_video_hwdec.c`):
-H.264 / HEVC access units are converted to Annex B, decoded to NV12 / 16-bit NV12 and turned into RGB by the same GPU
-shader (BT.709 / BT.2020, basic PQ tone map). It falls back to libavcodec on any failure; `VIDEO_USE_HW(0)` disables it
-and `VIDEO_HW(handle)` tells which decoder a video uses. The shader paths are verified on PC with
-`LIBMOD_VIDEO_FAKE_HW=1` (swscale produces what the decoder would give).
+## Hardware decoding (PS5)
+H.264 and HEVC (8 and 10 bit, up to 3840x2176) are decoded by the console's video decoder block (`libSceVideodec2`,
+`libmod_video_hwdec.c`) and converted to RGB by the same GPU shader (NV12 / 16-bit NV12 input; BT.709 / BT.2020, basic PQ
+tone map). Anything it cannot take, or a decoder error, falls back to libavcodec transparently and resumes from the
+current position. `VIDEO_USE_HW(0)` disables it and `VIDEO_HW(handle)` tells which decoder a video uses.
 
-**Status on PS5: the decoder itself does not run yet.** What was established on hardware (native-app-boilerplate title):
-- `libSceVideodec2` loads: `sceKernelLoadStartModule("/<sandbox word>/common/lib/libSceVideodec2.sprx")`
-  (`sceKernelGetFsSandboxRandomWord()`), also `sceKernelLoadStartModuleForSysmodule`.
-- `sceKernelDlsym` finds nothing in this runtime (not even `malloc` of `libc.prx`), so function addresses cannot be looked up.
-- Importing `libSceSysmodule` makes the title not start with this boilerplate's packaging.
-- Static imports of `libSceVideodec2` (a link stub in the SDK) do get bound after loading the library, but the first call
-  faults inside a system module (a libkernel function, `rip` in the `0x800000000` region). Most likely cause: the
-  title's own `libc.prx` threads lack the TCB/TLS structures libkernel expects, which VLC's runtime (PS5_Vulkan) provides.
-- The title's code segments are execute-only (prot 4): a crash handler must not read code at `rip`.
-The experimental variant with static imports, big-stack threads and the crash report is kept as
-`ps5/notes/libmod_video_hwdec_experimental.c` for whoever continues (try VLC's packaging chain, or the same call from a thread
-created through libkernel's own `scePthread*`).
+Verified on a PS5 (native-app-boilerplate title): H.264 720p and 4K, HEVC 1080p 8 and 10 bit, all with `hw=1`.
 
-Reference for the API facts (structure layouts, call order, NV12/P010 output, memory rules): the `ps5vdec.c`
-plugin of github.com/ZiZc3/VLC (GPL-2.0+), used as a reference only; no code was copied.
+How it is wired (what had to be right, in order):
+1. The title imports `libSceSysmodule` and calls `sceSysmoduleLoadModule(207)` (libSceVideodec2) at first use; the
+   console's loader then binds the *static imports* of `sceVideodec2*` (a link stub `libSceVideodec2.so` with
+   soname `libSceVideodec2.sprx` in the payload SDK's `target/lib`, see `ps5/tools/build-videodec2-stub.sh`).
+   `sceKernelDlsym` is of no use in this runtime (it finds nothing, not even `malloc` of `libc.prx`).
+2. Nothing of the module's own may share a symbol name with an import: a `static` function-pointer variable called
+   `sceVideodec2Decode` silently captured the import (the asm label resolved to the variable) and every call faulted.
+3. Calls to the decoder run on threads with an 8 MB stack (`SDL_CreateThreadWithStackSize`, a `pthread` for the
+   open/close calls).
+4. The graph's render target belongs to the graph's texture: freeing the image frees it; never free it twice.
+5. The title's code segments are execute-only; a crash handler must not read code at `rip`.
+
+On PC the NV12 / 16-bit paths can be exercised without a console: `LIBMOD_VIDEO_FAKE_HW=1` makes swscale produce what the
+decoder block would (`VIDEO_HW` returns 2). Test: `test/video_hw_ps5.prg` (needs the clips named inside).
+
+API facts (structure layouts, call order, NV12/P010 output, memory rules) were taken from the console and from the
+`ps5vdec.c` plugin of github.com/ZiZc3/VLC (GPL-2.0+), used as a reference only; no code was copied.
 
 ## Subtitles
 Text tracks (SRT, ASS/SSA, WebVTT, mov_text) embedded in the container, or an external file loaded with
