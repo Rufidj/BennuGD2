@@ -43,3 +43,10 @@ The FFmpeg video module is a separate project (`libmod_video`), not part of Benn
 `ps5/tools/build-title.sh` is a copy of the script that builds the eboot for one title in the native-app-boilerplate
 packager (link order matters: engine -> FFmpeg and deps -> libz -> GL driver -> libc gaps LAST). It lives in
 `native-app-boilerplate/apps/bennugd2/` next to the app's `main.c`.
+
+## `sce_module/libc.prx`
+The title needs a loader-visible `sce_module/libc.prx`. It is **not** a C library and not Sony's: it is the clean-room
+loader companion that native-app-boilerplate generates from two text manifests (GPL-3.0-or-later).
+`ps5/tools/build-libc-prx.sh <boilerplate>` rebuilds it from source, verifies the recorded digest (byte-identical,
+checked here: `e6ff45d1...0ba36`) and writes `libc.prx.NOTICE.txt`, which must be included in every release next to it
+(provenance, licence, how to reproduce). The application's own code is a separate work and is not covered by that licence.
