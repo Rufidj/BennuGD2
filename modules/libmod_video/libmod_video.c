@@ -44,11 +44,13 @@
 #include "libmod_video.h"
 #include "libmod_video_hwdec.h"
 #include <time.h>
+#include <pthread.h>
 
 /* ------------------------------------------------------------------------ */
 
 #define MAX_VIDEOS   16
-#define VQ_SIZE      8                 /* decoded video frames kept ahead      */
+#define VQ_MAX       8                 /* most decoded video frames kept ahead  */
+#define VQ_BUDGET    ( ( size_t ) 96 << 20 )   /* memory the frame ring may take, per video */
 #define AUDIO_RING_S 2                 /* seconds of audio buffered            */
 
 typedef struct {
@@ -84,6 +86,7 @@ typedef struct {
     /* GPU colour conversion (yuv420p only): the three planes are uploaded as packed RGBA8 textures
        (4 samples per texel) and a shader writes RGB straight into the graph's texture */
     int             gpu;
+    int             down10;                    /* 10-bit hardware pictures reduced to 8 bits in the copy (SDR only) */
     int             hwmode;                    /* 0 planar yuv420p, 1 NV12, 2 16-bit (10 bit) NV12   */
     HWDEC           * hw;                      /* console decoder (PS5), NULL = libavcodec          */
     int             fake_hw;                   /* PC test: NV12/P010 made with swscale              */
@@ -103,7 +106,8 @@ typedef struct {
     /* shared state, guarded by mx */
     SDL_mutex       * mx;
     SDL_cond        * cond;
-    VFRAME          vq[VQ_SIZE];
+    VFRAME          vq[VQ_MAX];
+    int             vq_size;                   /* frames in the ring (3..VQ_MAX by frame size) */
     int             vq_r, vq_n;
     uint8_t         * abuf;            /* audio ring (interleaved, mixer format)*/
     size_t          acap, ar, an;
@@ -131,6 +135,10 @@ typedef struct {
     int             ncues, capcues;
 
     SDL_Thread      * thr;
+    double          wait_ms;                   /* decode thread waiting for a free ring slot (stats) */
+    double          copy_ms;                   /* picture copy time (stats)                           */
+    int             copy_n, copy_reports;
+    int             shown_count;               /* pictures actually put on screen (stats)            */
     double          cpu0, wall0;               /* process CPU / wall seconds at open (stats)          */
 } VIDEO;
 
@@ -471,20 +479,29 @@ static void vq_clear( VIDEO * v ) {
 }
 
 /* NV12 / 16-bit NV12 rows into a slot (Y then interleaved UV); source pitches in bytes */
-static void pack_nv( VIDEO * v, uint8_t * d, const uint8_t * y, int ypitch, const uint8_t * uv, int uvpitch ) {
+static void copy_rows_parallel( uint8_t * d, size_t dp, const uint8_t * s, size_t sp, size_t bytes, int rows, int down );
+
+static void pack_nv( VIDEO * v, uint8_t * d, const uint8_t * y, int ypitch, const uint8_t * uv, int uvpitch, int down ) {
     size_t ys = ( size_t ) v->ypw * 4, cs = ( size_t ) v->cpw * 4;
     size_t yb = v->hwmode == 2 ? ( size_t ) v->w * 2 : ( size_t ) v->w;
     size_t cb = ( size_t ) v->cw * ( v->hwmode == 2 ? 4 : 2 );
-    for ( int r = 0; r < v->h; r++ ) memcpy( d + r * ys, y + ( size_t ) r * ypitch, yb );
     uint8_t * du = d + ys * v->h;
-    for ( int r = 0; r < v->ch; r++ ) memcpy( du + r * cs, uv + ( size_t ) r * uvpitch, cb );
+    if ( v->hw ) {                                        /* source is GPU memory: copy in parallel */
+        copy_rows_parallel( d, ys, y, ypitch, yb, v->h, down );
+        copy_rows_parallel( du, cs, uv, uvpitch, cb, v->ch, down );
+    } else {
+        for ( int r = 0; r < v->h; r++ ) memcpy( d + r * ys, y + ( size_t ) r * ypitch, yb );
+        for ( int r = 0; r < v->ch; r++ ) memcpy( du + r * cs, uv + ( size_t ) r * uvpitch, cb );
+    }
 }
 
 static int vq_reserve( VIDEO * v ) {                      /* free slot, or -1 (quit / seek) */
+    double tw = now_s( CLOCK_MONOTONIC );
     SDL_LockMutex( v->mx );
-    while ( !v->quit && !v->seek_req && v->vq_n >= VQ_SIZE ) SDL_CondWaitTimeout( v->cond, v->mx, 10 );
-    int slot = ( v->quit || v->seek_req ) ? -1 : ( v->vq_r + v->vq_n ) % VQ_SIZE;
+    while ( !v->quit && !v->seek_req && v->vq_n >= v->vq_size ) SDL_CondWaitTimeout( v->cond, v->mx, 10 );
+    int slot = ( v->quit || v->seek_req ) ? -1 : ( v->vq_r + v->vq_n ) % v->vq_size;
     SDL_UnlockMutex( v->mx );
+    v->wait_ms += ( now_s( CLOCK_MONOTONIC ) - tw ) * 1000.0;
     return slot;
 }
 static void vq_commit( VIDEO * v, int slot, double pts ) {
@@ -494,12 +511,54 @@ static void vq_commit( VIDEO * v, int slot, double pts ) {
     SDL_UnlockMutex( v->mx );
 }
 
+/* The decoder's frame memory is GPU memory: CPU reads from it are slow and latency bound, so one thread copying
+   24 MB of a 4K 10-bit picture is the bottleneck. The rows are split over a few threads. */
+#define COPY_THREADS 4
+typedef struct { uint8_t * d; size_t dp; const uint8_t * s; size_t sp; size_t bytes; int rows; int down; } COPYJOB;
+
+static void * copy_job( void * p ) {
+    COPYJOB * j = ( COPYJOB * ) p;
+    if ( !j->down ) {
+        for ( int r = 0; r < j->rows; r++ ) memcpy( j->d + r * j->dp, j->s + ( size_t ) r * j->sp, j->bytes );
+    } else {                                           /* 16-bit samples (10 bits, low aligned) -> 8 bits */
+        for ( int r = 0; r < j->rows; r++ ) {
+            const uint16_t * q = ( const uint16_t * ) ( j->s + ( size_t ) r * j->sp );
+            uint8_t * o = j->d + r * j->dp;
+            for ( size_t i = 0; i < j->bytes; i++ ) { unsigned x = ( q[i] + 2u ) >> 2; o[i] = ( uint8_t ) ( x > 255 ? 255 : x ); }
+        }
+    }
+    return NULL;
+}
+
+static void copy_rows_parallel( uint8_t * d, size_t dp, const uint8_t * s, size_t sp, size_t bytes, int rows, int down ) {
+    pthread_t th[COPY_THREADS - 1];
+    COPYJOB job[COPY_THREADS];
+    int n = rows >= 64 ? COPY_THREADS : 1, per = ( rows + n - 1 ) / n, started = 0;
+    for ( int i = 0; i < n; i++ ) {
+        int r0 = i * per, r1 = r0 + per > rows ? rows : r0 + per;
+        job[i] = ( COPYJOB ) { d + r0 * dp, dp, s + ( size_t ) r0 * sp, sp, bytes, r1 - r0, down };
+        if ( r1 <= r0 ) { job[i].rows = 0; continue; }
+        if ( i < n - 1 && pthread_create( &th[i], NULL, copy_job, &job[i] ) == 0 ) started |= 1 << i;
+        else if ( i < n - 1 ) copy_job( &job[i] );
+    }
+    copy_job( &job[n - 1] );
+    for ( int i = 0; i < n - 1; i++ ) if ( started & ( 1 << i ) ) pthread_join( th[i], NULL );
+}
+
 /* a picture from the console's decoder */
 static void hw_picture( void * ud, const HWPIC * p ) {
     VIDEO * v = ( VIDEO * ) ud;
     int slot = vq_reserve( v );
     if ( slot < 0 ) return;
-    pack_nv( v, v->vq[slot].rgba, p->y, p->pitch, p->uv, p->pitch );
+    double t0 = now_s( CLOCK_MONOTONIC );
+    pack_nv( v, v->vq[slot].rgba, p->y, p->pitch, p->uv, p->pitch, v->down10 && p->ten );
+    v->copy_ms += ( now_s( CLOCK_MONOTONIC ) - t0 ) * 1000.0;
+    if ( ++v->copy_n == 60 && v->copy_reports < 3 ) {
+        v->copy_reports++;
+        fprintf( stderr, "libmod_video: %dx%d picture copy %.1f ms each (%d threads), ring wait %.0f ms per 60 pictures\n", v->w, v->h, v->copy_ms / v->copy_n, COPY_THREADS, v->wait_ms );
+        v->wait_ms = 0;
+        v->copy_ms = 0; v->copy_n = 0;
+    } else if ( v->copy_n >= 60 ) { v->copy_ms = 0; v->copy_n = 0; v->wait_ms = 0; }
     vq_commit( v, slot, p->pts == INT64_MIN ? 0.0 : p->pts * v->vtb );
 }
 
@@ -551,9 +610,9 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
     double pts = ( f->best_effort_timestamp == AV_NOPTS_VALUE ) ? 0.0 : f->best_effort_timestamp * v->vtb;
 
     SDL_LockMutex( v->mx );
-    while ( !v->quit && !v->seek_req && v->vq_n >= VQ_SIZE ) SDL_CondWaitTimeout( v->cond, v->mx, 10 );
+    while ( !v->quit && !v->seek_req && v->vq_n >= v->vq_size ) SDL_CondWaitTimeout( v->cond, v->mx, 10 );
     if ( v->quit || v->seek_req ) { SDL_UnlockMutex( v->mx ); return 0; }
-    int slot = ( v->vq_r + v->vq_n ) % VQ_SIZE;
+    int slot = ( v->vq_r + v->vq_n ) % v->vq_size;
     SDL_UnlockMutex( v->mx );
 
     if ( v->fake_hw ) {
@@ -565,7 +624,7 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
             for ( int r = 0; r < v->h; r++ ) { uint16_t * q = ( uint16_t * ) ( v->fk_y + ( size_t ) r * v->fk_ypitch ); for ( int i = 0; i < v->w; i++ ) q[i] >>= 6; }
             for ( int r = 0; r < v->ch; r++ ) { uint16_t * q = ( uint16_t * ) ( v->fk_uv + ( size_t ) r * v->fk_uvpitch ); for ( int i = 0; i < v->cw * 2; i++ ) q[i] >>= 6; }
         }
-        pack_nv( v, v->vq[slot].rgba, v->fk_y, v->fk_ypitch, v->fk_uv, v->fk_uvpitch );
+        pack_nv( v, v->vq[slot].rgba, v->fk_y, v->fk_ypitch, v->fk_uv, v->fk_uvpitch, 0 );
     } else if ( v->gpu ) {
         /* planes copied as they are; the GPU does the colour conversion */
         uint8_t * d = v->vq[slot].rgba;
@@ -635,10 +694,11 @@ static void hw_switch_software( VIDEO * v ) {
     SDL_LockMutex( v->mx );
     double at = v->last_time;
     vq_clear( v );
-    for ( int i = 0; i < VQ_SIZE; i++ ) {
-        free( v->vq[i].rgba );
-        v->vq[i].rgba = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 );
-    }
+    for ( int i = 0; i < VQ_MAX; i++ ) { free( v->vq[i].rgba ); v->vq[i].rgba = NULL; }
+    v->vq_size = ( int ) ( VQ_BUDGET / ( ( size_t ) v->w * v->h * 4 ) );
+    if ( v->vq_size > VQ_MAX ) v->vq_size = VQ_MAX;
+    if ( v->vq_size < 3 ) v->vq_size = 3;
+    for ( int i = 0; i < v->vq_size; i++ ) v->vq[i].rgba = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 );
     if ( v->sws ) sws_freeContext( v->sws );
     v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
     HWDEC * h = v->hw;
@@ -718,6 +778,7 @@ static int decode_thread( void * arg ) {
 /* ---- per-frame hook (main / GL thread) --------------------------------- */
 
 static void vid_upload_slot( VIDEO * v, int slot ) {
+    v->shown_count++;
     if ( !v->graph || !v->graph->tex ) return;
     if ( v->gpu ) yuv_render( v, v->vq[slot].rgba );
     else GPU_UpdateImageBytes( v->graph->tex, NULL, v->vq[slot].rgba, v->w * 4 );
@@ -739,7 +800,7 @@ static void vid_tick( VIDEO * v ) {
         /* drop frames that are already late, keep the newest due one */
         while ( v->vq_n > 0 && v->vq[v->vq_r].pts <= now + 0.004 ) {
             pick = v->vq_r;
-            v->vq_r = ( v->vq_r + 1 ) % VQ_SIZE; v->vq_n--;
+            v->vq_r = ( v->vq_r + 1 ) % v->vq_size; v->vq_n--;
             if ( v->vq_n == 0 ) break;
         }
         if ( pick >= 0 ) { vid_upload_slot( v, pick ); v->shown_first = 1; SDL_CondSignal( v->cond ); }
@@ -783,7 +844,7 @@ static void vid_free( VIDEO * v ) {
         v->thr = NULL;
     }
     audio_release( v );
-    for ( int i = 0; i < VQ_SIZE; i++ ) free( v->vq[i].rgba );
+    for ( int i = 0; i < VQ_MAX; i++ ) free( v->vq[i].rgba );
     free( v->abuf );
     if ( v->sws ) sws_freeContext( v->sws );
     if ( v->sws_fake ) sws_freeContext( v->sws_fake );
@@ -815,6 +876,8 @@ static AVCodecContext * open_codec( AVFormatContext * fmt, int idx ) {
     if ( !c ) return NULL;
     if ( avcodec_parameters_to_context( c, par ) < 0 ) { avcodec_free_context( &c ); return NULL; }
     c->thread_count = 0;                               /* let FFmpeg pick */
+    if ( c->codec_type == AVMEDIA_TYPE_VIDEO && ( long ) par->width * par->height > 2300000L )
+        c->thread_count = 4;                           /* every frame thread keeps whole 4K pictures: bound the memory */
     if ( avcodec_open2( c, codec, NULL ) < 0 ) { avcodec_free_context( &c ); return NULL; }
     return c;
 }
@@ -869,6 +932,9 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
                         hwdec_close( v->hw ); v->hw = NULL;
                     } else {
                         v->hwmode = fmt10 ? 2 : 1;
+                        /* the output is 8 bits anyway: SDR 10-bit goes up as 8-bit NV12 (half the bytes, a
+                           shader pass over one byte per sample); HDR10 (PQ) keeps its 16 bits */
+                        if ( fmt10 && v->vctx->color_trc != AVCOL_TRC_SMPTE2084 ) { v->hwmode = 1; v->down10 = 1; }
                         v->hw_skip_rasl = 1;
                     }
                 }
@@ -904,7 +970,10 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
         if ( !v->sws ) goto fail;
         v->slot_bytes = ( size_t ) v->w * v->h * 4;
     }
-    for ( int i = 0; i < VQ_SIZE; i++ ) { v->vq[i].rgba = ( uint8_t * ) calloc( 1, v->slot_bytes ); if ( !v->vq[i].rgba ) goto fail; }
+    v->vq_size = ( int ) ( VQ_BUDGET / ( v->slot_bytes ? v->slot_bytes : 1 ) );
+    if ( v->vq_size > VQ_MAX ) v->vq_size = VQ_MAX;
+    if ( v->vq_size < 3 ) v->vq_size = 3;
+    for ( int i = 0; i < v->vq_size; i++ ) { v->vq[i].rgba = ( uint8_t * ) calloc( 1, v->slot_bytes ); if ( !v->vq[i].rgba ) goto fail; }
     v->frame = av_frame_alloc();
 
     /* audio, if SDL_mixer is up */
@@ -969,8 +1038,11 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
             v->gpu = 0;
             v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
             if ( !v->sws ) goto fail;
-            for ( int i = 0; i < VQ_SIZE; i++ ) {
-                free( v->vq[i].rgba );
+            for ( int i = 0; i < VQ_MAX; i++ ) { free( v->vq[i].rgba ); v->vq[i].rgba = NULL; }
+            v->vq_size = ( int ) ( VQ_BUDGET / ( ( size_t ) v->w * v->h * 4 ) );
+            if ( v->vq_size > VQ_MAX ) v->vq_size = VQ_MAX;
+            if ( v->vq_size < 3 ) v->vq_size = 3;
+            for ( int i = 0; i < v->vq_size; i++ ) {
                 v->vq[i].rgba = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 );
                 if ( !v->vq[i].rgba ) goto fail;
             }
@@ -998,6 +1070,8 @@ fail:
 
 /* VIDEO_USE_GPU(enable): colour conversion on the GPU for videos opened afterwards (default 1) */
 int64_t libmod_video_use_gpu( INSTANCE * my, int64_t * params ) { g_use_gpu = params[0] ? 1 : 0; return g_use_gpu; }
+/* VIDEO_FRAMES(handle): pictures shown so far (late ones are dropped to keep the clock) */
+int64_t libmod_video_frames( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? v->shown_count : 0; }
 /* VIDEO_USE_HW(enable): console video decoder (PS5) for videos opened afterwards (default 1) */
 int64_t libmod_video_use_hw( INSTANCE * my, int64_t * params ) { g_use_hw = params[0] ? 1 : 0; return g_use_hw; }
 /* VIDEO_HW(handle): 1 if that video is decoded by the console's decoder block */

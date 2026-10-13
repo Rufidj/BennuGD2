@@ -44,6 +44,14 @@ current position. `VIDEO_USE_HW(0)` disables it and `VIDEO_HW(handle)` tells whi
 
 Verified on a PS5 (native-app-boilerplate title): H.264 720p and 4K, HEVC 1080p 8 and 10 bit, all with `hw=1`.
 
+Measured with a deliberately hard clip (HEVC Main10 3840x2160, 60 fps, noisy): the decoder block takes ~1.3 ms per
+access unit and is nowhere near the limit; what costs is getting the picture to the screen. Copying a 4K picture out of the
+decoder's GPU memory is 1.8 ms on 4 threads, and uploading + converting it on the main thread was ~100 ms per 16-bit
+picture. SDR 10-bit pictures are therefore reduced to 8 bits inside the (idle) copy threads and go through the NV12
+path: motor 25 -> 44 fps, pictures shown 77 -> 101 in the same clip; the software decoder reaches 59 and does not finish.
+HDR10 (PQ) keeps its 16 bits. `VIDEO_FRAMES(handle)` returns the pictures actually shown (late ones are dropped to
+keep the clock), which is the number to compare; `VIDEO_POSITION` is the clock and keeps running when decoding lags.
+
 How it is wired (what had to be right, in order):
 1. The title imports `libSceSysmodule` and calls `sceSysmoduleLoadModule(207)` (libSceVideodec2) at first use; the
    console's loader then binds the *static imports* of `sceVideodec2*` (a link stub `libSceVideodec2.so` with
@@ -52,7 +60,8 @@ How it is wired (what had to be right, in order):
 2. Nothing of the module's own may share a symbol name with an import: a `static` function-pointer variable called
    `sceVideodec2Decode` silently captured the import (the asm label resolved to the variable) and every call faulted.
 3. Calls to the decoder run on threads with an 8 MB stack (`SDL_CreateThreadWithStackSize`, a `pthread` for the
-   open/close calls).
+   open/close calls). Software decoding of >2.3 Mpx video is limited to 4 libavcodec threads (each frame thread keeps whole
+   4K pictures; with one thread per core the title crashed on memory).
 4. The graph's render target belongs to the graph's texture: freeing the image frees it; never free it twice.
 5. The title's code segments are execute-only; a crash handler must not read code at `rip`.
 

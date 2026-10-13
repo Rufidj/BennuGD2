@@ -19,6 +19,7 @@ void     hwdec_reset( HWDEC * d ) { ( void ) d; }
 #include <libavutil/sha.h>
 #include <signal.h>
 #include <pthread.h>
+#include <time.h>
 #include <ucontext.h>
 #include <libavutil/mem.h>
 
@@ -349,6 +350,8 @@ struct HWDEC {
     int64_t      pending[MAX_PENDING]; /* pts of access units inside, output is in display order */
     unsigned     npending;
     unsigned     decoded, errors, shown;
+    double       dec_ms, dec_max;               /* time inside Decode (stats) */
+    unsigned     dec_n, dec_reports;
 };
 
 static void pending_add( HWDEC * d, int64_t pts ) {
@@ -516,7 +519,19 @@ int hwdec_decode( HWDEC * d, const uint8_t * au, size_t size, int64_t pts, hwdec
     memset( &out, 0, sizeof( out ) );
     out.this_size = sizeof( out );
 
+    struct timespec ta, tb;
+    clock_gettime( CLOCK_MONOTONIC, &ta );
     int rc = vd_Decode( d->dec, &in, &fb, &out );
+    clock_gettime( CLOCK_MONOTONIC, &tb );
+    {
+        double ms = ( tb.tv_sec - ta.tv_sec ) * 1000.0 + ( tb.tv_nsec - ta.tv_nsec ) / 1e6;
+        d->dec_ms += ms; if ( ms > d->dec_max ) d->dec_max = ms;
+        if ( ++d->dec_n == 60 && d->dec_reports < 3 ) {
+            d->dec_reports++;
+            LOG( "Decode: %.1f ms each, slowest %.1f ms (%zu byte access unit)\n", d->dec_ms / d->dec_n, d->dec_max, size );
+            d->dec_ms = 0; d->dec_max = 0; d->dec_n = 0;
+        } else if ( d->dec_n >= 60 ) { d->dec_ms = 0; d->dec_max = 0; d->dec_n = 0; }
+    }
     d->au_next = ( d->au_next + 1 ) % AU_SLOTS;
     if ( fb.is_accepted ) d->held[fi] = true;
     if ( rc != 0 ) {
