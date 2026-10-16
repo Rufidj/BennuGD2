@@ -270,6 +270,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: BennuGD2
+          submodules: recursive
 
       - name: Install prerequisites
         run: |
