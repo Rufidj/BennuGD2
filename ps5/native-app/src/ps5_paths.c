@@ -79,24 +79,14 @@ static int sbx_stat(const char *path, struct stat *sb) {
     return r;
 }
 __attribute__((visibility("hidden"))) int __wrap_stat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
-__attribute__((visibility("hidden"))) int __wrap_lstat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
 
-/* getcwd()/realpath() are refused by the sandbox; the working directory of a
-   title is always /app0. */
+/* realpath() is refused by the sandbox; the working directory of a title is
+   always /app0. getcwd()/lstat() used to get the same treatment (__wrap_getcwd/
+   __wrap_lstat), but dropped - see the CI workflow's comment on APP_WRAP_SYMBOLS:
+   those two specific names kept leaking into the dynamic symbol table no matter
+   what, for reasons never pinned down, so they're gone instead of chasing it
+   further. Plain lstat()/getcwd() calls go straight to the sandboxed syscalls now. */
 #include <stdlib.h>
-__attribute__((visibility("hidden"))) char *__wrap_getcwd(char *buf, size_t size) {
-    static const char cwd[] = "/app0";
-    if (!buf) {
-        buf = (char *)malloc(size > sizeof cwd ? size : sizeof cwd);
-        if (!buf) return NULL;
-    } else if (size < sizeof cwd) {
-        errno = ERANGE;
-        return NULL;
-    }
-    memcpy(buf, cwd, sizeof cwd);
-    return buf;
-}
-
 __attribute__((visibility("hidden"))) char *__wrap_realpath(const char *path, char *resolved) {
     char tmp[512];
     const char *p = app_path(path, tmp, sizeof tmp);
