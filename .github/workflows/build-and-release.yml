@@ -300,20 +300,26 @@ jobs:
           # native converter still rejected the result as "does not yet publish application
           # exports" - --exclude-libs keeps archive-sourced symbols out of the dynamic symbol
           # table at the source, which is the standard fix for this class of leak.
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL --error-limit=0 \\/' tools/build.sh
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
-          # --wrap=malloc (and fopen/opendir/etc) fails with "undefined symbol: __real_malloc"
-          # at the final eboot link, but only once the full engine+FFmpeg+SDL2 archive set is
-          # present - every isolated repro with a handful of inputs succeeds. One untested
-          # theory: --as-needed on the payload SDK's .so's (libc_stub_weak.so/
-          # libSceLibcInternal.so provide malloc/fopen/etc only as dynamic exports, nothing
-          # provides them statically) elides a library that --wrap's __real_<name> synthesis
-          # needs, depending on how undefined-symbol bookkeeping interacts with dozens of
-          # archives at once. Drop --as-needed for this link entirely - these .so's end up
-          # referenced unconditionally instead of conditionally, which is the only functional
-          # cost.
-          sed -i 's/--as-needed "\$sdk_root"\/target\/lib\/\*\.so/"\$sdk_root"\/target\/lib\/*.so/' tools/build.sh
-          grep -n '"\$sdk_root"/target/lib/\*\.so' tools/build.sh
+          # This pinned ref has NO APP_WRAP_SYMBOLS support at all - confirmed by grepping a
+          # fresh checkout of the exact same commit, zero mentions of "wrap" anywhere in
+          # tools/build.sh. Every "undefined symbol: __real_malloc" failure chased for hours
+          # was simply app_heap.c's own direct call to __real_malloc() with no --wrap=malloc
+          # ever reaching lld to synthesize that alias - APP_WRAP_SYMBOLS was silently a no-op
+          # the entire time. Every isolated local repro "worked" only because those tests
+          # passed --wrap=<name> to lld by hand. Patch in the same wrap_options mechanism the
+          # dev's own newer local copy of this script already has.
+          sed -i '/^ninja_edge LINK "\$build\/llvm-pie.elf"/i\
+          wrap_options=()\
+          for symbol in ${APP_WRAP_SYMBOLS:-}; do\
+              [[ $symbol =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || {\
+                  echo "invalid wrap symbol: $symbol" >\&2; exit 2;\
+              }\
+              wrap_options+=("--wrap=$symbol")\
+          done' tools/build.sh
+          sed -i 's/--version-script "\$native\/app-symbols.map" \\$/"${wrap_options[@]}" --version-script "\$native\/app-symbols.map" \\/' tools/build.sh
+          grep -n "wrap_options\|APP_WRAP_SYMBOLS" tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
@@ -500,16 +506,13 @@ jobs:
           B=apps/bennugd2; G=$B/libs/bgdclean; F=$B/libs/ffmpeg
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
-          # BISECT: FFmpeg/x264/ssl/crypto/iconv/lzma/bz2/theora/vorbis/ogg temporarily
-          # removed to test whether __real_malloc etc. resolve without them. Other new
-          # undefined symbols from libmod_video.a/libbggfx.a needing these are expected and
-          # irrelevant to this test - only check whether the __real_<name> errors are gone.
-          ARCH="$G/libbgdrtm.a $G/libbggfx.a $G/libbginput.a $G/libbgload.a $G/libbgsound.a $G/libmod_ads.a $G/libmod_debug.a $G/libmod_gfx.a $G/libmod_iap.a $G/libmod_input.a $G/libmod_misc.a $G/libmod_net.a $G/libmod_sound.a $G/libmod_video.a $G/libsdlhandler.a $B/libs/libps5_runtime_gaps.a $B/libs/libSDL2_gpu.a $B/libs/libSDL2_image_shim.a $B/libs/libSDL2_mixer.a $B/libs/libSDL2.a $B/libs/libz.a $B/libs/libsamplerate.a vendor/ps5-opengl-sdk/lib/libPS5OpenGL.a vendor/payload-sdk-cxx/libcxx.a vendor/payload-sdk-cxx/libcxxabi.a vendor/payload-sdk-cxx/libunwind.a vendor/extras/libextras.a $B/libs/libps5_runtime_gaps.a"
+          ARCH="$G/libbgdrtm.a $G/libbggfx.a $G/libbginput.a $G/libbgload.a $G/libbgsound.a $G/libmod_ads.a $G/libmod_debug.a $G/libmod_gfx.a $G/libmod_iap.a $G/libmod_input.a $G/libmod_misc.a $G/libmod_net.a $G/libmod_sound.a $G/libmod_video.a $G/libsdlhandler.a $F/libtheoradec.a $F/libvorbis.a $F/libogg.a $B/libs/libps5_runtime_gaps.a $B/libs/libSDL2_gpu.a $B/libs/libSDL2_image_shim.a $B/libs/libSDL2_mixer.a $B/libs/libSDL2.a $F/libavformat.a $F/libavcodec.a $F/libx264.a $F/libswscale.a $F/libswresample.a $F/libavutil.a $F/libssl.a $F/libcrypto.a $F/libiconv.a $F/liblzma.a $F/libbz2.a $B/libs/libz.a $B/libs/libsamplerate.a vendor/ps5-opengl-sdk/lib/libPS5OpenGL.a vendor/payload-sdk-cxx/libcxx.a vendor/payload-sdk-cxx/libcxxabi.a vendor/payload-sdk-cxx/libunwind.a vendor/extras/libextras.a $B/libs/libps5_runtime_gaps.a"
           # Full wrap list restored. An earlier attempt dropped malloc/calloc/realloc/free/
-          # posix_memalign/malloc_usable_size/fopen/opendir/gzopen/open/getcwd/lstat because
-          # --wrap=<name> failed with "undefined symbol: __real_<name>" once the real engine+
-          # FFmpeg+SDL2 archive set was all present, and __wrap_getcwd/__wrap_lstat separately
-          # leaked into the dynamic exports. That "fix" shipped a real console crash a few
+          # posix_memalign/malloc_usable_size/fopen/opendir/gzopen/open/getcwd/lstat after many
+          # "undefined symbol: __real_<name>" failures - root cause found since (see the
+          # "Clone native-app-boilerplate" step: this pinned ref never read APP_WRAP_SYMBOLS at
+          # all, so --wrap was never actually applied). That premature "fix" shipped a real
+          # console crash a few
           # frames in (confirmed on hardware, PPSA00081-83): without the /app0 path-mapping
           # wraps, fopen/opendir/open hit the sandbox's raw syscalls on unmapped relative
           # paths and silently fail, and nothing downstream expects that. --exclude-libs=ALL
