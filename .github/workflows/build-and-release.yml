@@ -300,7 +300,7 @@ jobs:
           # native converter still rejected the result as "does not yet publish application
           # exports" - --exclude-libs keeps archive-sourced symbols out of the dynamic symbol
           # table at the source, which is the standard fix for this class of leak.
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL --trace-symbol=__wrap_getcwd --trace-symbol=__wrap_lstat \\/' tools/build.sh
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
           # This pinned ref has NO APP_WRAP_SYMBOLS support at all - confirmed by grepping a
           # fresh checkout of the exact same commit, zero mentions of "wrap" anywhere in
@@ -503,6 +503,15 @@ jobs:
           # boilerplate's own link step rejects a named archive that doesn't exist
           # ("invalid static archive"). Build this one release target's archive list inline
           # instead of reusing the shared script, with libmod_3d.a left out entirely.
+          # libScePosixForWebKit.so bundles its own __wrap_<name> stubs (access, getcwd,
+          # lstat, mmap, readlink, symlink, ...) for WebKit's internal use, built into a
+          # shared library from the SDK, not source we control. --trace-symbol confirmed it
+          # as the "shared definition of __wrap_getcwd"/"__wrap_lstat" colliding with ours -
+          # the only 2 of our own wrapped names that happen to overlap with its set. lld
+          # keeps a symbol exported when it also needs to resolve against a same-named
+          # shared-library definition. BennuGD2 has no WebKit/browser surface, so remove it
+          # from the payload SDK's lib dir entirely before it's auto-globbed into the link.
+          rm -f "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libScePosixForWebKit.so"
           B=apps/bennugd2; G=$B/libs/bgdclean; F=$B/libs/ffmpeg
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
@@ -524,15 +533,6 @@ jobs:
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
           rc=$?
-          # __wrap_getcwd/__wrap_lstat end up as dynamic exports despite being plain
-          # non-static functions identical in every way to their __wrap_stat/__wrap_realpath
-          # siblings in the same file, which don't leak - cause not identified. objcopy
-          # --localize-symbol was a dead end: it only flips the ELF's binding bit
-          # (GLOBAL->LOCAL), but the native converter's check is `symbol.undefined()`, i.e.
-          # st_shndx == SHN_UNDEF - a still-defined, now-local symbol still fails it.
-          # readelf/nm hide local dynsym entries by default, which is why localizing looked
-          # like it worked in every manual check. --trace-symbol is wired into the LINK step
-          # itself (see the sed above) to find out why only these two leak.
           if [ "$rc" -ne 0 ]; then
             cat /tmp/make-app.log
             exit "$rc"
