@@ -23,11 +23,30 @@ file(GLOB SOURCES_LIBBGGFX
      "${CMAKE_SOURCE_DIR}/vendor/theoraplay/theoraplay.c"
      )
 
-# PS5: the real decoder is built too (libogg/libvorbis/libtheoradec come from
-# the PacBrew sysroot). g_media_theora_stub.c is no longer used.
-list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora_stub.c")
+# Real Theora decoding needs libogg/libvorbis/libtheoradec; where they aren't available
+# (no system dev packages, e.g. mingw/Windows with nothing vendored) MEDIA_LOAD/MEDIA_PLAY
+# fall back to the no-op stub instead of failing the whole module's build.
 if(PROSPERO)
+    # PS5: always the real decoder, resolved from the PacBrew sysroot (build.sh's
+    # -DPS5_PACBREW_PREFIX, not a generic system search).
+    list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora_stub.c")
     include_directories(${PS5_PACBREW_PREFIX}/include)
+    set(THEORA_REAL TRUE)
+else()
+    find_path(THEORADEC_INCLUDE_DIR theora/theoradec.h)
+    find_library(THEORADEC_LIBRARY NAMES theoradec)
+    find_library(VORBIS_LIBRARY NAMES vorbis)
+    find_library(OGG_LIBRARY NAMES ogg)
+    if(THEORADEC_INCLUDE_DIR AND THEORADEC_LIBRARY AND VORBIS_LIBRARY AND OGG_LIBRARY)
+        list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora_stub.c")
+        include_directories(${THEORADEC_INCLUDE_DIR})
+        set(THEORA_REAL TRUE)
+    else()
+        message(STATUS "bggfx: libtheoradec/vorbis/ogg not found, MEDIA_LOAD/MEDIA_PLAY will be a no-op stub")
+        list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_media_theora.c"
+                                           "${CMAKE_SOURCE_DIR}/vendor/theoraplay/theoraplay.c")
+        set(THEORA_REAL FALSE)
+    endif()
 endif()
 
 if(MINGW)
@@ -54,5 +73,13 @@ if(PROSPERO)
     # dependency of this module's own code (g_video.c etc.), same as SDL2.
     target_link_libraries(bggfx ${SDL2_LIBRARY} ${SDL_GPU_LIBRARY} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${STDLIBSFLAGS} sdlhandler)
 else()
-    target_link_libraries(bggfx ${SDL2_LIBRARY} ${SDL2_LIBRARIES} ${SDL_GPU_LIBRARY} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ogg vorbis theoradec sdlhandler)
+    set(THEORA_LIBS)
+    if(THEORA_REAL)
+        if(PROSPERO)
+            set(THEORA_LIBS ogg vorbis theoradec)
+        else()
+            set(THEORA_LIBS ${THEORADEC_LIBRARY} ${VORBIS_LIBRARY} ${OGG_LIBRARY})
+        endif()
+    endif()
+    target_link_libraries(bggfx ${SDL2_LIBRARY} ${SDL2_LIBRARIES} ${SDL_GPU_LIBRARY} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ${THEORA_LIBS} sdlhandler)
 endif()
