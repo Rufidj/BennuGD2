@@ -320,6 +320,21 @@ jobs:
           done' tools/build.sh
           sed -i 's/--version-script "\$native\/app-symbols.map" \\$/"${wrap_options[@]}" --version-script "\$native\/app-symbols.map" \\/' tools/build.sh
           grep -n "wrap_options\|APP_WRAP_SYMBOLS" tools/build.sh
+          # __wrap_getcwd/__wrap_lstat still end up as dynamic exports despite being plain
+          # non-static functions identical in every way to their __wrap_stat/__wrap_realpath
+          # siblings in the same file, which don't leak - cause not identified. The native
+          # converter rejects ANY dynamic export unconditionally ("does not yet publish
+          # application exports"), so insert an objcopy pass between LINK and CONVERT that
+          # localizes just these two symbols in the final ELF - this only edits the symbol
+          # table, not the code (the --wrap renaming that makes callers reach these functions
+          # already happened inside LINK), so it's safe regardless of why they leak.
+          sed -i 's/ninja_edge LINK "\$build\/llvm-pie.elf"/ninja_edge LINK "\$build\/llvm-pie-raw.elf"/' tools/build.sh
+          sed -i 's/-e _start -o "\$build\/llvm-pie.elf" "\${link_inputs\[@\]}" \\/-e _start -o "\$build\/llvm-pie-raw.elf" "\${link_inputs[@]}" \\/' tools/build.sh
+          sed -i '/^ninja_inputs=("\$build\/llvm-pie.elf" "\$tool"/i\
+          ninja_inputs=("$build/llvm-pie-raw.elf")\
+          ninja_edge LOCALIZE "$build/llvm-pie.elf" llvm-objcopy-18 --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat "$build/llvm-pie-raw.elf" "$build/llvm-pie.elf"' tools/build.sh
+          bash -n tools/build.sh
+          grep -n "llvm-pie" tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
