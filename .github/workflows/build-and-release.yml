@@ -293,7 +293,13 @@ jobs:
           # clang embed a "needs libpthread" ELF dependent-library annotation that lld then tries
           # to autolink - this payload SDK has no separate libpthread (it's inside libc), so that
           # fails with "unable to find library from dependent library specifier: pthread".
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries \\/' tools/build.sh
+          # --exclude-libs ALL: libcxx.a/libcxxabi.a/libunwind.a export hundreds of C++ ABI
+          # symbols (_Unwind_*, __cxxabiv1::*) as global/default-visibility by default. The
+          # app-symbols.map version script (local: *;) is meant to hide all of this, but the
+          # native converter still rejected the result as "does not yet publish application
+          # exports" - --exclude-libs keeps archive-sourced symbols out of the dynamic symbol
+          # table at the source, which is the standard fix for this class of leak.
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
