@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdatomic.h>
 #include <stdint.h>
+#include <malloc_np.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
