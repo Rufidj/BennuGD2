@@ -501,10 +501,7 @@ jobs:
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
           rc=$?
-          echo "--- every undefined symbol, unfiltered by lld's default --error-limit (diagnostic) ---"
-          grep "undefined symbol:" /tmp/make-app.log | sort -u
-          echo "--- end diagnostic ---"
-          [ "$rc" -eq 0 ] || { tail -20 /tmp/make-app.log; exit "$rc"; }
+          [ "$rc" -eq 0 ] || { cat /tmp/make-app.log; exit "$rc"; }
           ls -la dist/PPSA99999/eboot.bin
 
       - name: Package the generic PS5 runtime
