@@ -275,7 +275,10 @@ jobs:
       - name: Install prerequisites
         run: |
           sudo apt update
-          sudo apt install -y clang-18 cmake ninja-build python3 wget unzip tar
+          sudo apt install -y clang-18 cmake ninja-build python3 wget unzip tar libgl1-mesa-dev libglu1-mesa-dev
+          # libgl1-mesa-dev/libglu1-mesa-dev: only to satisfy vendor/sdl-gpu's find_package(OpenGL REQUIRED)
+          # at configure time - that step produces a static .a, nothing here is actually linked into the
+          # PS5 eboot (the real PS5 OpenGL comes from vendor/ps5-opengl-sdk, linked by build-title.sh later).
 
       - name: Clone native-app-boilerplate
         run: |
