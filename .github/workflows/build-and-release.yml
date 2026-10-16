@@ -332,7 +332,7 @@ jobs:
           sed -i 's/-e _start -o "\$build\/llvm-pie.elf" "\${link_inputs\[@\]}" \\/-e _start -o "\$build\/llvm-pie-raw.elf" "\${link_inputs[@]}" \\/' tools/build.sh
           sed -i '/^ninja_inputs=("\$build\/llvm-pie.elf" "\$tool"/i\
           ninja_inputs=("$build/llvm-pie-raw.elf")\
-          ninja_edge LOCALIZE "$build/llvm-pie.elf" llvm-objcopy-18 --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat "$build/llvm-pie-raw.elf" "$build/llvm-pie.elf"' tools/build.sh
+          ninja_edge LOCALIZE "$build/llvm-pie.elf" objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat "$build/llvm-pie-raw.elf" "$build/llvm-pie.elf"' tools/build.sh
           bash -n tools/build.sh
           grep -n "llvm-pie" tools/build.sh
 
