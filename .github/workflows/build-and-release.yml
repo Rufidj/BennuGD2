@@ -254,8 +254,196 @@ jobs:
           name: BennuGD2-macosx
           path: packages/x86_64-apple-darwin14-*.tgz
 
+  build-ps5:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      BOILERPLATE_REF: dd44bbdc75437332ed22e3ba95126733419ef25a
+      PS5OPENGL_SDK_VERSION: 1.0.2
+      PACBREW_VERSION: v0.41.1
+      SDL_PINNED_COMMIT: 8c56053f13ca13a0c050de613706ff69eb615836
+
+    steps:
+      - name: Checkout BennuGD2
+        uses: actions/checkout@v3
+        with:
+          path: BennuGD2
+
+      - name: Install prerequisites
+        run: |
+          sudo apt update
+          sudo apt install -y clang-18 cmake ninja-build python3 wget unzip tar
+
+      - name: Clone native-app-boilerplate
+        run: |
+          git clone https://github.com/blackbearreloaded/ps5-native-app-boilerplate.git boilerplate
+          cd boilerplate && git checkout "$BOILERPLATE_REF"
+
+      - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
+        run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
+
+      - name: Set up the PS5 payload SDK and static zlib
+        run: |
+          cd boilerplate
+          bash tools/setup-native-dependencies.sh
+
+      - name: Download and verify the PS5 OpenGL SDK
+        run: |
+          wget -q "https://github.com/blackbearreloaded/ps5-opengl/releases/download/v${PS5OPENGL_SDK_VERSION}/ps5-opengl-sdk-${PS5OPENGL_SDK_VERSION}.tar.gz"
+          wget -q "https://github.com/blackbearreloaded/ps5-opengl/releases/download/v${PS5OPENGL_SDK_VERSION}/ps5-opengl-sdk-${PS5OPENGL_SDK_VERSION}.tar.gz.sha256"
+          sha256sum --check --strict "ps5-opengl-sdk-${PS5OPENGL_SDK_VERSION}.tar.gz.sha256"
+          mkdir -p ps5-opengl-sdk
+          tar -xzf "ps5-opengl-sdk-${PS5OPENGL_SDK_VERSION}.tar.gz" -C ps5-opengl-sdk --strip-components=1
+
+      - name: Download the PacBrew sysroot (FFmpeg, Theora, Ogg, Vorbis)
+        run: |
+          wget -q "https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/${PACBREW_VERSION}/ps5-payload-dev.tar.gz"
+          mkdir -p pacbrew
+          tar -xzf ps5-payload-dev.tar.gz -C pacbrew
+          echo "PACBREW_PREFIX=$PWD/pacbrew/target/user/homebrew" >> "$GITHUB_ENV"
+
+      - name: Build the real SDL2 for PS5 (ps5-opengl's SDL2 bridge)
+        run: |
+          git clone --depth 1 https://github.com/ps5-payload-dev/SDL.git sdl-source
+          cd sdl-source && git fetch --depth 1 origin "$SDL_PINNED_COMMIT" && git checkout "$SDL_PINNED_COMMIT"
+          cd "$GITHUB_WORKSPACE/ps5-opengl-driver"
+          python3 integration/SDL2/build.py native \
+            --sdl-source "$GITHUB_WORKSPACE/sdl-source" \
+            --sdk-prefix "$GITHUB_WORKSPACE/ps5-opengl-sdk/sdk" \
+            --out build/native-sdl2-audio \
+            --payload-sdk "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk" \
+            --compiler-wrapper "$GITHUB_WORKSPACE/boilerplate/tooling/prospero-clang18"
+
+      - name: Build SDL2_mixer for PS5
+        run: |
+          APP="$GITHUB_WORKSPACE/boilerplate" sh "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/sdl2_mixer/build.sh"
+
+      - name: Lay out the PS5_OPENGL_ROOT the build expects
+        run: |
+          mkdir -p ps5-opengl-root
+          ln -s "$GITHUB_WORKSPACE/boilerplate" ps5-opengl-root/native-app-boilerplate
+          mkdir -p ps5-opengl-root/ps5-opengl/build
+          ln -s "$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio" ps5-opengl-root/ps5-opengl/build/native-sdl2-audio
+          mkdir -p ps5-opengl-root/integration
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/sdl2_mixer" ps5-opengl-root/integration/sdl2_mixer
+          mkdir -p boilerplate/vendor
+          ln -s "$GITHUB_WORKSPACE/ps5-opengl-sdk" boilerplate/vendor/ps5-opengl-sdk
+          mkdir -p boilerplate/vendor/sdl2-real/include
+          ln -s "$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/include/SDL2" boilerplate/vendor/sdl2-real/include/SDL2
+          ln -s "$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib" boilerplate/vendor/sdl2-real/lib
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/zlib_shim" boilerplate/vendor/zlib-shim
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/bgd2_realgl_shims" boilerplate/vendor/bgd2-realgl-shims
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/realgl_shims" boilerplate/vendor/realgl-shims
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/core/include" boilerplate/vendor/bennugd2-core-include
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/core/bgdrtm" boilerplate/vendor/bennugd2-bgdrtm
+          ln -s "$GITHUB_WORKSPACE/BennuGD2/core/bgdi" boilerplate/vendor/bennugd2-bgdi
+          mkdir -p boilerplate/vendor/payload-sdk-cxx
+          ln -s "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libc++.a" boilerplate/vendor/payload-sdk-cxx/libcxx.a
+          ln -s "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libc++abi.a" boilerplate/vendor/payload-sdk-cxx/libcxxabi.a
+          ln -s "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libunwind.a" boilerplate/vendor/payload-sdk-cxx/libunwind.a
+          echo "PS5_OPENGL_ROOT=$GITHUB_WORKSPACE/ps5-opengl-root" >> "$GITHUB_ENV"
+
+      - name: Build vendor/extras/libextras.a (LLVM's emulated-TLS helper)
+        run: |
+          mkdir -p boilerplate/vendor/extras extras-src
+          base="https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-18.1.8/compiler-rt/lib/builtins"
+          for f in emutls.c int_endianness.h int_lib.h int_types.h int_util.h; do
+            wget -q "$base/$f" -O "extras-src/$f"
+          done
+          PS5_PAYLOAD_SDK="$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk" PS5_CLANG=clang-18 USE_CCACHE=0 \
+            sh boilerplate/tooling/prospero-clang18 -std=c11 -O2 -I extras-src -c extras-src/emutls.c -o extras-src/emutls.c.o
+          llvm-ar-18 rcs boilerplate/vendor/extras/libextras.a extras-src/emutls.c.o
+
+      - name: Build vendor/sdl-gpu for PS5
+        # No "ps5" case in build-sdl-gpu.sh (windows/windows32/linux/linux32/switch only) -
+        # same direct cmake invocation the one-off local build used (ps5.cmake + ps5-cc.sh).
+        run: |
+          export PS5_PAYLOAD_SDK="$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk"
+          cd BennuGD2/vendor/sdl-gpu
+          mkdir -p build/x86_64-sie-ps5 && cd build/x86_64-sie-ps5
+          cmake ../.. -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=../../../../cmake/Toolchains/ps5.cmake \
+            -DSDL2_INCLUDE_DIR="$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
+            -DSDL2_LIBRARY="$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib/libSDL2.a"
+          make -j"$(nproc)"
+
+      - name: Build the libSceVideodec2 link stub
+        run: |
+          sh BennuGD2/ps5/tools/build-videodec2-stub.sh "$GITHUB_WORKSPACE/boilerplate"
+
+      - name: Build libps5_runtime_gaps.a
+        run: sh BennuGD2/ps5/tools/build-runtime-gaps.sh "$GITHUB_WORKSPACE/boilerplate"
+
+      - name: Build libc.prx (clean-room, not Sony's)
+        run: |
+          sh BennuGD2/ps5/tools/build-libc-prx.sh "$GITHUB_WORKSPACE/boilerplate" "$GITHUB_WORKSPACE/libc-prx-out"
+
+      - name: Build the BennuGD2 engine for PS5 (libmod_3d excluded)
+        run: |
+          cd BennuGD2
+          export PS5_OPENGL_ROOT PS5_PACBREW_PREFIX="$PACBREW_PREFIX"
+          EXCLUDE_FAKEDL_MODULES=libmod_3d ./build.sh ps5 || true
+          # build.sh's ps5 case also tries (and always fails, harmlessly) to link a standalone
+          # bgdi executable at the end - packaging is native-app-boilerplate's job. Only the 15
+          # engine .a archives (every module except libmod_3d, which this release excludes)
+          # matter here; fail loudly if any is missing instead of silently shipping a partial build.
+          count=$(ls build/x86_64-sie-ps5/bin/*.a 2>/dev/null | grep -v libmod_3d.a | wc -l)
+          echo "built $count engine .a archives"
+          [ "$count" -eq 15 ] || { echo "expected 15, got $count - see the build log above" >&2; exit 1; }
+
+      - name: Assemble the native title's app folder and link the eboot
+        run: |
+          G=boilerplate/apps/bennugd2/libs/bgdclean
+          mkdir -p "$G"
+          for f in BennuGD2/build/x86_64-sie-ps5/bin/*.a; do
+            b=$(basename "$f")
+            [ "$b" = "libmod_3d.a" ] && continue
+            cp "$f" "$G/$b"
+          done
+          mkdir -p boilerplate/apps/bennugd2/libs/ffmpeg
+          cp "$PACBREW_PREFIX"/lib/{libavformat.a,libavcodec.a,libswscale.a,libswresample.a,libavutil.a,libssl.a,libcrypto.a,libiconv.a,liblzma.a,libbz2.a,libtheoradec.a,libvorbis.a,libogg.a} boilerplate/apps/bennugd2/libs/ffmpeg/
+          cp BennuGD2/vendor/ps5/lib/libz.a boilerplate/apps/bennugd2/libs/libz.a
+          cp BennuGD2/vendor/ps5/lib/libSDL2_image.a boilerplate/apps/bennugd2/libs/libSDL2_image_shim.a
+          cp "$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib/libSDL2.a" boilerplate/apps/bennugd2/libs/libSDL2.a
+          cp BennuGD2/ps5/vendor/sdl2_mixer/libSDL2_mixer.a boilerplate/apps/bennugd2/libs/libSDL2_mixer.a
+          cp BennuGD2/vendor/sdl-gpu/build/x86_64-sie-ps5/SDL_gpu/lib/libSDL2_gpu.a boilerplate/apps/bennugd2/libs/libSDL2_gpu.a
+          cp "$PACBREW_PREFIX/lib/libsamplerate.a" boilerplate/apps/bennugd2/libs/libsamplerate.a
+          rm -rf boilerplate/apps/bennugd2/src
+          cp -r BennuGD2/ps5/native-app/src boilerplate/apps/bennugd2/src
+          mkdir -p boilerplate/apps/bennugd2-runtime/sce_sys
+          cp BennuGD2/ps5/native-app/sce_sys/param.json BennuGD2/ps5/native-app/sce_sys/icon0.png boilerplate/apps/bennugd2-runtime/sce_sys/
+          cd boilerplate
+          apps/bennugd2/build-title.sh PPSA99999 "My BennuGD2 Game" apps/bennugd2-runtime/sce_sys
+          ls -la dist/PPSA99999/eboot.bin
+
+      - name: Package the generic PS5 runtime
+        run: |
+          R="$GITHUB_WORKSPACE/BennuGD2-PS5-Runtime"
+          mkdir -p "$R/template/sce_sys" "$R/template/sce_module" "$R/template/data"
+          cp boilerplate/dist/PPSA99999/eboot.bin "$R/template/eboot.bin"
+          cp libc-prx-out/libc.prx libc-prx-out/libc.prx.NOTICE.txt "$R/template/sce_module/"
+          cp BennuGD2/ps5/native-app/sce_sys/param.json BennuGD2/ps5/native-app/sce_sys/icon0.png "$R/template/sce_sys/"
+          cp BennuGD2/README.md "$R/" 2>/dev/null || true
+          cd "$GITHUB_WORKSPACE"
+          sha=$(git -C BennuGD2 rev-parse HEAD)
+          cat > "$R/VERSION.txt" <<EOF
+          BennuGD2 PS5 Runtime
+          =====================
+          Built by GitHub Actions from BennuGD2 commit $sha (branch/tag: ${{ github.ref_name }}).
+          libc.prx: generated with ps5/tools/build-libc-prx.sh against native-app-boilerplate $BOILERPLATE_REF
+          EOF
+          zip -r BennuGD2-PS5-Runtime.zip BennuGD2-PS5-Runtime
+
+      - name: Upload BennuGD2 PS5 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BennuGD2-ps5
+          path: BennuGD2-PS5-Runtime.zip
+
   create-release:
-    needs: [build, build-windows, build-windows-32bit, build-macosx]
+    needs: [build, build-windows, build-windows-32bit, build-macosx, build-ps5]
     runs-on: ubuntu-latest
     if: success()
 
@@ -267,6 +455,7 @@ jobs:
           - windows
           - windows32
           - macosx
+          - ps5
 
     steps:
       - name: Checkout code
