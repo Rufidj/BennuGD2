@@ -365,6 +365,19 @@ jobs:
             sh boilerplate/tooling/prospero-clang18 -std=c11 -O2 -I extras-src -c extras-src/emutls.c -o extras-src/emutls.c.o
           llvm-ar-18 rcs boilerplate/vendor/extras/libextras.a extras-src/emutls.c.o
 
+      - name: Patch vendor/sdl-gpu's bundled GLEW for PS5 (upstream lacks a __PROSPERO__ guard)
+        # Upstream SplinterGU/sdl-gpu's glew.c only skips GL/glxew.h (which needs X11/Xlib.h,
+        # not available on PS5) for __ANDROID__/__native_client__/__HAIKU__/__APPLE__+!GLX - it
+        # has no PS5 case, so this fails on every fresh checkout regardless of -D__PROSPERO__ on
+        # the compile line. This is the actual fix; it isn't cmake flags, upstream's source
+        # genuinely has no PS5 branch here. Done as a checkout-time patch rather than forking
+        # the submodule, since it's a 2-token change to a single upstream condition.
+        run: |
+          f=BennuGD2/vendor/sdl-gpu/src/externals/glew/glew.c
+          grep -q '!defined(__PROSPERO__)' "$f" || \
+            sed -i 's/!defined(__HAIKU__) \&\&/!defined(__HAIKU__) \&\& !defined(__PROSPERO__) \&\&/' "$f"
+          grep -c '!defined(__PROSPERO__)' "$f"
+
       - name: Build vendor/sdl-gpu for PS5
         # No "ps5" case in build-sdl-gpu.sh (windows/windows32/linux/linux32/switch only) -
         # same direct cmake invocation the one-off local build used (ps5.cmake + ps5-cc.sh).
@@ -391,25 +404,7 @@ jobs:
             -DOPENGL_glx_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
-          echo "--- is __PROSPERO__ actually defined when preprocessing the real glew.c? (diagnostic) ---"
-          ../../../../cmake/Toolchains/ps5-cc.sh \
-            -DDLL_EXPORT -DGLEW_STATIC -DGL_GLEXT_PROTOTYPES=1 -DSDL_GPU_DISABLE_GLES -DSDL_GPU_USE_BUFFER_RESET -DSTBI_FAILURE_USERMSG -DUSE_REAL_PS5_OPENGL -D__PROSPERO__ -D__STATIC__ \
-            -I../../include -I../../src \
-            -I"$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
-            -I"$PS5_GL_SDK/include" \
-            -I../../src/externals/glew -I../../src/externals/glew/GL \
-            -I../../src/externals/stb_image -I../../src/externals/stb_image_write \
-            -DGLEW_NO_GLU -D__PROSPERO__ -O3 -DNDEBUG -std=gnu99 -Wall -pedantic \
-            -dM -E -c ../../src/externals/glew/glew.c -o /tmp/glew.dm 2>&1 | tail -20
-          grep -c "define __PROSPERO__" /tmp/glew.dm || echo "0 (not defined!)"
-          echo "--- end diagnostic ---"
-          set +e
-          make VERBOSE=1 -j1 > /tmp/sdlgpu-build.log 2>&1
-          rc=$?
-          echo "--- first fatal error in the full log (diagnostic) ---"
-          grep -n -B8 -A3 "fatal error\|error:" /tmp/sdlgpu-build.log | head -40 || echo "(no 'error' string found at all)"
-          echo "--- end diagnostic ---"
-          exit "$rc"
+          make -j"$(nproc)"
 
       - name: Build the libSceVideodec2 link stub
         run: |
