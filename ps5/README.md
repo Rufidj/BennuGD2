@@ -41,8 +41,18 @@ The FFmpeg video module is a separate project (`libmod_video`), not part of Benn
 
 ## Tools
 `ps5/tools/build-title.sh` is a copy of the script that builds the eboot for one title in the native-app-boilerplate
-packager (link order matters: engine -> FFmpeg and deps -> libz -> GL driver -> libc gaps LAST). It lives in
-`native-app-boilerplate/apps/bennugd2/` next to the app's `main.c`.
+packager (link order matters: engine -> FFmpeg and deps -> libz -> GL driver -> libc gaps LAST). A copy lives in
+`native-app-boilerplate/apps/bennugd2/` next to the app's own files, which come from this repo too:
+
+- `ps5/native-app/src/`: the title's `main.c` (a port of `core/bgdi/main.c` to the console's sandbox),
+  `ps5_paths.c` (maps relative paths to `/app0`, wraps `fopen`/`stat`/`getcwd`...), and the app heap setup
+  (`app_heap.c`, `ps5_heap_config.c`). Copy into `native-app-boilerplate/apps/bennugd2/src/`.
+- `ps5/native-app/sce_sys/`: a generic title's `param.json` (placeholder `PPSA99999` id) and icon — what a
+  public release's runtime template ships with; copy into the title's own `sce_sys/` and edit before shipping.
+- `ps5/tools/ps5_runtime_gaps.c` + `ps5/tools/ps5_net_shim.c`: the libc gaps this sandbox's own libc leaves open
+  (`opendir`/`stat`/`getcwd` refused on most paths, `getaddrinfo` null, case-insensitive asset lookups, a few
+  symbols FFmpeg's dependencies pull in). `ps5/tools/build-runtime-gaps.sh <boilerplate>` builds both into
+  `libps5_runtime_gaps.a` where `build-title.sh` expects it.
 
 ## `sce_module/libc.prx`
 The title needs a loader-visible `sce_module/libc.prx`. It is **not** a C library and not Sony's: it is the clean-room
