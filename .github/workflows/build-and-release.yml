@@ -536,7 +536,10 @@ jobs:
           # output's content changed externally, and ninja's staleness check is input-mtime
           # based, not output-content based.
           if [ "$rc" -ne 0 ] && grep -q "does not yet publish application exports" /tmp/make-app.log && [ -f build/llvm-pie.elf ]; then
-            objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat build/llvm-pie.elf
+            echo "--- objcopy identity (diagnostic) ---"
+            command -v objcopy; objcopy --version | head -1
+            echo "--- end diagnostic ---"
+            objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat build/llvm-pie.elf; echo "objcopy exit: $?"
             echo "--- dyn-syms right after objcopy (diagnostic) ---"
             readelf --dyn-syms build/llvm-pie.elf 2>&1 | grep -i "wrap_getcwd\|wrap_lstat" || echo "(none - objcopy worked)"
             echo "--- end diagnostic ---"
