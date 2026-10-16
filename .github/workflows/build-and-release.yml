@@ -205,6 +205,7 @@ jobs:
           path: packages/bgd2-i686-w64-mingw32-*.rar
 
   build-macosx:
+    if: false  # temporarily disabled - osxcross setup fails on every run, unrelated to PS5 work; unblocks create-release for the other targets meanwhile
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -551,7 +552,7 @@ jobs:
           path: BennuGD2-PS5-Runtime.zip
 
   create-release:
-    needs: [build, build-windows, build-windows-32bit, build-macosx, build-ps5]
+    needs: [build, build-windows, build-windows-32bit, build-ps5]
     runs-on: ubuntu-latest
     if: success()
 
@@ -562,7 +563,6 @@ jobs:
           - linux32
           - windows
           - windows32
-          - macosx
           - ps5
 
     steps:
