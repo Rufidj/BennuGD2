@@ -373,20 +373,22 @@ jobs:
           cd BennuGD2/vendor/sdl-gpu
           mkdir -p build/x86_64-sie-ps5 && cd build/x86_64-sie-ps5
           # ps5.cmake sets CMAKE_FIND_ROOT_PATH_MODE_LIBRARY/INCLUDE to ONLY (cross-compile sysroot
-          # only), so find_package(OpenGL) can never see the host's desktop GL just installed - pass
-          # its paths directly instead of letting CMake search for them. This .a never actually links
-          # against them (the real PS5 OpenGL comes from vendor/ps5-opengl-sdk at the final eboot link).
-          gl=$(dpkg -L libgl-dev 2>/dev/null | grep 'libGL\.so$' | head -1)
-          [ -n "$gl" ] || gl=$(dpkg -L libgl1-mesa-dev 2>/dev/null | grep 'libGL\.so$' | head -1)
+          # only), so find_package(OpenGL) can never see the host's desktop GL - pass paths directly
+          # instead of letting CMake search for them. These must be the PS5 OpenGL SDK's own GL/gl.h
+          # and libPS5OpenGL.a, not the host's desktop /usr/include: clang's -I search puts a plain
+          # -I before the target sysroot's own headers, so host /usr/include/math.h (which needs the
+          # host's multiarch bits/ dir that isn't on the include path) gets picked up instead of the
+          # sysroot's math.h the moment any header under /usr/include is reachable.
+          PS5_GL_SDK="$GITHUB_WORKSPACE/ps5-opengl-sdk/sdk"
           cmake ../.. -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=../../../../cmake/Toolchains/ps5.cmake \
             -DSDL2_INCLUDE_DIR="$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
             -DSDL2_LIBRARY="$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib/libSDL2.a" \
-            -DOPENGL_INCLUDE_DIR=/usr/include \
-            -DOPENGL_opengl_LIBRARY="$gl" \
-            -DOPENGL_glx_LIBRARY="$gl" \
-            -DOPENGL_gl_LIBRARY="$gl" \
-            -DM_LIB=/usr/lib/x86_64-linux-gnu/libm.so
+            -DOPENGL_INCLUDE_DIR="$PS5_GL_SDK/include" \
+            -DOPENGL_opengl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
+            -DOPENGL_glx_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
+            -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
+            -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
           make -j"$(nproc)"
 
       - name: Build the libSceVideodec2 link stub
