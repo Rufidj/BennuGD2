@@ -365,7 +365,7 @@ jobs:
             sh boilerplate/tooling/prospero-clang18 -std=c11 -O2 -I extras-src -c extras-src/emutls.c -o extras-src/emutls.c.o
           llvm-ar-18 rcs boilerplate/vendor/extras/libextras.a extras-src/emutls.c.o
 
-      - name: Patch vendor/sdl-gpu for PS5 (upstream submodule has no PS5 support at all)
+      - name: Patch vendor/sdl-gpu and vendor/theoraplay for PS5 (see ps5/patches/, ps5/README.md)
         # Upstream SplinterGU/sdl-gpu has no PS5 branch anywhere: GLEW's glew.c
         # unconditionally pulls in GL/glxew.h (needs X11/Xlib.h, not on PS5) and uses glX for
         # proc-address loading, the double-buffered blit_VBO[2] scheme starves PS5's
@@ -373,7 +373,9 @@ jobs:
         # unlike desktop GL), VITA has its own non-SDL-GL-context codepath this needs to
         # skip, etc. ps5/patches/sdl-gpu-ps5.patch carries all of that; applied at checkout
         # time rather than forking the submodule.
-        run: git -C BennuGD2/vendor/sdl-gpu apply --whitespace=nowarn "$GITHUB_WORKSPACE/BennuGD2/ps5/patches/sdl-gpu-ps5.patch"
+        run: |
+          git -C BennuGD2/vendor/sdl-gpu apply --whitespace=nowarn "$GITHUB_WORKSPACE/BennuGD2/ps5/patches/sdl-gpu-ps5.patch"
+          git -C BennuGD2/vendor/theoraplay apply --whitespace=nowarn "$GITHUB_WORKSPACE/BennuGD2/ps5/patches/theoraplay-ps5.patch"
 
       - name: Build vendor/sdl-gpu for PS5
         # No "ps5" case in build-sdl-gpu.sh (windows/windows32/linux/linux32/switch only) -
@@ -392,6 +394,7 @@ jobs:
           PS5_GL_SDK="$GITHUB_WORKSPACE/ps5-opengl-sdk/sdk"
           cmake ../.. -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=../../../../cmake/Toolchains/ps5.cmake \
+            -DBUILD_DEMOS=OFF \
             -DCMAKE_C_FLAGS="-DGLEW_NO_GLU -D__PROSPERO__" \
             -DCMAKE_CXX_FLAGS="-DGLEW_NO_GLU -D__PROSPERO__" \
             -DSDL2_INCLUDE_DIR="$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
