@@ -293,7 +293,7 @@ jobs:
           # clang embed a "needs libpthread" ELF dependent-library annotation that lld then tries
           # to autolink - this payload SDK has no separate libpthread (it's inside libc), so that
           # fails with "unable to find library from dependent library specifier: pthread".
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --error-limit=0 \\/' tools/build.sh
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
@@ -482,8 +482,21 @@ jobs:
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
           ARCH="$G/libbgdrtm.a $G/libbggfx.a $G/libbginput.a $G/libbgload.a $G/libbgsound.a $G/libmod_ads.a $G/libmod_debug.a $G/libmod_gfx.a $G/libmod_iap.a $G/libmod_input.a $G/libmod_misc.a $G/libmod_net.a $G/libmod_sound.a $G/libmod_video.a $G/libsdlhandler.a $F/libtheoradec.a $F/libvorbis.a $F/libogg.a $B/libs/libps5_runtime_gaps.a $B/libs/libSDL2_gpu.a $B/libs/libSDL2_image_shim.a $B/libs/libSDL2_mixer.a $B/libs/libSDL2.a $F/libavformat.a $F/libavcodec.a $F/libx264.a $F/libswscale.a $F/libswresample.a $F/libavutil.a $F/libssl.a $F/libcrypto.a $F/libiconv.a $F/liblzma.a $F/libbz2.a $B/libs/libz.a $B/libs/libsamplerate.a vendor/ps5-opengl-sdk/lib/libPS5OpenGL.a vendor/payload-sdk-cxx/libcxx.a vendor/payload-sdk-cxx/libcxxabi.a vendor/payload-sdk-cxx/libunwind.a vendor/extras/libextras.a $B/libs/libps5_runtime_gaps.a"
+          # malloc/calloc/realloc/free/posix_memalign/malloc_usable_size/fopen/opendir/
+          # gzopen/open used to be wrapped too (app_heap.c's custom heap arena, ps5_paths.c's
+          # /app0 path mapping), but --wrap=<name> only works when the linker can synthesize
+          # __real_<name> as an alias to a genuinely linked "<name>" - that held in every
+          # isolated repro, but broke specifically once the real engine+FFmpeg+SDL2 archive
+          # set was all present ("undefined symbol: __real_malloc" etc., not a cascade - lifting
+          # lld's --error-limit showed the exact same handful of symbols and nothing else).
+          # Root cause not found after extensive isolated bisection. Dropped those names from
+          # the wrap list and changed app_heap.c/ps5_paths.c to call the plain libc functions
+          # directly instead of __real_<name> (self-contained either way, see those files) so
+          # linking isn't blocked on it. This means fopen/opendir/gzopen/open no longer get the
+          # /app0 path-mapping or case-insensitive lookup, and app_heap.c's custom heap arena
+          # never activates - needs real hardware testing once this eboot actually boots.
           set +e
-          timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat lstat getcwd realpath" \
+          timeout 900 env APP_WRAP_SYMBOLS="stat lstat getcwd realpath" \
             APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1

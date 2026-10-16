@@ -11,13 +11,6 @@
 #include <string.h>
 #include <sys/mman.h>
 
-void *__real_malloc(size_t size);
-void *__real_calloc(size_t count, size_t size);
-void *__real_realloc(void *address, size_t size);
-void __real_free(void *address);
-int __real_posix_memalign(void **address, size_t alignment, size_t size);
-size_t __real_malloc_usable_size(const void *address);
-
 void *sceLibcMspaceCreate(const char *name, void *base, size_t size,
                           unsigned flags);
 void *sceLibcMspaceMalloc(void *mspace, size_t size);
@@ -170,7 +163,7 @@ void *__wrap_malloc(size_t size) {
   void *result = ps5_heap_ready()
       ? ps5_heap_record_allocation(sceLibcMspaceMalloc(ps5_heap_mspace, size), size)
       : NULL;
-  return ps5_heap_zero(result ? result : __real_malloc(size), 0, size);
+  return ps5_heap_zero(result ? result : malloc(size), 0, size);
 }
 
 void *__wrap_calloc(size_t count, size_t size) {
@@ -178,15 +171,15 @@ void *__wrap_calloc(size_t count, size_t size) {
       ? ps5_heap_record_allocation(sceLibcMspaceCalloc(ps5_heap_mspace, count, size),
                                    count * size)
       : NULL;
-  return result ? result : __real_calloc(count, size);
+  return result ? result : calloc(count, size);
 }
 
 void *__wrap_realloc(void *address, size_t size) {
   if (address == NULL)
     return __wrap_malloc(size);
   if (!ps5_heap_owns(address)) {
-    const size_t before = ps5_opengl_heap_zero_fill ? __real_malloc_usable_size(address) : 0;
-    return ps5_heap_zero(__real_realloc(address, size), before, size);
+    const size_t before = ps5_opengl_heap_zero_fill ? malloc_usable_size(address) : 0;
+    return ps5_heap_zero(realloc(address, size), before, size);
   }
   size_t before = sceLibcMspaceMallocUsableSize(address);
   void *result = sceLibcMspaceRealloc(ps5_heap_mspace, address, size);
@@ -196,7 +189,7 @@ void *__wrap_realloc(void *address, size_t size) {
   } else if (size) {
     atomic_fetch_add_explicit(&ps5_heap_failures, 1, memory_order_relaxed);
     /* Move the block to the libc heap; the original stays valid on failure. */
-    result = __real_malloc(size);
+    result = malloc(size);
     if (result) {
       memcpy(result, address, before < size ? before : size);
       ps5_heap_zero(result, before, size);
@@ -215,20 +208,20 @@ void __wrap_free(void *address) {
     atomic_fetch_sub_explicit(&ps5_heap_blocks, 1, memory_order_relaxed);
     sceLibcMspaceFree(ps5_heap_mspace, address);
   } else
-    __real_free(address);
+    free(address);
 }
 
 int __wrap_posix_memalign(void **address, size_t alignment, size_t size) {
   int result;
   if (!ps5_heap_ready())
-    result = __real_posix_memalign(address, alignment, size);
+    result = posix_memalign(address, alignment, size);
   else {
     result = sceLibcMspacePosixMemalign(ps5_heap_mspace, address, alignment, size);
     if (result == 0)
       ps5_heap_record_allocation(*address, size);
     else if (result == ENOMEM) {
       atomic_fetch_add_explicit(&ps5_heap_failures, 1, memory_order_relaxed);
-      result = __real_posix_memalign(address, alignment, size);
+      result = posix_memalign(address, alignment, size);
     }
   }
   if (result == 0)
@@ -238,7 +231,7 @@ int __wrap_posix_memalign(void **address, size_t alignment, size_t size) {
 
 size_t __wrap_malloc_usable_size(const void *address) {
   return ps5_heap_owns(address) ? sceLibcMspaceMallocUsableSize(address)
-                                : __real_malloc_usable_size(address);
+                                : malloc_usable_size(address);
 }
 
 /* Owned-heap usable bytes, for leak diagnostics in long-running titles. */
