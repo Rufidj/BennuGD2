@@ -320,10 +320,6 @@ jobs:
             --payload-sdk "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk" \
             --compiler-wrapper "$GITHUB_WORKSPACE/boilerplate/tooling/prospero-clang18"
 
-      - name: Build SDL2_mixer for PS5
-        run: |
-          APP="$GITHUB_WORKSPACE/boilerplate" sh "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/sdl2_mixer/build.sh"
-
       - name: Lay out the PS5_OPENGL_ROOT the build expects
         run: |
           mkdir -p ps5-opengl-root
@@ -348,6 +344,11 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libc++abi.a" boilerplate/vendor/payload-sdk-cxx/libcxxabi.a
           ln -s "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libunwind.a" boilerplate/vendor/payload-sdk-cxx/libunwind.a
           echo "PS5_OPENGL_ROOT=$GITHUB_WORKSPACE/ps5-opengl-root" >> "$GITHUB_ENV"
+
+      - name: Build SDL2_mixer for PS5
+        # Needs vendor/sdl2-real/include/SDL2, just laid out above.
+        run: |
+          APP="$GITHUB_WORKSPACE/boilerplate" sh "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/sdl2_mixer/build.sh"
 
       - name: Build vendor/extras/libextras.a (LLVM's emulated-TLS helper)
         run: |
