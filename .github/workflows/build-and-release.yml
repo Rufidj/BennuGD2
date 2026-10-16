@@ -311,6 +311,12 @@ jobs:
           sha256sum --check --strict "ps5-opengl-sdk-${PS5OPENGL_SDK_VERSION}.tar.gz.sha256"
           mkdir -p ps5-opengl-sdk
           tar -xzf "ps5-opengl-sdk-${PS5OPENGL_SDK_VERSION}.tar.gz" -C ps5-opengl-sdk --strip-components=1
+          # libPS5OpenGL.a calls into the low-level AGC command-buffer API (sceAgc*), which
+          # lives in these two stub .so's from the OpenGL SDK, not the payload SDK - the final
+          # eboot link only auto-adds "$sdk_root/target/lib/*.so" (the payload SDK's own stubs),
+          # so these need to actually be IN that directory to be found at all.
+          cp ps5-opengl-sdk/sdk/lib/libSceAgc.so ps5-opengl-sdk/sdk/lib/libSceAgcDriver.so \
+            boilerplate/.deps/native/ps5-payload-sdk/target/lib/
 
       - name: Download the PacBrew sysroot (FFmpeg, Theora, Ogg, Vorbis)
         run: |
