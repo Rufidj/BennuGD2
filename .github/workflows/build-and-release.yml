@@ -382,6 +382,8 @@ jobs:
           PS5_GL_SDK="$GITHUB_WORKSPACE/ps5-opengl-sdk/sdk"
           cmake ../.. -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=../../../../cmake/Toolchains/ps5.cmake \
+            -DCMAKE_C_FLAGS=-DGLEW_NO_GLU \
+            -DCMAKE_CXX_FLAGS=-DGLEW_NO_GLU \
             -DSDL2_INCLUDE_DIR="$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
             -DSDL2_LIBRARY="$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib/libSDL2.a" \
             -DOPENGL_INCLUDE_DIR="$PS5_GL_SDK/include" \
