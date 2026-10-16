@@ -300,7 +300,7 @@ jobs:
           # native converter still rejected the result as "does not yet publish application
           # exports" - --exclude-libs keeps archive-sourced symbols out of the dynamic symbol
           # table at the source, which is the standard fix for this class of leak.
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL \\/' tools/build.sh
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL --trace-symbol=__wrap_getcwd --trace-symbol=__wrap_lstat \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
           # This pinned ref has NO APP_WRAP_SYMBOLS support at all - confirmed by grepping a
           # fresh checkout of the exact same commit, zero mentions of "wrap" anywhere in
@@ -526,35 +526,15 @@ jobs:
           rc=$?
           # __wrap_getcwd/__wrap_lstat end up as dynamic exports despite being plain
           # non-static functions identical in every way to their __wrap_stat/__wrap_realpath
-          # siblings in the same file, which don't leak - cause not identified. The native
-          # converter rejects ANY dynamic export unconditionally ("does not yet publish
-          # application exports"). objcopy --localize-symbol only edits the ELF's symbol
-          # table, not the code (the --wrap renaming that makes callers reach these
-          # functions already happened at LINK time), so it's safe regardless of why they
-          # leak - apply it to the already-linked llvm-pie.elf and retry just the remaining
-          # step. ninja won't redo LINK: its inputs (the .o/.a files) are untouched, only the
-          # output's content changed externally, and ninja's staleness check is input-mtime
-          # based, not output-content based.
-          if [ "$rc" -ne 0 ] && grep -q "does not yet publish application exports" /tmp/make-app.log && [ -f build/llvm-pie.elf ]; then
-            echo "--- objcopy identity (diagnostic) ---"
-            command -v objcopy; objcopy --version | head -1
-            echo "--- end diagnostic ---"
-            objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat build/llvm-pie.elf; echo "objcopy exit: $?"
-            echo "--- dyn-syms right after objcopy (diagnostic) ---"
-            readelf --dyn-syms build/llvm-pie.elf 2>&1 | grep -i "wrap_getcwd\|wrap_lstat" || echo "(none - objcopy worked)"
-            echo "--- end diagnostic ---"
-            timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat lstat getcwd realpath" \
-              APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
-              APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
-              make app > /tmp/make-app-retry.log 2>&1
-            rc=$?
-            cat /tmp/make-app-retry.log
-          fi
+          # siblings in the same file, which don't leak - cause not identified. objcopy
+          # --localize-symbol was a dead end: it only flips the ELF's binding bit
+          # (GLOBAL->LOCAL), but the native converter's check is `symbol.undefined()`, i.e.
+          # st_shndx == SHN_UNDEF - a still-defined, now-local symbol still fails it.
+          # readelf/nm hide local dynsym entries by default, which is why localizing looked
+          # like it worked in every manual check. --trace-symbol is wired into the LINK step
+          # itself (see the sed above) to find out why only these two leak.
           if [ "$rc" -ne 0 ]; then
             cat /tmp/make-app.log
-            echo "--- defined dynamic symbols in llvm-pie.elf, if it was produced (diagnostic) ---"
-            [ -f build/llvm-pie.elf ] && llvm-nm-18 -D --defined-only build/llvm-pie.elf
-            echo "--- end diagnostic ---"
             exit "$rc"
           fi
           ls -la dist/PPSA99999/eboot.bin
