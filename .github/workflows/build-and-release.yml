@@ -391,10 +391,14 @@ jobs:
             -DOPENGL_glx_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
-          echo "--- actual recipe line for glew.c.obj (diagnostic) ---"
-          make VERBOSE=1 -n src/CMakeFiles/SDL_gpu.dir/externals/glew/glew.c.obj 2>&1 | tail -20
+          set +e
+          make VERBOSE=1 -j"$(nproc)" > /tmp/sdlgpu-build.log 2>&1
+          rc=$?
+          echo "--- actual compile command for glew.c (diagnostic) ---"
+          grep -m2 "externals/glew/glew.c -o" /tmp/sdlgpu-build.log || echo "(not found in log)"
           echo "--- end diagnostic ---"
-          make -j"$(nproc)"
+          [ "$rc" -eq 0 ] || tail -60 /tmp/sdlgpu-build.log
+          exit "$rc"
 
       - name: Build the libSceVideodec2 link stub
         run: |
