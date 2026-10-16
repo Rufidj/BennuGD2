@@ -501,7 +501,13 @@ jobs:
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
           rc=$?
-          [ "$rc" -eq 0 ] || { cat /tmp/make-app.log; exit "$rc"; }
+          if [ "$rc" -ne 0 ]; then
+            cat /tmp/make-app.log
+            echo "--- defined dynamic symbols in llvm-pie.elf, if it was produced (diagnostic) ---"
+            [ -f build/llvm-pie.elf ] && llvm-nm-18 -D --defined-only build/llvm-pie.elf
+            echo "--- end diagnostic ---"
+            exit "$rc"
+          fi
           ls -la dist/PPSA99999/eboot.bin
 
       - name: Package the generic PS5 runtime
