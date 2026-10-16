@@ -392,7 +392,7 @@ jobs:
             -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
           echo "--- actual recipe line for glew.c.obj (diagnostic) ---"
-          make VERBOSE=1 -n src/CMakeFiles/SDL_gpu.dir/externals/glew/glew.c.obj 2>&1 | grep "prospero-clang18\|ps5-cc.sh" || true
+          make VERBOSE=1 -n src/CMakeFiles/SDL_gpu.dir/externals/glew/glew.c.obj 2>&1 | tail -20
           echo "--- end diagnostic ---"
           make -j"$(nproc)"
 
