@@ -288,6 +288,13 @@ jobs:
           # but ps5-opengl's SDL2 bridge build.py passes it straight to CMake as CMAKE_C_COMPILER,
           # which execs it directly.
           chmod +x tooling/prospero-clang18
+          # The pinned ref's final eboot link doesn't pass --no-dependent-libraries to lld, so any
+          # .a built with -pthread (libc++'s own mutex/thread/condition_variable objects) makes
+          # clang embed a "needs libpthread" ELF dependent-library annotation that lld then tries
+          # to autolink - this payload SDK has no separate libpthread (it's inside libc), so that
+          # fails with "unable to find library from dependent library specifier: pthread".
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries \\/' tools/build.sh
+          grep -q -- --no-dependent-libraries tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
