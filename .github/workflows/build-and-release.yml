@@ -391,8 +391,8 @@ jobs:
             -DOPENGL_glx_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
-          echo "--- planned glew.c compile command (diagnostic) ---"
-          make -n 2>&1 | grep -m1 "externals/glew/glew.c" || true
+          echo "--- SDL_gpu.dir/flags.make (diagnostic) ---"
+          cat src/CMakeFiles/SDL_gpu.dir/flags.make || true
           echo "--- end diagnostic ---"
           make -j"$(nproc)"
 
