@@ -333,7 +333,11 @@ jobs:
           mkdir -p ps5-opengl-root/integration
           ln -s "$GITHUB_WORKSPACE/BennuGD2/ps5/vendor/sdl2_mixer" ps5-opengl-root/integration/sdl2_mixer
           mkdir -p boilerplate/vendor
-          ln -s "$GITHUB_WORKSPACE/ps5-opengl-sdk" boilerplate/vendor/ps5-opengl-sdk
+          # The published release tarball nests headers/libs one level deeper (sdk/include,
+          # sdk/lib) than the locally-built SDK bundle this layout was modeled on (which has
+          # include/, lib/ directly at its root) - link the inner "sdk" dir so
+          # ${PS5_OPENGL_SDK_ROOT}/include matches what build.sh and modules' CMakeLists expect.
+          ln -s "$GITHUB_WORKSPACE/ps5-opengl-sdk/sdk" boilerplate/vendor/ps5-opengl-sdk
           mkdir -p boilerplate/vendor/sdl2-real/include
           ln -s "$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/include/SDL2" boilerplate/vendor/sdl2-real/include/SDL2
           ln -s "$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib" boilerplate/vendor/sdl2-real/lib
