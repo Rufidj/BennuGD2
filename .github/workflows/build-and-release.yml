@@ -280,6 +280,10 @@ jobs:
         run: |
           git clone https://github.com/blackbearreloaded/ps5-native-app-boilerplate.git boilerplate
           cd boilerplate && git checkout "$BOILERPLATE_REF"
+          # Committed without the execute bit; fine when invoked as "sh tooling/prospero-clang18",
+          # but ps5-opengl's SDL2 bridge build.py passes it straight to CMake as CMAKE_C_COMPILER,
+          # which execs it directly.
+          chmod +x tooling/prospero-clang18
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
