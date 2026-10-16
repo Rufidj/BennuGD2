@@ -300,7 +300,7 @@ jobs:
           # native converter still rejected the result as "does not yet publish application
           # exports" - --exclude-libs keeps archive-sourced symbols out of the dynamic symbol
           # table at the source, which is the standard fix for this class of leak.
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL \\/' tools/build.sh
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL --error-limit=0 \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
           # --wrap=malloc (and fopen/opendir/etc) fails with "undefined symbol: __real_malloc"
           # at the final eboot link, but only once the full engine+FFmpeg+SDL2 archive set is
@@ -500,7 +500,11 @@ jobs:
           B=apps/bennugd2; G=$B/libs/bgdclean; F=$B/libs/ffmpeg
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
-          ARCH="$G/libbgdrtm.a $G/libbggfx.a $G/libbginput.a $G/libbgload.a $G/libbgsound.a $G/libmod_ads.a $G/libmod_debug.a $G/libmod_gfx.a $G/libmod_iap.a $G/libmod_input.a $G/libmod_misc.a $G/libmod_net.a $G/libmod_sound.a $G/libmod_video.a $G/libsdlhandler.a $F/libtheoradec.a $F/libvorbis.a $F/libogg.a $B/libs/libps5_runtime_gaps.a $B/libs/libSDL2_gpu.a $B/libs/libSDL2_image_shim.a $B/libs/libSDL2_mixer.a $B/libs/libSDL2.a $F/libavformat.a $F/libavcodec.a $F/libx264.a $F/libswscale.a $F/libswresample.a $F/libavutil.a $F/libssl.a $F/libcrypto.a $F/libiconv.a $F/liblzma.a $F/libbz2.a $B/libs/libz.a $B/libs/libsamplerate.a vendor/ps5-opengl-sdk/lib/libPS5OpenGL.a vendor/payload-sdk-cxx/libcxx.a vendor/payload-sdk-cxx/libcxxabi.a vendor/payload-sdk-cxx/libunwind.a vendor/extras/libextras.a $B/libs/libps5_runtime_gaps.a"
+          # BISECT: FFmpeg/x264/ssl/crypto/iconv/lzma/bz2/theora/vorbis/ogg temporarily
+          # removed to test whether __real_malloc etc. resolve without them. Other new
+          # undefined symbols from libmod_video.a/libbggfx.a needing these are expected and
+          # irrelevant to this test - only check whether the __real_<name> errors are gone.
+          ARCH="$G/libbgdrtm.a $G/libbggfx.a $G/libbginput.a $G/libbgload.a $G/libbgsound.a $G/libmod_ads.a $G/libmod_debug.a $G/libmod_gfx.a $G/libmod_iap.a $G/libmod_input.a $G/libmod_misc.a $G/libmod_net.a $G/libmod_sound.a $G/libmod_video.a $G/libsdlhandler.a $B/libs/libps5_runtime_gaps.a $B/libs/libSDL2_gpu.a $B/libs/libSDL2_image_shim.a $B/libs/libSDL2_mixer.a $B/libs/libSDL2.a $B/libs/libz.a $B/libs/libsamplerate.a vendor/ps5-opengl-sdk/lib/libPS5OpenGL.a vendor/payload-sdk-cxx/libcxx.a vendor/payload-sdk-cxx/libcxxabi.a vendor/payload-sdk-cxx/libunwind.a vendor/extras/libextras.a $B/libs/libps5_runtime_gaps.a"
           # Full wrap list restored. An earlier attempt dropped malloc/calloc/realloc/free/
           # posix_memalign/malloc_usable_size/fopen/opendir/gzopen/open/getcwd/lstat because
           # --wrap=<name> failed with "undefined symbol: __real_<name>" once the real engine+
