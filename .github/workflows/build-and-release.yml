@@ -457,6 +457,10 @@ jobs:
           cp -r BennuGD2/ps5/native-app/src boilerplate/apps/bennugd2/src
           mkdir -p boilerplate/apps/bennugd2-runtime/sce_sys
           cp BennuGD2/ps5/native-app/sce_sys/param.json BennuGD2/ps5/native-app/sce_sys/icon0.png boilerplate/apps/bennugd2-runtime/sce_sys/
+          # apps/bennugd2/build-title.sh is generic tooling vendored at ps5/tools/build-title.sh
+          # (not part of the pinned public boilerplate ref) - put it where it expects to run from.
+          cp BennuGD2/ps5/tools/build-title.sh boilerplate/apps/bennugd2/build-title.sh
+          chmod +x boilerplate/apps/bennugd2/build-title.sh
           cd boilerplate
           apps/bennugd2/build-title.sh PPSA99999 "My BennuGD2 Game" apps/bennugd2-runtime/sce_sys
           ls -la dist/PPSA99999/eboot.bin
