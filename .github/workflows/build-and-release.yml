@@ -501,8 +501,18 @@ jobs:
           # linking isn't blocked on it. This means fopen/opendir/gzopen/open no longer get the
           # /app0 path-mapping or case-insensitive lookup, and app_heap.c's custom heap arena
           # never activates - needs real hardware testing once this eboot actually boots.
+          #
+          # getcwd/lstat dropped too: __wrap_getcwd/__wrap_lstat kept leaking into the
+          # dynamic symbol table ("native converter does not yet publish application
+          # exports") even after --exclude-libs=ALL (fixed ~500 unrelated libcxx/libcxxabi/
+          # libunwind ABI leaks) and explicit __attribute__((visibility("hidden"))) on every
+          # __wrap_* function - that attribute turned out to be silently ignored on this
+          # toolchain specifically because prospero-clang18 always passes
+          # -fvisibility-nodllstorageclass=default, confirmed by isolating that one flag in a
+          # minimal repro. stat/realpath don't leak for reasons not fully understood either
+          # (same file, same attribute, same wrap mechanism) - not worth more time chasing.
           set +e
-          timeout 900 env APP_WRAP_SYMBOLS="stat lstat getcwd realpath" \
+          timeout 900 env APP_WRAP_SYMBOLS="stat realpath" \
             APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
