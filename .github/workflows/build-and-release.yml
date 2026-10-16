@@ -310,7 +310,9 @@ jobs:
           wget -q "https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/${PACBREW_VERSION}/ps5-payload-dev.tar.gz"
           mkdir -p pacbrew
           tar -xzf ps5-payload-dev.tar.gz -C pacbrew
-          echo "PACBREW_PREFIX=$PWD/pacbrew/target/user/homebrew" >> "$GITHUB_ENV"
+          # The archive's real root is opt/ps5-payload-sdk/target/user/homebrew, not
+          # target/user/homebrew - verified by listing the tarball directly.
+          echo "PACBREW_PREFIX=$PWD/pacbrew/opt/ps5-payload-sdk/target/user/homebrew" >> "$GITHUB_ENV"
 
       - name: Build the real SDL2 for PS5 (ps5-opengl's SDL2 bridge)
         run: |
