@@ -302,6 +302,18 @@ jobs:
           # table at the source, which is the standard fix for this class of leak.
           sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --exclude-libs=ALL \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
+          # --wrap=malloc (and fopen/opendir/etc) fails with "undefined symbol: __real_malloc"
+          # at the final eboot link, but only once the full engine+FFmpeg+SDL2 archive set is
+          # present - every isolated repro with a handful of inputs succeeds. One untested
+          # theory: --as-needed on the payload SDK's .so's (libc_stub_weak.so/
+          # libSceLibcInternal.so provide malloc/fopen/etc only as dynamic exports, nothing
+          # provides them statically) elides a library that --wrap's __real_<name> synthesis
+          # needs, depending on how undefined-symbol bookkeeping interacts with dozens of
+          # archives at once. Drop --as-needed for this link entirely - these .so's end up
+          # referenced unconditionally instead of conditionally, which is the only functional
+          # cost.
+          sed -i 's/--as-needed "\$sdk_root"\/target\/lib\/\*\.so/"\$sdk_root"\/target\/lib\/*.so/' tools/build.sh
+          grep -n '"\$sdk_root"/target/lib/\*\.so' tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
