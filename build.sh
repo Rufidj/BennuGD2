@@ -173,7 +173,7 @@ build_target() {
                 USE_SDL2_GPU=1 # vendor/sdl-gpu/build/x86_64-sie-ps5 (built once, see its own
                                 # README note below) - the real 2D renderer, matching what
                                 # already runs on-console today.
-                PS5_OPENGL_ROOT="/home/ruben/Escritorio/ps5-opengl"
+                PS5_OPENGL_ROOT="${PS5_OPENGL_ROOT:-/home/ruben/Escritorio/ps5-opengl}"
                 # PacBrew sysroot prefix: FFmpeg (libmod_video) and libogg/libvorbis/libtheoradec (Theora in libbggfx)
                 PS5_PACBREW_PREFIX="${PS5_PACBREW_PREFIX:-/home/ruben/ps5-payload-sdk-pacbrew/target/user/homebrew}"
                 CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ps5.cmake -DBUILD_TARGET=interpreter -DPROSPERO=ON \
