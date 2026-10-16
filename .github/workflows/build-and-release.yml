@@ -385,7 +385,8 @@ jobs:
             -DOPENGL_INCLUDE_DIR=/usr/include \
             -DOPENGL_opengl_LIBRARY="$gl" \
             -DOPENGL_glx_LIBRARY="$gl" \
-            -DOPENGL_gl_LIBRARY="$gl"
+            -DOPENGL_gl_LIBRARY="$gl" \
+            -DM_LIB=/usr/lib/x86_64-linux-gnu/libm.so
           make -j"$(nproc)"
 
       - name: Build the libSceVideodec2 link stub
