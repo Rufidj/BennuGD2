@@ -26,7 +26,7 @@
  *     3. This notice may not be removed or altered from any source
  *     distribution.
  *
- */    
+ */
 
 #ifndef __FAKE_DL_H
 #define __FAKE_DL_H

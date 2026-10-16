@@ -148,7 +148,7 @@ char* get_executable_full_path(const char* path) {
 // non destructive basename
 // fullpath already have a separator
 char* get_executable_name(const char* full_path) {
-    char * separator = strrchr(full_path, '/');
+    char * separator = (char *) strrchr(full_path, '/');
     if ( !separator ) return strdup( full_path );
     return strdup( separator + 1);
 }
@@ -198,13 +198,13 @@ char* remove_app_extension(const char* path) {
 
     if ( last_dot && ( !last_slash || last_dot > last_slash ) ) {
         const char *ext = last_dot + 1;
-        
+
         // Check if extension is .exe
         if ( strcasecmp(ext, "exe") == 0 ) {
             *last_dot = '\0';
             return result;
         }
-        
+
         // Check if extension matches any dcb_exts
         char **dcbext = dcb_exts;
         while ( dcbext && *dcbext ) {
@@ -227,7 +227,7 @@ int file_has_extension(const char *path) {
 
     if ( !last_dot ) return 0;
     if ( last_slash && last_dot < last_slash ) return 0;
-    
+
     int len = strlen(last_dot + 1);
     if ( len >= 1 && len <= 4 ) return 1;
     return 0;
@@ -319,6 +319,18 @@ int main( int argc, char *argv[] ) {
 
     /* add binary path */
     file_addp( appexepath );
+
+#ifdef PS3_PPU
+    bgd_working_directory = strdup(appexepath); // alloc as big as necessary
+#elif !defined( __PROSPERO__ )
+    /* getcwd() is refused by the PS5 sandbox (SIGSYS); bgd_working_directory stays NULL there,
+     * which is fine: it's only read from PS3-specific code in core/common/files.c. */
+    char * path = malloc(__MAX_PATH+1);
+    path[0] = '\0';
+    getcwd( path, __MAX_PATH );
+    bgd_working_directory = strdup(path); // alloc as big as necessary
+    free(path);
+#endif
 
 #if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
     standalone = strncmpi( appexename, "bgdi", 4 );
@@ -415,6 +427,14 @@ int main( int argc, char *argv[] ) {
 
             /* Check if we should try to add an extension */
 #if !defined( __SWITCH__ ) && !defined( PS3_PPU ) && !defined( __ANDROID__ ) && !defined( __PROSPERO__ )
+
+#ifdef __WIN32
+            // Check if extension is .exe
+            if ( !strcasecmp(filename + strlen(filename) - 4, ".exe") ) {
+                filename[strlen(filename) - 4] = '\0';
+            }
+#endif
+
             if ( standalone || !file_has_extension( filename ) || filename[strlen(filename)-1] == '.' ) {
 #else
             if ( !file_has_extension( filename ) || filename[strlen(filename)-1] == '.' ) {
@@ -433,7 +453,7 @@ int main( int argc, char *argv[] ) {
             }
 
             if ( !dcbloaded ) {
-                fprintf( stderr, MSG_DCB_ERROR "\n", filename, DCB_VERSION >> 8 ) ;
+                fprintf( stderr, MSG_DCB_ERROR "\n", filename, DCB_VERSION >> 8, DCB_VERSION & 0xff ) ;
 #ifdef __ANDROID__
                 __android_log_print(ANDROID_LOG_INFO, LOG_TAG, MSG_DCB_ERROR, filename, DCB_VERSION >> 8);
 #endif
@@ -510,10 +530,11 @@ int main( int argc, char *argv[] ) {
 
     bgdrtm_exit();
 
-    free( appexename        );
-    free( appexepath        );
-    free( appexefullpath    );
-    free( appname           );
+    free( bgd_working_directory );
+    free( appexename            );
+    free( appexepath            );
+    free( appexefullpath        );
+    free( appname               );
 
 #ifdef __SWITCH__
     romfsExit();

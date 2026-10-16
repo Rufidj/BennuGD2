@@ -413,7 +413,7 @@ void compile_type() {
         if ( !typedef_is_equal( t, *tvalidate ) ) {
             compile_error( MSG_PROTO_ERROR );
         } else {
-            compile_warning( 0, MSG_TYPE_REDECLARE );            
+            compile_warning( 0, MSG_TYPE_REDECLARE );
         }
         token_set_pos( curr_pos );
 
@@ -685,7 +685,7 @@ void compile_process() {
     int sign_prefix = 0;
 
     /* Is this a declaration? */
-    if ( token.code == identifier_declare ) {  
+    if ( token.code == identifier_declare ) {
         is_declare = 1;
         token_next();
     }
@@ -835,70 +835,142 @@ void compile_process() {
 
         if ( constants_search( token.code ) ) compile_error( MSG_CONSTANT_REDECLARED_AS_VARIABLE );
 
-        /* Check if the process was used before declared */
-        if ( !proc->declared ) {
-            var = varspace_search( &local, token.code );
-            if ( var ) {
-                /* The parameter is actually a local variable */
-                if ( type_implicit ) {
-                    type = typedef_base( var->type );
-                    ctype = var->type;
-                }
+        /* Check if the parameter conflicts with a global local variable.
+           Local variables have priority over the explicitly declared
+           parameter type. */
 
-                if ( typedef_base( var->type ) != type ) {
-                    if ( typedef_is_integer( var->type ) && typedef_is_integer( typedef_new( type ) ) ) {
-                        /*
-                            A parameter was used before the process is declared. The
-                            data type declared is different from the data type used,
-                            but both are integers. The error is ignored, but no
-                            conversion is done. This can lead to type conversion issues.
-                        */
-                    } else
-                        compile_error( MSG_INVALID_PARAMT );
+        var = varspace_search( &local, token.code );
+
+        if ( var ) {
+            /* The parameter is actually a local variable */
+
+            if ( type_implicit ) {
+                type = typedef_base( var->type );
+                ctype = var->type;
+            }
+
+            BASETYPE local_type = typedef_base( var->type );
+
+            if ( local_type != type ) {
+                int local_numeric =
+                    typedef_is_integer( var->type ) ||
+                    local_type == TYPE_FLOAT ||
+                    local_type == TYPE_DOUBLE;
+
+                int parameter_numeric =
+                    typedef_is_integer( ctype ) ||
+                    type == TYPE_FLOAT ||
+                    type == TYPE_DOUBLE;
+
+                if ( local_numeric && parameter_numeric ) {
+                    char *declared_name = typedef_describe( ctype );
+                    char *local_name = typedef_describe( var->type );
+
+                    compile_warning(
+                        token.code,
+                        MSG_PARAM_TYPE_ADJUSTED,
+                        identifier_name( token.code ),
+                        declared_name,
+                        local_name,
+                        local_name
+                    );
+
+                    free( declared_name );
+                    free( local_name );
+
+                    type = local_type;
+                    ctype = var->type;
+                } else {
+                    char *declared_name = typedef_describe( ctype );
+                    char *local_name = typedef_describe( var->type );
+
+                    compile_error(
+                        MSG_PARAM_LOCAL_TYPE_CONFLICT,
+                        identifier_name( token.code ),
+                        declared_name,
+                        local_name
+                    );
                 }
+            }
+        }
+
+        if ( !proc->declared ) {
+            if ( var ) {
                 codeblock_add( &proc->code, MN_LOCAL, var->offset );
                 codeblock_add( &proc->code, MN_PRIVATE, proc->pridata->current );
                 codeblock_add( &proc->code, MN_PTR, 0 );
 
-                if ( typedef_base( var->type ) == TYPE_STRING ) codeblock_add( &proc->code, MN_LET | MN_STRING, 0 );
-                else codeblock_add( &proc->code, MN_LET, 0 );
+                if ( typedef_base( var->type ) == TYPE_STRING )
+                    codeblock_add( &proc->code, MN_LET | MN_STRING, 0 );
+                else
+                    codeblock_add( &proc->code, MN_LET, 0 );
 
                 codeblock_add( &proc->code, MN_POP, 0 );
 
-                if ( proc->privars->reserved == proc->privars->count ) varspace_alloc( proc->privars, 16 );
+                if ( proc->privars->reserved == proc->privars->count )
+                    varspace_alloc( proc->privars, 16 );
 
                 proc->privars->vars[proc->privars->count].type   = ctype;
                 proc->privars->vars[proc->privars->count].offset = proc->pridata->current;
-                proc->privars->vars[proc->privars->count].code   = -1; // I set code to -1 to prevent the variable from being found in a remote access
-                                                                       // (since it's a private variable to the process).
-                                                                       // Those parameters that are public take on the initial value (the argument's value)
-                                                                       // of the private variable.
+                proc->privars->vars[proc->privars->count].code   = -1; // Prevent the variable from being found in a remote access,
+                                                                       // since it is a private variable of the process.
+                                                                       // Those parameters that are public take the initial
+                                                                       // value (the argument's value) of the private variable.
 
                 proc->privars->count++;
 
                 segment_add_qword( proc->pridata, 0 );
             } else {
                 var = varspace_search( proc->privars, token.code );
-                if ( var ) {
-                    compile_error(MSG_VARIABLE_REDECLARE);
-                }
+
+                if ( var )
+                    compile_error( MSG_VARIABLE_REDECLARE );
 
                 /* Create the private variable */
-                if ( proc->privars->reserved == proc->privars->count ) varspace_alloc( proc->privars, 16 );
 
-                if ( type == TYPE_STRING ) varspace_varstring( proc->privars, proc->pridata->current );
+                if ( proc->privars->reserved == proc->privars->count )
+                    varspace_alloc( proc->privars, 16 );
+
+                if ( type == TYPE_STRING )
+                    varspace_varstring( proc->privars, proc->pridata->current );
 
                 proc->privars->vars[proc->privars->count].type   = ctype;
                 proc->privars->vars[proc->privars->count].offset = proc->pridata->current;
                 proc->privars->vars[proc->privars->count].code   = token.code;
-                if ( external_proc ) proc->privars->vars[proc->privars->count].type.varspace = external_proc->pubvars;
+
+                if ( external_proc )
+                    proc->privars->vars[proc->privars->count].type.varspace = external_proc->pubvars;
 
                 proc->privars->count++;
 
                 segment_add_qword( proc->pridata, 0 );
             }
-        } else {
-            if ( proc->paramtype[params] != type || proc->paramname[params] != token.code ) compile_error( MSG_PROTO_ERROR );
+        }
+        else if ( proc->paramname[params] != token.code ) {
+            /* The parameter name differs from the previously registered one */
+
+            compile_error(
+                MSG_PARAM_CONTRACT_NAME_CONFLICT,
+                identifier_name( token.code ),
+                identifier_name( proc->paramname[params] )
+            );
+        }
+        else if ( proc->paramtype[params] != type ) {
+            /* The parameter name matches, but its type differs */
+
+            char *current_name = typedef_describe( ctype );
+            char *previous_name =
+                typedef_describe( typedef_new( proc->paramtype[params] ) );
+
+            compile_error(
+                MSG_PARAM_CONTRACT_TYPE_CONFLICT,
+                identifier_name( token.code ),
+                current_name,
+                previous_name
+            );
+
+            free( current_name );
+            free( previous_name );
         }
 
         if ( proc->params != -1 ) {
@@ -1008,9 +1080,9 @@ void compile_process() {
         compile_block( proc );
 
         if ( token.code == identifier_else ) compile_error( MSG_ELSE_WOUT_IF );
-        
+
         if ( token.code != identifier_end ) compile_error( MSG_NO_END );
-        
+
         codeblock_add( &proc->code, MN_END, 0 );
 
     } else {
@@ -1050,12 +1122,12 @@ void compile_program() {
 
             VARSPACE ** v = calloc( procdef_count + 2, sizeof( VARSPACE *) );
             if ( !v ) compile_error( MSG_OUT_OF_MEMORY );
-            
+
             v[0] = &global;
             for ( int n = 0; n <= procdef_maxid; n++ ) v[ 1 + n ] = procs[ n ]->privars;
-            
+
             compile_varspace( &local, localdata, 1, 1, v, DEFAULT_ALIGNMENT, 1, 0, 0, 0 );
-            
+
             free( v );
 
         } else if ( token.type == IDENTIFIER && (
