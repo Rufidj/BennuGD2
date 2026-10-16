@@ -293,7 +293,7 @@ jobs:
           # clang embed a "needs libpthread" ELF dependent-library annotation that lld then tries
           # to autolink - this payload SDK has no separate libpthread (it's inside libc), so that
           # fails with "unable to find library from dependent library specifier: pthread".
-          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries \\/' tools/build.sh
+          sed -i 's/--eh-frame-hdr \\/--eh-frame-hdr --no-dependent-libraries --trace-symbol=malloc --trace-symbol=fopen --trace-symbol=opendir \\/' tools/build.sh
           grep -q -- --no-dependent-libraries tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
@@ -482,10 +482,16 @@ jobs:
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
           ARCH="$G/libbgdrtm.a $G/libbggfx.a $G/libbginput.a $G/libbgload.a $G/libbgsound.a $G/libmod_ads.a $G/libmod_debug.a $G/libmod_gfx.a $G/libmod_iap.a $G/libmod_input.a $G/libmod_misc.a $G/libmod_net.a $G/libmod_sound.a $G/libmod_video.a $G/libsdlhandler.a $F/libtheoradec.a $F/libvorbis.a $F/libogg.a $B/libs/libps5_runtime_gaps.a $B/libs/libSDL2_gpu.a $B/libs/libSDL2_image_shim.a $B/libs/libSDL2_mixer.a $B/libs/libSDL2.a $F/libavformat.a $F/libavcodec.a $F/libx264.a $F/libswscale.a $F/libswresample.a $F/libavutil.a $F/libssl.a $F/libcrypto.a $F/libiconv.a $F/liblzma.a $F/libbz2.a $B/libs/libz.a $B/libs/libsamplerate.a vendor/ps5-opengl-sdk/lib/libPS5OpenGL.a vendor/payload-sdk-cxx/libcxx.a vendor/payload-sdk-cxx/libcxxabi.a vendor/payload-sdk-cxx/libunwind.a vendor/extras/libextras.a $B/libs/libps5_runtime_gaps.a"
+          set +e
           timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat lstat getcwd realpath" \
             APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
-            make app
+            make app > /tmp/make-app.log 2>&1
+          rc=$?
+          echo "--- malloc/fopen/opendir trace-symbol output (diagnostic) ---"
+          grep -A3 "trace-symbol\|malloc\|fopen\|opendir" /tmp/make-app.log | grep -v "^Binary" | head -150
+          echo "--- end diagnostic ---"
+          [ "$rc" -eq 0 ] || { tail -60 /tmp/make-app.log; exit "$rc"; }
           ls -la dist/PPSA99999/eboot.bin
 
       - name: Package the generic PS5 runtime
