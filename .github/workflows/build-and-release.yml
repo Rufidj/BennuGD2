@@ -372,10 +372,20 @@ jobs:
           export PS5_PAYLOAD_SDK="$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk"
           cd BennuGD2/vendor/sdl-gpu
           mkdir -p build/x86_64-sie-ps5 && cd build/x86_64-sie-ps5
+          # ps5.cmake sets CMAKE_FIND_ROOT_PATH_MODE_LIBRARY/INCLUDE to ONLY (cross-compile sysroot
+          # only), so find_package(OpenGL) can never see the host's desktop GL just installed - pass
+          # its paths directly instead of letting CMake search for them. This .a never actually links
+          # against them (the real PS5 OpenGL comes from vendor/ps5-opengl-sdk at the final eboot link).
+          gl=$(dpkg -L libgl-dev 2>/dev/null | grep 'libGL\.so$' | head -1)
+          [ -n "$gl" ] || gl=$(dpkg -L libgl1-mesa-dev 2>/dev/null | grep 'libGL\.so$' | head -1)
           cmake ../.. -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=../../../../cmake/Toolchains/ps5.cmake \
             -DSDL2_INCLUDE_DIR="$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
-            -DSDL2_LIBRARY="$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib/libSDL2.a"
+            -DSDL2_LIBRARY="$GITHUB_WORKSPACE/ps5-opengl-driver/build/native-sdl2-audio/sdk/lib/libSDL2.a" \
+            -DOPENGL_INCLUDE_DIR=/usr/include \
+            -DOPENGL_opengl_LIBRARY="$gl" \
+            -DOPENGL_glx_LIBRARY="$gl" \
+            -DOPENGL_gl_LIBRARY="$gl"
           make -j"$(nproc)"
 
       - name: Build the libSceVideodec2 link stub
