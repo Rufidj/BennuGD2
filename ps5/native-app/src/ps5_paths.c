@@ -19,7 +19,7 @@ static const char *app_path(const char *path, char *buf, size_t size) {
     return buf;
 }
 
-FILE *__wrap_fopen(const char *path, const char *mode) {
+__attribute__((visibility("hidden"))) FILE *__wrap_fopen(const char *path, const char *mode) {
     char buf[512];
     const char *p = app_path(path, buf, sizeof buf);
     FILE *f = fopen(p, mode);
@@ -30,7 +30,7 @@ FILE *__wrap_fopen(const char *path, const char *mode) {
     return f;
 }
 
-DIR *__wrap_opendir(const char *name) {
+__attribute__((visibility("hidden"))) DIR *__wrap_opendir(const char *name) {
     char buf[512];
     const char *p = app_path(name, buf, sizeof buf);
     DIR *d = opendir(p);
@@ -52,7 +52,7 @@ static void ptrace_log(const char *what, const char *path) {
     if (g) { fprintf(g, "%s %s\n", what, path ? path : "(null)"); fclose(g); }
 }
 
-gzFile __wrap_gzopen(const char *path, const char *mode) {
+__attribute__((visibility("hidden"))) gzFile __wrap_gzopen(const char *path, const char *mode) {
     char buf[512];
     const char *p = app_path(path, buf, sizeof buf);
     gzFile r = gzopen(p, mode);
@@ -60,7 +60,7 @@ gzFile __wrap_gzopen(const char *path, const char *mode) {
     return r;
 }
 
-int __wrap_open(const char *path, int flags, ...) {
+__attribute__((visibility("hidden"))) int __wrap_open(const char *path, int flags, ...) {
     int mode = 0;
     if (flags & O_CREAT) { va_list ap; va_start(ap, flags); mode = va_arg(ap, int); va_end(ap); }
     char buf[512];
@@ -78,13 +78,13 @@ static int sbx_stat(const char *path, struct stat *sb) {
     if (r != 0) ptrace_log("stat -> fstat failed", p);
     return r;
 }
-int __wrap_stat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
-int __wrap_lstat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
+__attribute__((visibility("hidden"))) int __wrap_stat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
+__attribute__((visibility("hidden"))) int __wrap_lstat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
 
 /* getcwd()/realpath() are refused by the sandbox; the working directory of a
    title is always /app0. */
 #include <stdlib.h>
-char *__wrap_getcwd(char *buf, size_t size) {
+__attribute__((visibility("hidden"))) char *__wrap_getcwd(char *buf, size_t size) {
     static const char cwd[] = "/app0";
     if (!buf) {
         buf = (char *)malloc(size > sizeof cwd ? size : sizeof cwd);
@@ -97,7 +97,7 @@ char *__wrap_getcwd(char *buf, size_t size) {
     return buf;
 }
 
-char *__wrap_realpath(const char *path, char *resolved) {
+__attribute__((visibility("hidden"))) char *__wrap_realpath(const char *path, char *resolved) {
     char tmp[512];
     const char *p = app_path(path, tmp, sizeof tmp);
     if (!resolved) resolved = (char *)malloc(1024);

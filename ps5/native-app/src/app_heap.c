@@ -160,14 +160,14 @@ static int ps5_heap_owns(const void *address) {
 
 /* When the owned heap is exhausted, allocations continue from the libc heap;
  * free/realloc route by address, so both heaps can hold live blocks. */
-void *__wrap_malloc(size_t size) {
+__attribute__((visibility("hidden"))) void *__wrap_malloc(size_t size) {
   void *result = ps5_heap_ready()
       ? ps5_heap_record_allocation(sceLibcMspaceMalloc(ps5_heap_mspace, size), size)
       : NULL;
   return ps5_heap_zero(result ? result : malloc(size), 0, size);
 }
 
-void *__wrap_calloc(size_t count, size_t size) {
+__attribute__((visibility("hidden"))) void *__wrap_calloc(size_t count, size_t size) {
   void *result = ps5_heap_ready()
       ? ps5_heap_record_allocation(sceLibcMspaceCalloc(ps5_heap_mspace, count, size),
                                    count * size)
@@ -175,7 +175,7 @@ void *__wrap_calloc(size_t count, size_t size) {
   return result ? result : calloc(count, size);
 }
 
-void *__wrap_realloc(void *address, size_t size) {
+__attribute__((visibility("hidden"))) void *__wrap_realloc(void *address, size_t size) {
   if (address == NULL)
     return __wrap_malloc(size);
   if (!ps5_heap_owns(address)) {
@@ -203,7 +203,7 @@ void *__wrap_realloc(void *address, size_t size) {
   return result;
 }
 
-void __wrap_free(void *address) {
+__attribute__((visibility("hidden"))) void __wrap_free(void *address) {
   if (ps5_heap_owns(address)) {
     ps5_heap_resize_stats(sceLibcMspaceMallocUsableSize(address), 0);
     atomic_fetch_sub_explicit(&ps5_heap_blocks, 1, memory_order_relaxed);
@@ -212,7 +212,7 @@ void __wrap_free(void *address) {
     free(address);
 }
 
-int __wrap_posix_memalign(void **address, size_t alignment, size_t size) {
+__attribute__((visibility("hidden"))) int __wrap_posix_memalign(void **address, size_t alignment, size_t size) {
   int result;
   if (!ps5_heap_ready())
     result = posix_memalign(address, alignment, size);
@@ -230,7 +230,7 @@ int __wrap_posix_memalign(void **address, size_t alignment, size_t size) {
   return result;
 }
 
-size_t __wrap_malloc_usable_size(const void *address) {
+__attribute__((visibility("hidden"))) size_t __wrap_malloc_usable_size(const void *address) {
   return ps5_heap_owns(address) ? sceLibcMspaceMallocUsableSize(address)
                                 : malloc_usable_size(address);
 }
