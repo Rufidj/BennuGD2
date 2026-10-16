@@ -4,7 +4,8 @@
 # does not inherit variables set by the CMake configure step, so the env
 # that native-app-boilerplate's prospero-clang18 wrapper needs is hardcoded
 # here instead of relying on the invoking shell to export it.
-export PS5_PAYLOAD_SDK="${PS5_PAYLOAD_SDK:-/home/ruben/Escritorio/ps5-opengl/native-app-boilerplate/.deps/native/ps5-payload-sdk}"
+PS5_BOILERPLATE_DIR="${PS5_OPENGL_ROOT:-/home/ruben/Escritorio/ps5-opengl}/native-app-boilerplate"
+export PS5_PAYLOAD_SDK="${PS5_PAYLOAD_SDK:-$PS5_BOILERPLATE_DIR/.deps/native/ps5-payload-sdk}"
 export PS5_CLANG="${PS5_CLANG:-/usr/bin/clang-18}"
 export USE_CCACHE=0
 # clang resolves its linker by name from the target triple ("prospero-lld")
@@ -18,7 +19,7 @@ export PATH="$PS5_PAYLOAD_SDK/bin:$PATH"
 # libc). Only matters at link time (a plain -c compile ignores -Wl,...).
 for arg in "$@"; do
     if [ "$arg" = "-c" ]; then
-        exec /home/ruben/Escritorio/ps5-opengl/native-app-boilerplate/tooling/prospero-clang18 "$@"
+        exec "$PS5_BOILERPLATE_DIR/tooling/prospero-clang18" "$@"
     fi
 done
-exec /home/ruben/Escritorio/ps5-opengl/native-app-boilerplate/tooling/prospero-clang18 -Wl,--no-dependent-libraries "$@"
+exec "$PS5_BOILERPLATE_DIR/tooling/prospero-clang18" -Wl,--no-dependent-libraries "$@"

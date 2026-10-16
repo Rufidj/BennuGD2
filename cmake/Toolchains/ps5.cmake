@@ -36,10 +36,16 @@ add_definitions(-D__PROSPERO__ -D__STATIC__ -DUSE_REAL_PS5_OPENGL -DGL_GLEXT_PRO
 
 # Everything (SDL2, GL headers, zlib, ...) comes from the proven PS5
 # integration tree, not from the host's own /usr - never fall back to it.
+if(DEFINED ENV{PS5_OPENGL_ROOT})
+    set(PS5_OPENGL_ROOT_DIR "$ENV{PS5_OPENGL_ROOT}")
+else()
+    set(PS5_OPENGL_ROOT_DIR "/home/ruben/Escritorio/ps5-opengl")
+endif()
+
 set(CMAKE_FIND_ROOT_PATH
-    "/home/ruben/Escritorio/ps5-opengl/native-app-boilerplate/.deps/native/ps5-payload-sdk"
-    "/home/ruben/Escritorio/ps5-opengl"
-    "/home/ruben/BennuGD2/vendor")
+    "${PS5_OPENGL_ROOT_DIR}/native-app-boilerplate/.deps/native/ps5-payload-sdk"
+    "${PS5_OPENGL_ROOT_DIR}"
+    "${PS5_TOOLCHAIN_DIR}/../../vendor")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
