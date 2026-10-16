@@ -391,6 +391,11 @@ jobs:
             -DOPENGL_glx_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
+          echo "--- is __PROSPERO__ actually defined for this exact compiler invocation? (diagnostic) ---"
+          echo "clang-18 resolved to: $(command -v clang-18)"
+          clang-18 --version
+          ../../../../cmake/Toolchains/ps5-cc.sh -D__PROSPERO__ -dM -E -c /dev/null 2>&1 | grep -c "define __PROSPERO__" || echo "0 (not defined!)"
+          echo "--- end diagnostic ---"
           set +e
           make VERBOSE=1 -j1 > /tmp/sdlgpu-build.log 2>&1
           rc=$?
