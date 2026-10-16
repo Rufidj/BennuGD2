@@ -537,6 +537,9 @@ jobs:
           # based, not output-content based.
           if [ "$rc" -ne 0 ] && grep -q "does not yet publish application exports" /tmp/make-app.log && [ -f build/llvm-pie.elf ]; then
             objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat build/llvm-pie.elf
+            echo "--- dyn-syms right after objcopy (diagnostic) ---"
+            readelf --dyn-syms build/llvm-pie.elf 2>&1 | grep -i "wrap_getcwd\|wrap_lstat" || echo "(none - objcopy worked)"
+            echo "--- end diagnostic ---"
             timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat lstat getcwd realpath" \
               APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
               APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
