@@ -320,21 +320,6 @@ jobs:
           done' tools/build.sh
           sed -i 's/--version-script "\$native\/app-symbols.map" \\$/"${wrap_options[@]}" --version-script "\$native\/app-symbols.map" \\/' tools/build.sh
           grep -n "wrap_options\|APP_WRAP_SYMBOLS" tools/build.sh
-          # __wrap_getcwd/__wrap_lstat still end up as dynamic exports despite being plain
-          # non-static functions identical in every way to their __wrap_stat/__wrap_realpath
-          # siblings in the same file, which don't leak - cause not identified. The native
-          # converter rejects ANY dynamic export unconditionally ("does not yet publish
-          # application exports"), so insert an objcopy pass between LINK and CONVERT that
-          # localizes just these two symbols in the final ELF - this only edits the symbol
-          # table, not the code (the --wrap renaming that makes callers reach these functions
-          # already happened inside LINK), so it's safe regardless of why they leak.
-          sed -i 's/ninja_edge LINK "\$build\/llvm-pie.elf"/ninja_edge LINK "\$build\/llvm-pie-raw.elf"/' tools/build.sh
-          sed -i 's/-e _start -o "\$build\/llvm-pie.elf" "\${link_inputs\[@\]}" \\/-e _start -o "\$build\/llvm-pie-raw.elf" "\${link_inputs[@]}" \\/' tools/build.sh
-          sed -i '/^ninja_inputs=("\$build\/llvm-pie.elf" "\$tool"/i\
-          ninja_inputs=("$build/llvm-pie-raw.elf")\
-          ninja_edge LOCALIZE "$build/llvm-pie.elf" objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat "$build/llvm-pie-raw.elf" "$build/llvm-pie.elf"' tools/build.sh
-          bash -n tools/build.sh
-          grep -n "llvm-pie" tools/build.sh
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
@@ -539,6 +524,26 @@ jobs:
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
           rc=$?
+          # __wrap_getcwd/__wrap_lstat end up as dynamic exports despite being plain
+          # non-static functions identical in every way to their __wrap_stat/__wrap_realpath
+          # siblings in the same file, which don't leak - cause not identified. The native
+          # converter rejects ANY dynamic export unconditionally ("does not yet publish
+          # application exports"). objcopy --localize-symbol only edits the ELF's symbol
+          # table, not the code (the --wrap renaming that makes callers reach these
+          # functions already happened at LINK time), so it's safe regardless of why they
+          # leak - apply it to the already-linked llvm-pie.elf and retry just the remaining
+          # step. ninja won't redo LINK: its inputs (the .o/.a files) are untouched, only the
+          # output's content changed externally, and ninja's staleness check is input-mtime
+          # based, not output-content based.
+          if [ "$rc" -ne 0 ] && grep -q "does not yet publish application exports" /tmp/make-app.log && [ -f build/llvm-pie.elf ]; then
+            objcopy --localize-symbol=__wrap_getcwd --localize-symbol=__wrap_lstat build/llvm-pie.elf
+            timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat lstat getcwd realpath" \
+              APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
+              APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
+              make app > /tmp/make-app-retry.log 2>&1
+            rc=$?
+            cat /tmp/make-app-retry.log
+          fi
           if [ "$rc" -ne 0 ]; then
             cat /tmp/make-app.log
             echo "--- defined dynamic symbols in llvm-pie.elf, if it was produced (diagnostic) ---"
