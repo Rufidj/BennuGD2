@@ -391,10 +391,17 @@ jobs:
             -DOPENGL_glx_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DOPENGL_gl_LIBRARY="$PS5_GL_SDK/lib/libPS5OpenGL.a" \
             -DM_LIB="$PS5_PAYLOAD_SDK/target/lib/libc.a"
-          echo "--- is __PROSPERO__ actually defined for this exact compiler invocation? (diagnostic) ---"
-          echo "clang-18 resolved to: $(command -v clang-18)"
-          clang-18 --version
-          ../../../../cmake/Toolchains/ps5-cc.sh -D__PROSPERO__ -dM -E -c /dev/null 2>&1 | grep -c "define __PROSPERO__" || echo "0 (not defined!)"
+          echo "--- is __PROSPERO__ actually defined when preprocessing the real glew.c? (diagnostic) ---"
+          ../../../../cmake/Toolchains/ps5-cc.sh \
+            -DDLL_EXPORT -DGLEW_STATIC -DGL_GLEXT_PROTOTYPES=1 -DSDL_GPU_DISABLE_GLES -DSDL_GPU_USE_BUFFER_RESET -DSTBI_FAILURE_USERMSG -DUSE_REAL_PS5_OPENGL -D__PROSPERO__ -D__STATIC__ \
+            -I../../include -I../../src \
+            -I"$PS5_OPENGL_ROOT/native-app-boilerplate/vendor/sdl2-real/include/SDL2" \
+            -I"$PS5_GL_SDK/include" \
+            -I../../src/externals/glew -I../../src/externals/glew/GL \
+            -I../../src/externals/stb_image -I../../src/externals/stb_image_write \
+            -DGLEW_NO_GLU -D__PROSPERO__ -O3 -DNDEBUG -std=gnu99 -Wall -pedantic \
+            -dM -E -c ../../src/externals/glew/glew.c -o /tmp/glew.dm 2>&1 | tail -20
+          grep -c "define __PROSPERO__" /tmp/glew.dm || echo "0 (not defined!)"
           echo "--- end diagnostic ---"
           set +e
           make VERBOSE=1 -j1 > /tmp/sdlgpu-build.log 2>&1
