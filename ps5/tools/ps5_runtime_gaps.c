@@ -639,6 +639,10 @@ void arc4random_buf(void *buf, size_t n) {
  * this console) never does. Fail loudly instead of silently misresolving a hostname. */
 #include <sys/socket.h>
 #include <netdb.h>
+/* h_errno expands to (*__h_errno()) on this libc (same pattern as errno/__error() above), and
+ * nothing else in the link provides __h_errno() since nothing else here ever needed it. */
+static int ps5_h_errno_storage;
+int *__h_errno(void) { return &ps5_h_errno_storage; }
 struct hostent *gethostbyname(const char *name) { (void)name; h_errno = HOST_NOT_FOUND; return NULL; }
 int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen,
                 char *serv, size_t servlen, int flags) {
