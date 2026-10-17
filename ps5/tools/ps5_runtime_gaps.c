@@ -577,3 +577,71 @@ struct tm *gmtime_r(const time_t *timep, struct tm *r) {
 struct tm *localtime_r(const time_t *timep, struct tm *r) { return gmtime_r(timep, r); }   /* no timezone database on the console */
 
 int dladdr(const void *addr, void *info) { (void)addr; (void)info; return 0; }
+
+/* ---- libScePosixForWebKit.so's own private stubs for the six names below are the sole
+ * reason __wrap_getcwd/__wrap_lstat used to leak into the dynamic symbol table (ps5_paths.c's
+ * __wrap_<name> collides with that .so's identically-named __wrap_<name> export, and lld must
+ * keep a symbol dynamically visible whenever a needed .so defines the same name, breaking the
+ * native converter's "no application exports" check - no renaming avoids a same-name clash).
+ * Dropping libScePosixForWebKit.so as a needed library removes that clash, but FFmpeg's
+ * dependencies (OpenSSL/avformat's network protocol handlers) still reference these six names
+ * at link time even though local video playback - the only thing libmod_video exercises - never
+ * calls into any of them. Same category as the OpenSSL/iconv/lzma gaps above: real where cheap,
+ * a loud failure otherwise. */
+int isatty(int fd) { (void)fd; return 0; }   /* never a terminal on a PS5 title */
+
+#include <stdio.h>
+int mkstemp(char *name_template) {
+    size_t len = strlen(name_template);
+    if (len < 6 || strcmp(name_template + len - 6, "XXXXXX") != 0) { errno = EINVAL; return -1; }
+    static unsigned counter;
+    for (int tries = 0; tries < 1000; tries++) {
+        unsigned v = (unsigned)time(NULL) ^ (counter++ * 2654435761u);
+        for (int i = 0; i < 6; i++) {
+            static const char alnum[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            name_template[len - 6 + i] = alnum[(v >> (i * 5)) % 62];
+        }
+        int fd = open(name_template, O_RDWR | O_CREAT | O_EXCL, 0600);
+        if (fd >= 0) return fd;
+        if (errno != EEXIST) return -1;
+    }
+    errno = EEXIST;
+    return -1;
+}
+
+#include <ctype.h>
+char *strcasestr(const char *haystack, const char *needle) {
+    if (!*needle) return (char *)haystack;
+    for (; *haystack; haystack++) {
+        const char *h = haystack, *n = needle;
+        while (*h && *n && tolower((unsigned char)*h) == tolower((unsigned char)*n)) { h++; n++; }
+        if (!*n) return (char *)haystack;
+    }
+    return NULL;
+}
+
+/* arc4random_buf: only reached by OpenSSL's RNG seeding for network-protocol TLS, never by
+ * local video decode - but seed it with real entropy anyway (cheap and harmless) rather than
+ * a fixed stub, by mixing clock_gettime with an address (ASLR) and a free-running counter. */
+void arc4random_buf(void *buf, size_t n) {
+    static unsigned long long state;
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+    if (!state) state = (unsigned long long)ts.tv_nsec ^ (unsigned long long)(uintptr_t)&state;
+    unsigned char *p = (unsigned char *)buf;
+    for (size_t i = 0; i < n; i++) {
+        state ^= state << 13; state ^= state >> 7; state ^= state << 17;
+        p[i] = (unsigned char)(state ^ (unsigned long long)ts.tv_nsec >> (i % 8));
+    }
+}
+
+/* gethostbyname/getnameinfo: only FFmpeg's network protocol handlers (rtsp://, http://, ...)
+ * would call these - local video/audio file playback (the only thing libmod_video exercises on
+ * this console) never does. Fail loudly instead of silently misresolving a hostname. */
+#include <sys/socket.h>
+#include <netdb.h>
+struct hostent *gethostbyname(const char *name) { (void)name; h_errno = HOST_NOT_FOUND; return NULL; }
+int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, socklen_t hostlen,
+                char *serv, socklen_t servlen, int flags) {
+    (void)sa; (void)salen; (void)host; (void)hostlen; (void)serv; (void)servlen; (void)flags;
+    return EAI_NONAME;
+}

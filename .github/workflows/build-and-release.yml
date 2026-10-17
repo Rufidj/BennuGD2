@@ -522,10 +522,12 @@ jobs:
           # __wrap_getcwd"/"__wrap_lstat" colliding with ours, forcing lld to export our
           # own same-named symbols too, which the native converter then rejects - and a
           # converter-side patch to tolerate that crashed on hardware, see the "Clone
-          # native-app-boilerplate" step's comment). Removing the .so is the only avenue
-          # left; this run is DIAGNOSTIC ONLY - it's expected to fail and dump the full
-          # undefined-symbol list for whatever that .so was the sole provider of, so the
-          # stub list below can be filled in precisely before this is made to pass for real.
+          # native-app-boilerplate" step's comment). Dropping the .so removes the collision;
+          # the handful of other names it was the sole provider of (isatty, mkstemp,
+          # gethostbyname, getnameinfo, arc4random_buf, strcasestr - confirmed via a
+          # diagnostic run's "undefined symbol" list, all pulled in transitively by FFmpeg/
+          # OpenSSL, never reached by local video playback) are now stubbed in
+          # ps5/tools/ps5_runtime_gaps.c alongside its other libc gaps.
           rm -f "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libScePosixForWebKit.so"
           B=apps/bennugd2; G=$B/libs/bgdclean; F=$B/libs/ffmpeg
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
