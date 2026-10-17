@@ -534,6 +534,9 @@ jobs:
           rc=$?
           if [ "$rc" -ne 0 ]; then
             cat /tmp/make-app.log
+            echo "--- defined dynamic symbols in llvm-pie.elf, if it was produced (diagnostic) ---"
+            [ -f build/llvm-pie.elf ] && llvm-nm-18 -D --defined-only build/llvm-pie.elf
+            echo "--- end diagnostic ---"
             exit "$rc"
           fi
           ls -la dist/PPSA99999/eboot.bin
