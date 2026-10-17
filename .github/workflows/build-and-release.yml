@@ -320,22 +320,20 @@ jobs:
           done' tools/build.sh
           sed -i 's/--version-script "\$native\/app-symbols.map" \\$/"${wrap_options[@]}" --version-script "\$native\/app-symbols.map" \\/' tools/build.sh
           grep -n "wrap_options\|APP_WRAP_SYMBOLS" tools/build.sh
-          # getcwd/lstat (plain, no --wrap) still leak into the dynamic symbol table and the
-          # native converter's own host tool (tooling/native/sce_module_writer.cpp, rebuilt from
-          # source on every "make app" via build-host-tools.sh) rejects any such leftover
-          # dynamic symbol as "does not yet publish application exports" - confirmed via
-          # --trace-symbol that EVERY naming choice for these two names collides with some
-          # payload-SDK .so's own same-named export (libScePosixForWebKit.so's __wrap_getcwd/
-          # __wrap_lstat stubs, or plain getcwd/lstat from libSceLibcInternal.so/libkernel*.so),
-          # so lld keeps ours exported too for correct interposition - no renaming avoids it.
-          # The loop below (sce_module_writer.cpp:716-732) assumes every post-null dynamic
-          # symbol is an unresolved IMPORT needing a public-SDK stub provider; our own fully
-          # DEFINED overrides of these two libc names aren't imports at all, so just skip them
-          # instead of hard-failing - semantically correct and a no-op for every app that (like
-          # most) has zero such leftover exports in the first place.
+          # DIAGNOSTIC ONLY (reverted): a patch here that skipped getcwd/lstat from the
+          # imports-resolution loop let the build succeed, but it crashed on real hardware with
+          # SIGSYS at a near-entry RIP. Root cause found by reading further: dynamic_symbols[]
+          # and hash_names[] (the actual resolved-symbol table written into the eboot) are only
+          # populated from the "imports" vector (loop at line ~764), while the relocations that
+          # REFERENCE those same dynamic-symbol indices are copied verbatim from the ORIGINAL
+          # ELF's .rela.dyn (line ~781) with no such filtering - skipping an index from
+          # "imports" leaves its dynamic_symbols/hash_names slot all-zero while a relocation
+          # still points at it, so the loader resolves it to nothing and the first call through
+          # that GOT slot jumps to garbage. There is no cheap fix on the converter side; keep
+          # the stock "does not yet publish application exports" check intact (fail at build
+          # time, not crash on hardware) and solve this by removing the NAME COLLISION instead
+          # (see "remove libScePosixForWebKit.so" step below).
           grep -q 'require(symbol.undefined(), "native converter does not yet publish application exports");' tooling/native/sce_module_writer.cpp
-          sed -i 's/        require(symbol.undefined(), "native converter does not yet publish application exports");/        if (!symbol.undefined()) continue; \/* app-defined override of a shared-lib name (getcwd\/lstat); not an import to resolve. *\//' tooling/native/sce_module_writer.cpp
-          grep -n "app-defined override" tooling/native/sce_module_writer.cpp
 
       - name: Clone ps5-opengl (driver + SDL2 bridge recipe)
         run: git clone --depth 1 https://github.com/blackbearreloaded/ps5-opengl.git ps5-opengl-driver
@@ -522,11 +520,13 @@ jobs:
           # libScePosixForWebKit.so bundles its own __wrap_getcwd/__wrap_lstat stubs for
           # WebKit's internal use (--trace-symbol confirmed "shared definition of
           # __wrap_getcwd"/"__wrap_lstat" colliding with ours, forcing lld to export our
-          # own same-named symbols too, which the native converter then rejects). Removing
-          # the whole .so broke isatty/mkstemp/gethostbyname/getnameinfo/arc4random_buf/
-          # strcasestr/closedir/fnmatch/... which it also provides and something else needs.
-          # Fixed at the source instead: ps5_paths.c's getcwd()/lstat() are now plain strong
-          # functions, no --wrap involved, so there's no __wrap_<name> to collide with.
+          # own same-named symbols too, which the native converter then rejects - and a
+          # converter-side patch to tolerate that crashed on hardware, see the "Clone
+          # native-app-boilerplate" step's comment). Removing the .so is the only avenue
+          # left; this run is DIAGNOSTIC ONLY - it's expected to fail and dump the full
+          # undefined-symbol list for whatever that .so was the sole provider of, so the
+          # stub list below can be filled in precisely before this is made to pass for real.
+          rm -f "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libScePosixForWebKit.so"
           B=apps/bennugd2; G=$B/libs/bgdclean; F=$B/libs/ffmpeg
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
@@ -543,7 +543,7 @@ jobs:
           # (added afterwards, for the libcxx export leak) was never retried against the
           # original __real_malloc failure - restoring the full list to find out.
           set +e
-          timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat realpath" \
+          timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat realpath getcwd lstat" \
             APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
