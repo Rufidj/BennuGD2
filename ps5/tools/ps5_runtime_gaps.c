@@ -544,9 +544,9 @@ void globfree(glob_t *pglob) {
 int _setjmp(void *env) { (void)env; return 0; }
 void _longjmp(void *env, int val) { (void)env; (void)val; _Exit(134); }
 
-struct ps5_mmsghdr_stub;
-int sendmmsg(int s, void *msgvec, unsigned int vlen, int flags) { (void)s; (void)msgvec; (void)vlen; (void)flags; errno = ENOSYS; return -1; }
-int recvmmsg(int s, void *msgvec, unsigned int vlen, int flags, const void *timeout) { (void)s; (void)msgvec; (void)vlen; (void)flags; (void)timeout; errno = ENOSYS; return -1; }
+struct mmsghdr;
+ssize_t sendmmsg(int s, struct mmsghdr *msgvec, size_t vlen, int flags) { (void)s; (void)msgvec; (void)vlen; (void)flags; errno = ENOSYS; return -1; }
+ssize_t recvmmsg(int s, struct mmsghdr *msgvec, size_t vlen, int flags, const struct timespec *timeout) { (void)s; (void)msgvec; (void)vlen; (void)flags; (void)timeout; errno = ENOSYS; return -1; }
 
 char *nl_langinfo(int item) { (void)item; return (char *)"UTF-8"; }
 int ___mb_cur_max(void) { return 1; }
@@ -640,8 +640,8 @@ void arc4random_buf(void *buf, size_t n) {
 #include <sys/socket.h>
 #include <netdb.h>
 struct hostent *gethostbyname(const char *name) { (void)name; h_errno = HOST_NOT_FOUND; return NULL; }
-int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, socklen_t hostlen,
-                char *serv, socklen_t servlen, int flags) {
+int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen,
+                char *serv, size_t servlen, int flags) {
     (void)sa; (void)salen; (void)host; (void)hostlen; (void)serv; (void)servlen; (void)flags;
     return EAI_NONAME;
 }
