@@ -85,12 +85,19 @@ static int sbx_stat(const char *path, struct stat *sb) {
     return r;
 }
 int __wrap_stat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
-int __wrap_lstat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
+/* lstat (unlike stat) is NOT in APP_WRAP_SYMBOLS - libScePosixForWebKit.so bundles its own
+   __wrap_lstat/__wrap_getcwd stubs for WebKit's internal use, and lld keeps our own
+   same-named __wrap_<x> exported to resolve against that shared-library definition, which
+   the native converter then rejects as "does not yet publish application exports". A plain
+   strong "lstat"/"getcwd" definition (no --wrap involved) takes static-link precedence over
+   the various .so's own weak "lstat"/"getcwd" exports the same way "stat"/"realpath" already
+   do above/below - same effect, no colliding __wrap_ name to force an export. */
+int lstat(const char *path, struct stat *sb) { return sbx_stat(path, sb); }
 
 /* getcwd()/realpath() are refused by the sandbox; the working directory of a
    title is always /app0. */
 #include <stdlib.h>
-char *__wrap_getcwd(char *buf, size_t size) {
+char *getcwd(char *buf, size_t size) {
     static const char cwd[] = "/app0";
     if (!buf) {
         buf = (char *)malloc(size > sizeof cwd ? size : sizeof cwd);

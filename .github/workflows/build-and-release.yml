@@ -503,15 +503,14 @@ jobs:
           # boilerplate's own link step rejects a named archive that doesn't exist
           # ("invalid static archive"). Build this one release target's archive list inline
           # instead of reusing the shared script, with libmod_3d.a left out entirely.
-          # libScePosixForWebKit.so bundles its own __wrap_<name> stubs (access, getcwd,
-          # lstat, mmap, readlink, symlink, ...) for WebKit's internal use, built into a
-          # shared library from the SDK, not source we control. --trace-symbol confirmed it
-          # as the "shared definition of __wrap_getcwd"/"__wrap_lstat" colliding with ours -
-          # the only 2 of our own wrapped names that happen to overlap with its set. lld
-          # keeps a symbol exported when it also needs to resolve against a same-named
-          # shared-library definition. BennuGD2 has no WebKit/browser surface, so remove it
-          # from the payload SDK's lib dir entirely before it's auto-globbed into the link.
-          rm -f "$GITHUB_WORKSPACE/boilerplate/.deps/native/ps5-payload-sdk/target/lib/libScePosixForWebKit.so"
+          # libScePosixForWebKit.so bundles its own __wrap_getcwd/__wrap_lstat stubs for
+          # WebKit's internal use (--trace-symbol confirmed "shared definition of
+          # __wrap_getcwd"/"__wrap_lstat" colliding with ours, forcing lld to export our
+          # own same-named symbols too, which the native converter then rejects). Removing
+          # the whole .so broke isatty/mkstemp/gethostbyname/getnameinfo/arc4random_buf/
+          # strcasestr/closedir/fnmatch/... which it also provides and something else needs.
+          # Fixed at the source instead: ps5_paths.c's getcwd()/lstat() are now plain strong
+          # functions, no --wrap involved, so there's no __wrap_<name> to collide with.
           B=apps/bennugd2; G=$B/libs/bgdclean; F=$B/libs/ffmpeg
           INCLUDES="vendor/zlib-shim vendor/bennugd2-core-include vendor/bennugd2-bgdrtm vendor/bennugd2-bgdi vendor/bgd2-realgl-shims vendor/realgl-shims vendor/ps5-opengl-sdk/include vendor/sdl2-real/include/SDL2"
           DEFS="__PROSPERO__ __STATIC__ USE_REAL_PS5_OPENGL USE_SDL2_GPU"
@@ -528,7 +527,7 @@ jobs:
           # (added afterwards, for the libcxx export leak) was never retried against the
           # original __real_malloc failure - restoring the full list to find out.
           set +e
-          timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat lstat getcwd realpath" \
+          timeout 900 env APP_WRAP_SYMBOLS="malloc calloc realloc free posix_memalign malloc_usable_size fopen opendir gzopen open stat realpath" \
             APP_DEFINITIONS="$DEFS" APP_INCLUDE_PATHS="$INCLUDES" APP_STATIC_ARCHIVES="$ARCH" APP_SOURCE_DIR="$B/src" \
             APP_PARAM="apps/bennugd2-runtime/sce_sys/param.json" APP_SCE_SYS="apps/bennugd2-runtime/sce_sys" APP_ASSETS="" TITLE_ID="PPSA99999" APP_NAME="My BennuGD2 Game" USE_CCACHE=0 \
             make app > /tmp/make-app.log 2>&1
