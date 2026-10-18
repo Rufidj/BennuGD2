@@ -10,9 +10,16 @@ if(USE_SDL2_GPU)
     find_package(SDL_GPU REQUIRED)
 endif()
 
+# FreeType2 (TTF support, backported from PixTudio - SplinterGU/BennuGD2#6): not vendored
+# for the PS5 payload SDK, so it's required on every other target but skipped on PROSPERO
+# (g_font_ttf.c itself is swapped out for g_font_ttf_stub.c below).
+if(NOT PROSPERO)
+    find_package(Freetype REQUIRED)
+endif()
+
 add_definitions(-D__LIBBGFGX ${EXTRA_CFLAGS})
 
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/core/include ${CMAKE_SOURCE_DIR}/core/bgdrtm ${CMAKE_SOURCE_DIR}/modules/libsdlhandler ${CMAKE_SOURCE_DIR}/modules/libbggfx ${SDL_GPU_INCLUDE_DIR} ${INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/vendor/theoraplay)
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/core/include ${CMAKE_SOURCE_DIR}/core/bgdrtm ${CMAKE_SOURCE_DIR}/modules/libsdlhandler ${CMAKE_SOURCE_DIR}/modules/libbggfx ${SDL_GPU_INCLUDE_DIR} ${INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/vendor/theoraplay ${FREETYPE_INCLUDE_DIRS})
 
 if(PROSPERO)
     include_directories(${PS5_OPENGL_SDK_ROOT}/include)
@@ -22,6 +29,14 @@ file(GLOB SOURCES_LIBBGGFX
      "${CMAKE_SOURCE_DIR}/modules/libbggfx/*.c"
      "${CMAKE_SOURCE_DIR}/vendor/theoraplay/theoraplay.c"
      )
+
+# No FreeType2 on PROSPERO (see above) - swap the real TTF backend for the no-op stub,
+# same pattern as the Theora stub right below.
+if(PROSPERO)
+    list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_font_ttf.c")
+else()
+    list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_font_ttf_stub.c")
+endif()
 
 # Real Theora decoding needs libogg/libvorbis/libtheoradec; where they aren't available
 # (no system dev packages, e.g. mingw/Windows with nothing vendored) MEDIA_LOAD/MEDIA_PLAY
@@ -81,5 +96,5 @@ else()
             set(THEORA_LIBS ${THEORADEC_LIBRARY} ${VORBIS_LIBRARY} ${OGG_LIBRARY})
         endif()
     endif()
-    target_link_libraries(bggfx ${SDL2_LIBRARY} ${SDL2_LIBRARIES} ${SDL_GPU_LIBRARY} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ${THEORA_LIBS} sdlhandler)
+    target_link_libraries(bggfx ${SDL2_LIBRARY} ${SDL2_LIBRARIES} ${SDL_GPU_LIBRARY} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ${THEORA_LIBS} sdlhandler ${FREETYPE_LIBRARIES})
 endif()

@@ -173,6 +173,7 @@ enum {
 #include "g_frame.h"
 #include "g_wm.h"
 #include "g_font.h"
+#include "g_font_ttf.h"
 #include "g_text.h"
 #include "g_clear.h"
 #include "g_pixel.h"
