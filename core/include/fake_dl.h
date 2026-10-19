@@ -176,7 +176,7 @@ typedef struct __FAKE_DL
 
 /* ---------- FAKE DYNAMIC LIBRARY ---------- */
  
-__FAKE_DL __fake_dl[19];
+__FAKE_DL __fake_dl[20];
  
 /* ------------------------------------------ */
  
@@ -902,17 +902,27 @@ void fake_dl_init()
     __fake_dl[17].handler_hooks                = NULL;
 #endif
     __fake_dl[17].modules_dependency           = NULL;
+  
+    /* -------------------- webkit_test.so -------------------- */
  
-    /* -------------------- LAST -------------------- */
- 
-    __fake_dl[18].dlname                       = NULL;
+    __fake_dl[18].dlname                       = "webkit_test.so";
+#ifdef __BGDC__
     __fake_dl[18].constants_def                = NULL;
     __fake_dl[18].types_def                    = NULL;
     __fake_dl[18].globals_def                  = NULL;
     __fake_dl[18].locals_def                   = NULL;
     __fake_dl[18].globals_fixup                = NULL;
     __fake_dl[18].locals_fixup                 = NULL;
+#else
+    __fake_dl[18].constants_def                = NULL;
+    __fake_dl[18].types_def                    = NULL;
+    __fake_dl[18].globals_def                  = NULL;
+    __fake_dl[18].locals_def                   = NULL;
+    __fake_dl[18].globals_fixup                = NULL;
+    __fake_dl[18].locals_fixup                 = NULL;
+#endif
     __fake_dl[18].functions_exports            = NULL;
+#ifdef __BGDC__
     __fake_dl[18].module_initialize            = NULL;
     __fake_dl[18].module_finalize              = NULL;
     __fake_dl[18].instance_create_hook         = NULL;
@@ -921,7 +931,37 @@ void fake_dl_init()
     __fake_dl[18].instance_pos_execute_hook    = NULL;
     __fake_dl[18].process_exec_hook            = NULL;
     __fake_dl[18].handler_hooks                = NULL;
+#else
+    __fake_dl[18].module_initialize            = NULL;
+    __fake_dl[18].module_finalize              = NULL;
+    __fake_dl[18].instance_create_hook         = NULL;
+    __fake_dl[18].instance_destroy_hook        = NULL;
+    __fake_dl[18].instance_pre_execute_hook    = NULL;
+    __fake_dl[18].instance_pos_execute_hook    = NULL;
+    __fake_dl[18].process_exec_hook            = NULL;
+    __fake_dl[18].handler_hooks                = NULL;
+#endif
     __fake_dl[18].modules_dependency           = NULL;
+ 
+    /* -------------------- LAST -------------------- */
+ 
+    __fake_dl[19].dlname                       = NULL;
+    __fake_dl[19].constants_def                = NULL;
+    __fake_dl[19].types_def                    = NULL;
+    __fake_dl[19].globals_def                  = NULL;
+    __fake_dl[19].locals_def                   = NULL;
+    __fake_dl[19].globals_fixup                = NULL;
+    __fake_dl[19].locals_fixup                 = NULL;
+    __fake_dl[19].functions_exports            = NULL;
+    __fake_dl[19].module_initialize            = NULL;
+    __fake_dl[19].module_finalize              = NULL;
+    __fake_dl[19].instance_create_hook         = NULL;
+    __fake_dl[19].instance_destroy_hook        = NULL;
+    __fake_dl[19].instance_pre_execute_hook    = NULL;
+    __fake_dl[19].instance_pos_execute_hook    = NULL;
+    __fake_dl[19].process_exec_hook            = NULL;
+    __fake_dl[19].handler_hooks                = NULL;
+    __fake_dl[19].modules_dependency           = NULL;
  
 }
  
