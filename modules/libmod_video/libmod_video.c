@@ -1016,13 +1016,18 @@ static void audio_switch_track( VIDEO * v, int newstream ) {
     SDL_UnlockMutex( v->mx );
 }
 
-int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
-    const char * path = ( const char * ) string_get( params[0] );
+static int64_t video_open_internal( const char * path, const char * headers ) {
     g_open_t0 = SDL_GetTicks();
-    vtrace( "video_open: %.100s", path );
+    {   /* el usuario y la clave no se escriben en la traza */
+        char shown[160]; char * at; char * sc;
+        snprintf( shown, sizeof shown, "%s", path ? path : "" );
+        at = strchr( shown, '@' ); sc = strstr( shown, "://" );
+        if ( at && sc && at > sc ) memmove( sc + 3, at + 1, strlen( at + 1 ) + 1 );
+        vtrace( "video_open: %.100s", shown );
+    }
     int h;
     for ( h = 1; h <= MAX_VIDEOS; h++ ) if ( !g_vid[h].used ) break;
-    if ( h > MAX_VIDEOS ) { string_discard( params[0] ); fprintf( stderr, "VIDEO_OPEN: too many open videos\n" ); return 0; }
+    if ( h > MAX_VIDEOS ) { fprintf( stderr, "VIDEO_OPEN: too many open videos\n" ); return 0; }
 
     VIDEO * v = &g_vid[h];
     memset( v, 0, sizeof( *v ) );
@@ -1048,6 +1053,7 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
         }
         v->fmt = avformat_alloc_context();
         if ( v->fmt ) { v->fmt->interrupt_callback.callback = vid_interrupt; v->fmt->interrupt_callback.opaque = v; }
+        if ( headers && headers[0] ) av_dict_set( &nopts, "headers", headers, 0 );   /* cuenta de una lista (Authorization, Cookie...) */
         int orc = avformat_open_input( &v->fmt, path, NULL, &nopts );
         av_dict_free( &nopts );
         if ( orc < 0 ) { fprintf( stderr, "VIDEO_OPEN: cannot open %s\n", path ); goto fail; }
@@ -1260,13 +1266,30 @@ after_video:
 #endif
     if ( !v->thr ) goto fail;
 
-    string_discard( params[0] );
     return h;
 
 fail:
-    string_discard( params[0] );
     vid_free( v );
     return 0;
+}
+
+/* VIDEO_OPEN(path): opens a video (the headers are not needed) */
+int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
+    const char * path = ( const char * ) string_get( params[0] );
+    int64_t r = video_open_internal( path, "" );
+    string_discard( params[0] );
+    return r;
+}
+
+/* VIDEO_OPEN_H(path, headers): opens a video sending extra headers ("Cabecera: valor\r\n"),
+   needed by the lists that ask for an account (Authorization, Cookie...) */
+int64_t libmod_video_open_h( INSTANCE * my, int64_t * params ) {
+    const char * path = ( const char * ) string_get( params[0] );
+    const char * hdr = ( const char * ) string_get( params[1] );
+    int64_t r = video_open_internal( path, hdr ? hdr : "" );
+    string_discard( params[0] );
+    string_discard( params[1] );
+    return r;
 }
 
 /* VIDEO_USE_GPU(enable): colour conversion on the GPU for videos opened afterwards (default 1) */

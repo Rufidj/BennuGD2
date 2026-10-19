@@ -10,6 +10,7 @@
 
 DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "VIDEO_OPEN"        , "S"   , TYPE_INT, libmod_video_open        ),
+    FUNC( "VIDEO_OPEN_H"      , "SS"  , TYPE_INT, libmod_video_open_h      ),
     FUNC( "VIDEO_GRAPH"       , "I"   , TYPE_INT, libmod_video_graph       ),
     FUNC( "VIDEO_PLAY"        , "II"  , TYPE_INT, libmod_video_play        ),
     FUNC( "VIDEO_PAUSE"       , "II"  , TYPE_INT, libmod_video_pause       ),
