@@ -204,7 +204,10 @@ void gr_set_caption( char * title ) {
 /* --------------------------------------------------------------------------- */
 
 #ifdef __PROSPERO__
-#define GVID_DBG(msg) do { FILE *_gvid_log = fopen("/app0/data/bgdi_boot.log", "ab"); if (_gvid_log) { fprintf(_gvid_log, "GVID: " msg "\n"); fclose(_gvid_log); } } while(0)
+/* /data instead of /app0/data: the pkg's /app0/data is read-only (dr-xr-xr-x),
+   so these marks never reached a file there; /data is writable from a
+   sandboxed title and survives a crash. */
+#define GVID_DBG(msg) do { FILE *_gvid_log = fopen("/data/bgdi_boot.log", "ab"); if (_gvid_log) { fprintf(_gvid_log, "GVID: " msg "\n"); fclose(_gvid_log); } } while(0)
 #else
 #define GVID_DBG(msg)
 #endif

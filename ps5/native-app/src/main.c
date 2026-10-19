@@ -60,6 +60,13 @@
 #endif
 #if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
 #include "SDL.h"
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#endif
+#if defined(__PROSPERO__)
+#include <fcntl.h>   /* open() - declaration (not just under USE_REAL_PS5_OPENGL) */
+#include <errno.h>   /* errno/strerror for the jailbreak-write diagnostics */
 #endif
 
 #include "bgdi.h"
@@ -261,7 +268,6 @@ static void *ps5_flusher( void *arg ) { (void) arg; while ( !ps5_flusher_quit ) 
 
 int main( int argc, char *argv[] ) {
 
-
 #if defined(__PROSPERO__) && !defined(USE_REAL_PS5_OPENGL)
     /* Must run before anything can call fprintf(stderr,...)/fflush(stdout)/
      * etc. This custom crt1_ps5.o does not run .init_array, so this can't be
@@ -275,15 +281,143 @@ int main( int argc, char *argv[] ) {
 #endif
 
 #if defined( __PROSPERO__ )
-    /* lapy_jb_daemon polls /mnt/sandbox/<TID>_<NNN>/app0/data/jailbreak_request
-     * (accessible from outside the sandbox via /mnt/sandbox/<TID>/app0/data/).
-     * We write our PID there; daemon detects it and bumps ucred/authid/caps. */
+/* Jailbreak on-demand via lapy_jb_daemon.elf (v1.2, ArkSama). El log se
+   mantiene ABIERTO toda la vida del proceso (el fd sigue valiendo tras el
+   cambio de raiz) y vive en /data: es escribible con y sin sandbox y
+   SOBREVIVE a la retirada del sandbox tras un crash (/download0 muere con
+   el sandbox). /app0/data es solo lectura en el pkg, por eso ahi no se
+   escribia nada nunca. */
+static FILE *ps5_probe_log = NULL;
+extern char ps5_app_base[256];        /* base conmutable de rutas (ps5_paths.c) */
+#define PLOG( ... ) do { if ( ps5_probe_log ) { fprintf( ps5_probe_log, __VA_ARGS__ ); fflush( ps5_probe_log ); } } while ( 0 )
+#endif
+#if defined( __PROSPERO__ )
     {
-        FILE * pidf = fopen( "/app0/data/jailbreak_request", "w" );
-        if ( pidf ) {
-            fprintf( pidf, "%d\n", (int)getpid() );
-            fclose( pidf );
+        // 1. PID del proceso actual
+        int my_pid = (int)getpid();
+
+        /* El daemon v1.2 (ArkSama/PS5-Lapy-JB-Daemon, source/main.cpp) parsea
+         * el contenido como JSON: strstr(buf, "\"PID\"") busca "PID" ENTRE
+         * COMILLAS -> ':' -> salta espacios/comillas -> atoi(). El unlink() es
+         * SIEMPRE, parseado o no: que el archivo "desaparezca" no acredita
+         * nada. Formato valido: {"PID":"<pid>"} (por eso fallaban 4 bytes
+         * binarios, "152\n" y "PID:167\n"). */
+        ps5_probe_log = fopen( "/data/bgdi_probe.log", "ab" );
+        if ( !ps5_probe_log ) ps5_probe_log = fopen( "/download0/bgdi_probe.log", "ab" );
+        PLOG( "\n=== pid=%d\n", my_pid );
+
+        /* TID del titulo desde /app0/sce_sys/param.json. Hace falta para
+         * encontrar el sandbox real tras el escape: dentro del sandbox no
+         * se ve /mnt/sandbox y opendir() esta rechazado (SIGSYS). Clave
+         * directa "titleId":"PPSA00090"; si no esta, del contentId
+         * "UP9000-PPSA00090_000-..." extraemos "PPSA00090". */
+        char tid[ 32 ] = "";
+        {
+            FILE *pf = fopen( "/app0/sce_sys/param.json", "rb" );
+            if ( !pf ) {
+                PLOG( "param.json: fopen errno=%d (%s)\n", errno, strerror( errno ) );
+            } else {
+                char js[ 65536 ];
+                size_t n = fread( js, 1, sizeof( js ) - 1, pf );
+                fclose( pf );
+                js[ n ] = 0;
+                const char *c = strstr( js, "\"titleId\"" );
+                if ( c && ( c = strchr( c + 9, ':' ) ) != NULL && ( c = strchr( c, '"' ) ) != NULL ) {
+                    c++;
+                    const char *e = strchr( c, '"' );
+                    size_t L = e ? (size_t)( e - c ) : strlen( c );
+                    if ( L >= sizeof( tid ) ) L = sizeof( tid ) - 1;
+                    memcpy( tid, c, L ); tid[ L ] = 0;
+                }
+                if ( !tid[ 0 ] && ( c = strstr( js, "\"contentId\"" ) ) != NULL &&
+                     ( c = strchr( c + 11, '-' ) ) != NULL ) {
+                    c++;
+                    const char *e = strchr( c, '-' );
+                    size_t L = e ? (size_t)( e - c ) : strlen( c );
+                    if ( L >= 4 && c[ L - 4 ] == '_' ) L -= 4;   /* quitar "_000" */
+                    if ( L >= sizeof( tid ) ) L = sizeof( tid ) - 1;
+                    memcpy( tid, c, L ); tid[ L ] = 0;
+                }
+                PLOG( "param.json: %zu bytes, TID=%s\n", n, tid[ 0 ] ? tid : "?" );
+            }
         }
+
+        /* Peticion al daemon con descriptores nativos:
+         * O_WRONLY | O_CREAT | O_TRUNC. Ruta unica: dentro de la app lo
+         * autentico es /download0/ (las variantes relativas no aportan). */
+        char pidbuf[ 64 ];
+        int pidlen = snprintf( pidbuf, sizeof( pidbuf ), "{\"PID\":\"%d\"}\n", my_pid );
+        int fdj = open( "/download0/etahen_jailbreak", 0x0001 | 0x0200 | 0x0400, 0777 );
+        if ( fdj >= 0 ) {
+            ssize_t w = write( fdj, pidbuf, (size_t) pidlen );
+            close( fdj );
+            PLOG( "peticion %s", ( w == (ssize_t) pidlen ) ? "escrita OK\n" : "write FALLO\n" );
+        } else {
+            PLOG( "open(etahen_jailbreak) errno=%d (%s)\n", errno, strerror( errno ) );
+        }
+
+        /* Espera activa al daemon: su ciclo es de 250 ms y en cuanto el
+         * parcheo cuaja /system pasa a abrir (sondeo directo cada 50 ms: la
+         * fuente de verdad; el unlink del daemon no acredita nada y varia
+         * entre versiones). Con daemon se detecta en ~250-350 ms. SIN daemon
+         * (usuarios que no lo usen: otro exploit, etaHen, nada) la ventana
+         * completa son ~500 ms y la app sigue en modo sandbox, su
+         * funcionamiento normal. */
+        int unsandboxed = 0;
+        for ( int i = 0; i < 10 && !unsandboxed; i++ ) {
+            usleep( 50000 );
+            int fs = open( "/system", 0 /* O_RDONLY */, 0 );
+            if ( fs >= 0 ) { close( fs ); unsandboxed = 1; }
+        }
+        PLOG( "tras espera: uid=%d euid=%d unsandboxed=%d\n",
+              (int) getuid(), (int) geteuid(), unsandboxed );
+
+        /* Comprobacion del resultado: Hijacker::jailbreak() parchea ucred
+         * (uid->root, caps, authid) y cambia la raiz del proceso al root
+         * vnode REAL, observable sin depender de sceNotificationSend(): el
+         * root real tiene /system (verificado por FTP) y el sandbox no. */
+        if ( !unsandboxed ) {
+            /* Sin daemon: vaciar la peticion la deja inofensiva. Un daemon
+             * que arranque mas tarde hara unlink sin parsear nada (su
+             * comportamiento ante un archivo vacio) y nunca parcheara a
+             * media partida una app cuya base de rutas ya no se va a
+             * re-mapear — si lo hiciera, /app0 desapareceria y las cargas
+             * posteriores darian ENOENT. O_WRONLY|O_TRUNC: solo syscalls que
+             * ya sabemos funcionar en el sandbox. */
+            int fz = open( "/download0/etahen_jailbreak",
+                           0x0001 | 0x0400 /* O_WRONLY | O_TRUNC */, 0777 );
+            if ( fz >= 0 ) close( fz );
+            PLOG( "sigue sandboxeado; peticion vaciada\n" );
+        } else {
+            int found = 0;
+            /* /app0 YA NO EXISTE en la raiz nueva: todo lo que el motor abra
+             * ("/app0/data/game.dcb" y los recursos via los wrappers de
+             * ps5_paths.c) daria ENOENT. El contenido sigue en
+             * /mnt/sandbox/<TID>_<NNN>/app0: lo localizamos con open()
+             * (opendir() sigue rechazado) y cambiamos la base de rutas del
+             * motor para que todo siga resolviendo. */
+            if ( tid[ 0 ] ) {
+                for ( int n = 0; n < 10 && !found; n++ ) {
+                    char cand[ 128 ], dcb[ 160 ];
+                    snprintf( cand, sizeof( cand ), "/mnt/sandbox/%s_%03d/app0", tid, n );
+                    snprintf( dcb, sizeof( dcb ), "%s/data/game.dcb", cand );
+                    int f = open( dcb, 0, 0 );
+                    if ( f >= 0 ) {
+                        close( f );
+                        found = 1;
+                        snprintf( ps5_app_base, sizeof( ps5_app_base ), "%s", cand );
+                    }
+                }
+            }
+            if ( !found ) {
+                /* fallback de este titulo si param.json no se pudo leer */
+                snprintf( ps5_app_base, sizeof( ps5_app_base ), "/mnt/sandbox/%s_000/app0",
+                          tid[ 0 ] ? tid : "PPSA00090" );
+            }
+            PLOG( "UNSBOXED: ps5_app_base=%s (%s)\n", ps5_app_base,
+                  found ? "verificado con open()" : "fallback sin verificar" );
+        }
+        /* El log NO se cierra: el fd sigue valiendo tras el cambio de raiz. */
     }
 #endif
 
@@ -419,6 +553,9 @@ int main( int argc, char *argv[] ) {
      * /app0 - see this project's other PS5 test titles (e.g. the libc
      * catalog test's /app0/data/libc_catalog.txt log path). */
     filename = "/app0/data/game.dcb";
+    /* Con la base ya re-mapeada, fopen("/app0/data/game.dcb") resuelve en
+     * /mnt/sandbox/<TID>_<NNN>/app0/data/game.dcb automaticamente. */
+    PLOG( "antes de dcb_load: filename=%s ps5_app_base=%s\n", filename, ps5_app_base );
 #elif defined ( __SWITCH__ ) || defined ( PS3_PPU ) || defined( __ANDROID__ )
     filename = "game.dcb";
 #endif
@@ -459,6 +596,19 @@ int main( int argc, char *argv[] ) {
                 fprintf( stderr, MSG_DCB_ERROR "\n", filename, DCB_VERSION >> 8 ) ;
 #ifdef __ANDROID__
                 __android_log_print(ANDROID_LOG_INFO, LOG_TAG, MSG_DCB_ERROR, filename, DCB_VERSION >> 8);
+#endif
+#ifdef __PROSPERO__
+                /* NUNCA hacer return de main en Prospero: el syscall de
+                 * salida del proceso está rechazado (SIGSYS 12, el crash que
+                 * se ve en la consola). Pedir al sistema que cierre el titulo. */
+                PLOG( "dcb_load FALLO con filename=%s ps5_app_base=%s -> salida segura\n",
+                      filename, ps5_app_base );
+                fflush( stderr );
+                {
+                    extern int sceSystemServiceLoadExec( const char * path, const char ** arguments );
+                    sceSystemServiceLoadExec( "exit", NULL );
+                }
+                for ( ;; ) usleep( 1000000 );
 #endif
                 return -1 ;
             }
@@ -516,14 +666,17 @@ int main( int argc, char *argv[] ) {
      * DCB can make (it has zero imports) can show anything on screen, so
      * this is the only way to tell "the interpreter loop ran a real
      * instance to completion" from "the title never got that far". */
-    FILE *bootlog = fopen( "/app0/data/bgdi_boot.log", "ab" );
+    /* /data en vez de /app0/data: ese directorio es solo lectura en el pkg
+       (todos estos fopen() fallaban en silencio) y /data sobrevive a la
+       retirada del sandbox tras un crash. */
+    FILE *bootlog = fopen( "/data/bgdi_boot.log", "ab" );
     if ( bootlog ) { fprintf( bootlog, "dcb loaded, NImports=%lld, mainproc=%p\n", (long long) dcb.data.NImports, (void *) mainproc ); fflush( bootlog ); }
 #endif
 
 
 #if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
-    freopen( "/app0/data/stderr.log", "a", stderr );
-    freopen( "/app0/data/stdout.log", "a", stdout );
+    freopen( "/data/stderr.log", "a", stderr );
+    freopen( "/data/stdout.log", "a", stdout );
     /* Each write to a log file on this console costs ~60 ms (measured), so an
        unbuffered stdout turned engine startup logging into ~40 s of waiting.
        Keep stdout fully buffered and flush it from a thread every 2 s. */
@@ -538,12 +691,15 @@ int main( int argc, char *argv[] ) {
     }
 #endif
 #if defined(__PROSPERO__) && defined(USE_REAL_PS5_OPENGL)
-#define PLOG(...) do { FILE *_pl = fopen( "/app0/data/bgdi_boot.log", "ab" ); if ( _pl ) { fprintf( _pl, __VA_ARGS__ ); fclose( _pl ); } } while ( 0 )
+/* OJO: nombre distinto de PLOG (el de arriba, que escribe en el log del
+   jailbreak mantenido abierto): redefinir PLOG aqui seria un choque de
+   macros. BOOTLOG abre/cierra su propio archivo en cada marca. */
+#define BOOTLOG(...) do { FILE *_pl = fopen( "/data/bgdi_boot.log", "ab" ); if ( _pl ) { fprintf( _pl, __VA_ARGS__ ); fclose( _pl ); } } while ( 0 )
     {
         extern void GPU_SetInitWindow( Uint32 windowID );
         extern SDL_GLContext gpu_ps5_shared_gl_context;
         int vok = SDL_Init( SDL_INIT_VIDEO );
-        PLOG( "EARLY init=%d err=[%s]\n", vok, SDL_GetError() );
+        BOOTLOG( "EARLY init=%d err=[%s]\n", vok, SDL_GetError() );
         SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
         SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
         SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
@@ -554,22 +710,22 @@ int main( int argc, char *argv[] ) {
         SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 8 );
         SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
         SDL_Window *ew = SDL_CreateWindow( "", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1920, 1080, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN );
-        PLOG( "EARLY window=%p err=[%s]\n", (void *) ew, SDL_GetError() );
+        BOOTLOG( "EARLY window=%p err=[%s]\n", (void *) ew, SDL_GetError() );
         if ( ew ) {
             gpu_ps5_shared_gl_context = SDL_GL_CreateContext( ew );
-            PLOG( "EARLY ctx=%p err=[%s]\n", (void *) gpu_ps5_shared_gl_context, SDL_GetError() );
+            BOOTLOG( "EARLY ctx=%p err=[%s]\n", (void *) gpu_ps5_shared_gl_context, SDL_GetError() );
             if ( gpu_ps5_shared_gl_context ) GPU_SetInitWindow( SDL_GetWindowID( ew ) );
         }
     }
-#undef PLOG
+#undef BOOTLOG
 #endif
 
     bgdrtm_entry( argc, argv );
-    { FILE *g = fopen( "/app0/data/bgdi_boot.log", "ab" ); if ( g ) { fprintf( g, "after bgdrtm_entry, mainproc=%p\n", (void *) mainproc ); fclose( g ); } }
+    { FILE *g = fopen( "/data/bgdi_boot.log", "ab" ); if ( g ) { fprintf( g, "after bgdrtm_entry, mainproc=%p\n", (void *) mainproc ); fclose( g ); } }
 
     if ( mainproc ) {
         ( void ) instance_new( mainproc, NULL ) ;
-        { FILE *g = fopen( "/app0/data/bgdi_boot.log", "ab" ); if ( g ) { fprintf( g, "instance_new ok, entering instance_go_all\n" ); fclose( g ); } }
+        { FILE *g = fopen( "/data/bgdi_boot.log", "ab" ); if ( g ) { fprintf( g, "instance_new ok, entering instance_go_all\n" ); fclose( g ); } }
         ret = instance_go_all() ;
     }
 
@@ -577,7 +733,7 @@ int main( int argc, char *argv[] ) {
     if ( bootlog ) { fprintf( bootlog, "instance_go_all() returned %d\n", ret ); fclose( bootlog ); }
 #endif
 
-    #define EXITMARK(t) do { FILE *_x = fopen( "/app0/data/exit_marks.log", "ab" ); if ( _x ) { fprintf( _x, "%s\n", t ); fclose( _x ); } } while ( 0 )
+    #define EXITMARK(t) do { FILE *_x = fopen( "/data/exit_marks.log", "ab" ); if ( _x ) { fprintf( _x, "%s\n", t ); fclose( _x ); } } while ( 0 )
     EXITMARK( "A: instance_go_all returned, calling bgdrtm_exit" );
     bgdrtm_exit();
     EXITMARK( "B: bgdrtm_exit returned" );

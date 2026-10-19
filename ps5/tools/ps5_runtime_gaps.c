@@ -208,7 +208,9 @@ static int ps5_resolve_one(const char *curdir, const char *comp, char *out, size
 
 /* ---- Directory listing fallbacks (opendir() on /app0 is refused with EPERM
    by this sandbox, even for directories that exist). Tried in order, each
-   attempt logged to /app0/data/paths.log so the working one is visible:
+   attempt optionally logged to /data/paths.log so the working one is visible
+   (dormant unless /data/paths.trace exists: each log write costs ~60 ms on
+   this console, and every listing retries the whole fallback chain):
    1. open()+fdopendir() on the /app0 path
    2. the title's real directory /data/homebrew/<TITLEID>/<dir> (title id read
       from /app0/sce_sys/param.json)
@@ -217,7 +219,12 @@ static int ps5_resolve_one(const char *curdir, const char *comp, char *out, size
 #include <fcntl.h>
 #include <stdarg.h>
 static void ps5_plog(const char *fmt, ...) {
-    FILE *g = fopen("/app0/data/paths.log", "ab");
+    /* /data is writable sandboxed and unsandboxed and survives crashes;
+       /app0/data is read-only in the pkg, so this used to write nowhere. */
+    FILE *m = fopen("/data/paths.trace", "rb");
+    if (!m) return;
+    fclose(m);
+    FILE *g = fopen("/data/paths.log", "ab");
     if (!g) return;
     va_list ap; va_start(ap, fmt); vfprintf(g, fmt, ap); va_end(ap);
     fclose(g);
