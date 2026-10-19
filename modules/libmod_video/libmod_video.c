@@ -144,6 +144,8 @@ typedef struct {
     /* wall clock fallback / pause bookkeeping */
     double          clk_base;          /* media time at clk_t0                  */
     Uint32          clk_t0;
+    double          clk_a;             /* last audio playout time (clock)       */
+    Uint32          clk_a_t0;          /* SDL ticks when clk_a was taken        */
     double          last_time;         /* last media time reported              */
 
     /* subtitles (text only: SRT / ASS / SSA / WebVTT / mov_text), guarded by mx */
@@ -212,13 +214,23 @@ static double vid_clock( VIDEO * v ) {
             return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0;
         double queued = ( double ) v->an / ( double ) ( v->a_rate * v->a_ch * v->a_bps );
         double t = v->a_pts_end - queued;
-        return t < 0 ? 0 : t;
+        if ( t < 0 ) t = 0;
+        if ( v->playing && !v->paused ) {
+            /* the audio ring ran dry (underrun, e.g. its track starts late or the demuxer is fetching
+               the next segment): keep time from the last playout instant instead of freezing here.
+               A frozen clock stalls the picture forever, because the decode thread is parked on a
+               full video queue and that queue only drains when this clock advances. */
+            if ( queued <= 0.0 )
+                return v->clk_a + ( SDL_GetTicks() - v->clk_a_t0 ) / 1000.0;
+            v->clk_a = t; v->clk_a_t0 = SDL_GetTicks();
+        }
+        return t;
     }
     if ( !v->playing || v->paused ) return v->clk_base;
     return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0;
 }
 
-static void vid_clock_freeze( VIDEO * v ) { v->clk_base = vid_clock( v ); v->clk_t0 = SDL_GetTicks(); }
+static void vid_clock_freeze( VIDEO * v ) { v->clk_base = vid_clock( v ); v->clk_t0 = SDL_GetTicks(); v->clk_a = v->clk_base; v->clk_a_t0 = v->clk_t0; }
 
 /* ---- audio output (SDL_mixer music hook) ------------------------------- */
 
@@ -556,7 +568,7 @@ static int vq_reserve( VIDEO * v ) {                      /* free slot, or -1 (q
 static void vclock_align( VIDEO * v, double pts ) {
     if ( v->vpts_init ) return;
     v->vpts_init = 1;
-    if ( !v->a_got && v->clk_base + 0.5 < pts ) { v->clk_base = pts; v->clk_t0 = SDL_GetTicks(); }
+    if ( !v->a_got && v->clk_base + 0.5 < pts ) { v->clk_base = pts; v->clk_t0 = SDL_GetTicks(); v->clk_a = pts; v->clk_a_t0 = v->clk_t0; }
 }
 static void vq_commit( VIDEO * v, int slot, double pts ) {
     v->vq[slot].pts = pts;
@@ -793,7 +805,7 @@ static int decode_thread( void * arg ) {
             SDL_LockMutex( v->mx );
             vq_clear( v );
             v->eof = 0; v->finished = 0; v->a_pts_end = to; v->a_got = 0; v->vpts_init = 0;
-            v->clk_base = to; v->clk_t0 = SDL_GetTicks();
+            v->clk_base = to; v->clk_t0 = SDL_GetTicks(); v->clk_a = to; v->clk_a_t0 = v->clk_t0;
             v->shown_first = 0;
             SDL_UnlockMutex( v->mx );
             continue;
@@ -832,9 +844,7 @@ static int decode_thread( void * arg ) {
         if ( pkt->stream_index == v->vstream && v->hw && !v->hw_fail ) {
             hw_feed( v, pkt );
         } else if ( pkt->stream_index == v->vstream && v->vctx ) {
-            int sr = avcodec_send_packet( v->vctx, pkt );
-            if ( sr >= 0 ) drain_decoder( v, v->vctx, 1 );
-
+            if ( avcodec_send_packet( v->vctx, pkt ) >= 0 ) drain_decoder( v, v->vctx, 1 );
         } else if ( pkt->stream_index == v->astream && v->actx && v->has_audio ) {
             if ( avcodec_send_packet( v->actx, pkt ) >= 0 ) drain_decoder( v, v->actx, 0 );
         } else {
@@ -1076,7 +1086,7 @@ int64_t libmod_video_open( INSTANCE * my, int64_t * params ) {
     if ( v->vctx->pix_fmt == AV_PIX_FMT_NONE || v->vctx->width <= 0 ) { fprintf( stderr, "VIDEO_OPEN: no picture format in %s (no video data found while probing)\n", path ); goto fail; }
     v->w = v->vctx->width; v->h = v->vctx->height;
     v->vtb = av_q2d( v->fmt->streams[v->vstream]->time_base );
-    { int64_t st = v->fmt->streams[v->vstream]->start_time; v->vstart = st != AV_NOPTS_VALUE ? st * v->vtb : 0; if ( v->vstart < 0 ) v->vstart = 0; v->clk_base = v->vstart; }
+    { int64_t st = v->fmt->streams[v->vstream]->start_time; v->vstart = st != AV_NOPTS_VALUE ? st * v->vtb : 0; if ( v->vstart < 0 ) v->vstart = 0; v->clk_base = v->vstart; v->clk_a = v->vstart; v->clk_a_t0 = SDL_GetTicks(); }
     v->duration = v->fmt->duration > 0 ? v->fmt->duration / ( double ) AV_TIME_BASE : 0;
 
     /* colour conversion on the GPU: 8-bit 4:2:0 from libavcodec, or NV12 / 16-bit NV12 from the console's decoder */
