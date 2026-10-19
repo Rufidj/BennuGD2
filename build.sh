@@ -2,7 +2,8 @@
 
 show_help() {
     echo "usage:"
-    echo "    $0 [windows|windows32|linux|linux32|switch|macosx|ps3] [debug] [clean] [packages] [use_sdl2|use_sdl2_gpu] [verbose] [static] [one-job]"
+    echo "    $0 [windows|windows32|linux|linux32|switch|macosx|ps3|ps5] [debug] [clean] [packages] [use_sdl2|use_sdl2_gpu] [verbose] [static] [one-job]"
+    echo "    ps5: set PS5_TITLE_ID, PS5_TITLE_NAME, PS5_SCE_SYS (+ PS5_DCB, PS5_ASSETS, PS5_OUT) to also build the eboot and the title folder"
     exit 1
 }
 
@@ -492,13 +493,28 @@ build_target() {
     if grep -q "CMAKE_GENERATOR:INTERNAL=Ninja" CMakeCache.txt; then
         ninja
     elif grep -q "CMAKE_GENERATOR:INTERNAL=Unix Makefiles" CMakeCache.txt; then
-        if [ $ONE_JOB -eq 0 ]; then
-            make -j
-        else
-            make
+        MAKE_TARGETS=""
+        if [ "$TARGET" = "x86_64-sie-ps5" ]; then
+            # PS5: the engine is a set of static archives that native-app-boilerplate links into the eboot;
+            # the stand-alone bgdi executable cannot link here (no libc of its own), so only the archives are built
+            AVAILABLE_TARGETS="$(make help)"
+            for t in bgdrtm bggfx bginput bgload bgsound mod_3d mod_ads mod_debug mod_gfx mod_iap mod_input mod_misc mod_net mod_sound mod_video sdlhandler; do
+                echo "$AVAILABLE_TARGETS" | grep -q "^\.\.\. $t\$" && MAKE_TARGETS="$MAKE_TARGETS $t"
+            done
         fi
+        if [ $ONE_JOB -eq 0 ]; then
+            make -j $MAKE_TARGETS
+        else
+            make $MAKE_TARGETS
+        fi
+        MAKE_RC=$?
     fi
     cd -
+
+    # PS5: with PS5_TITLE_ID set, also build the eboot and assemble the title folder (see ps5/tools/package-title.sh)
+    if [ "$TARGET" = "x86_64-sie-ps5" ] && [ -n "$PS5_TITLE_ID" ] && [ "${MAKE_RC:-0}" -eq 0 ]; then
+        ps5/tools/package-title.sh || exit 1
+    fi
 
 }
 

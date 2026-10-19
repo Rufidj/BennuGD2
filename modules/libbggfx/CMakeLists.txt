@@ -15,6 +15,13 @@ endif()
 # (g_font_ttf.c itself is swapped out for g_font_ttf_stub.c below).
 if(NOT PROSPERO)
     find_package(Freetype REQUIRED)
+elseif(PS5_PACBREW_PREFIX AND EXISTS "${PS5_PACBREW_PREFIX}/lib/libfreetype.a" AND EXISTS "${PS5_PACBREW_PREFIX}/include/freetype2/ft2build.h")
+    # PS5: the PacBrew sysroot ships a static FreeType (it links with libpng16, bz2 and zlib, which the title
+    # archive list in ps5/tools/build-title.sh already carries) - use the real TTF backend instead of the stub
+    set(FREETYPE_INCLUDE_DIRS "${PS5_PACBREW_PREFIX}/include/freetype2")
+    set(FREETYPE_LIBRARIES "${PS5_PACBREW_PREFIX}/lib/libfreetype.a")
+    set(PS5_HAVE_FREETYPE ON)
+    message(STATUS "libbggfx: PS5 FreeType found in ${PS5_PACBREW_PREFIX}")
 endif()
 
 add_definitions(-D__LIBBGFGX ${EXTRA_CFLAGS})
@@ -32,7 +39,7 @@ file(GLOB SOURCES_LIBBGGFX
 
 # No FreeType2 on PROSPERO (see above) - swap the real TTF backend for the no-op stub,
 # same pattern as the Theora stub right below.
-if(PROSPERO)
+if(PROSPERO AND NOT PS5_HAVE_FREETYPE)
     list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_font_ttf.c")
 else()
     list(REMOVE_ITEM SOURCES_LIBBGGFX "${CMAKE_SOURCE_DIR}/modules/libbggfx/g_font_ttf_stub.c")
