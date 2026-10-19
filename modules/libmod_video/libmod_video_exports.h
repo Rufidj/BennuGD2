@@ -35,6 +35,22 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "VIDEO_SUBTITLE_LOAD"  , "IS" , TYPE_INT   , libmod_video_subtitle_load   ),
     FUNC( "VIDEO_SUBTITLE_TEXT"  , "I"  , TYPE_STRING, libmod_video_subtitle_text   ),
 
+    FUNC( "VIDEO_AUDIO_TRACKS"   , "I"  , TYPE_INT   , libmod_video_audio_tracks    ),
+    FUNC( "VIDEO_AUDIO_LANG"     , "II" , TYPE_STRING, libmod_video_audio_lang      ),
+    FUNC( "VIDEO_AUDIO_SELECT"   , "II" , TYPE_INT   , libmod_video_audio_select    ),
+
+    FUNC( "VIDEO_IS_AUDIO_ONLY"  , "I"  , TYPE_INT   , libmod_video_is_audio_only  ),
+    FUNC( "VIDEO_SPECTRUM"       , "II" , TYPE_INT   , libmod_video_spectrum        ),
+    FUNC( "VIDEO_WAVE"           , "II" , TYPE_INT   , libmod_video_wave            ),
+
+    FUNC( "HTTP_FETCH"           , "SSSS", TYPE_INT   , libmod_video_http_fetch     ),
+    FUNC( "HTTP_LENGTH"          , ""   , TYPE_INT   , libmod_video_http_length    ),
+    FUNC( "HTTP_READ"            , "PI" , TYPE_INT   , libmod_video_http_read      ),
+    FUNC( "HTTP_SAVE"            , "S"  , TYPE_INT   , libmod_video_http_save      ),
+    FUNC( "HTTP_WRITE"           , "SS" , TYPE_INT   , libmod_video_http_write     ),
+    FUNC( "HTTP_TRACE"           , "S"  , TYPE_INT   , libmod_video_http_trace     ),
+    FUNC( "HTTP_ERROR"           , ""   , TYPE_STRING, libmod_video_http_error     ),
+
     FUNC( 0                   , 0     , 0       , 0                        )
 };
 

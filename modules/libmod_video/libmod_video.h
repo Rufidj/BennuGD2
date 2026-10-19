@@ -30,6 +30,22 @@
  *    VIDEO_SUBTITLE_SELECT(handle, track)    -> select a track, -1 turns subtitles off (off by default)
  *    VIDEO_SUBTITLE_LOAD(handle, file)       -> load an external subtitle file as a new track (selected)
  *    VIDEO_SUBTITLE_TEXT(handle)             -> text to show right now ("" when none), lines joined by \n
+ *
+ *  Audio tracks (multiple language tracks in the same file). Switching re-opens the audio
+ *  decoder/resampler and may be heard as a brief gap; the video keeps playing.
+ *    VIDEO_AUDIO_TRACKS(handle)              -> number of audio tracks
+ *    HTTP_FETCH(url, headers, method, body) -> status (200 ok, 400/401/403/404/500 http errors, 0 = no connection; see HTTP_ERROR())
+ *    HTTP_LENGTH() -> bytes of the answer; HTTP_READ(pointer, max) -> copies them; HTTP_ERROR() -> text of the last failure
+ *    HTTP_WRITE(path, text) -> 1 if the text was written to that file
+ *    HTTP_SAVE(path) -> 1 if the last answer was written to that file
+ *    (http:// and https://, redirects followed, 15 s timeouts; headers = "Name: value\r\n" lines)
+ *    VIDEO_AUDIO_LANG(handle, track)         -> "eng", "eng - Title", ... ("" if unknown)
+ *    VIDEO_AUDIO_SELECT(handle, track)       -> switch to that track
+ *
+ *  Music: files with no picture open as audio-only (VIDEO_GRAPH is then a 1x1 graph). For visualisers:
+ *    VIDEO_IS_AUDIO_ONLY(handle)             -> 1 if there is no video stream
+ *    VIDEO_SPECTRUM(handle, band)            -> 0..255 level of band 0..31 (40 Hz - 16 kHz, log spaced); 0 when paused
+ *    VIDEO_WAVE(handle, i)                   -> -128..127 waveform sample, i = 0..255
  */
 #ifndef __LIBMOD_VIDEO_H
 #define __LIBMOD_VIDEO_H
@@ -37,6 +53,9 @@
 #include "bgddl.h"
 #include <stdint.h>
 
+extern int64_t libmod_video_spectrum( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_wave( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_is_audio_only( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_open( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_graph( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_play( INSTANCE * my, int64_t * params );
@@ -62,5 +81,16 @@ extern int64_t libmod_video_subtitle_lang( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_subtitle_select( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_subtitle_load( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_subtitle_text( INSTANCE * my, int64_t * params );
+
+extern int64_t libmod_video_audio_tracks( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_audio_lang( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_length( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_read( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_error( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_save( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_write( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_trace( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_audio_select( INSTANCE * my, int64_t * params );
 
 #endif
