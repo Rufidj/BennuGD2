@@ -1232,7 +1232,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
             }
             if ( !v->hw && g_fake_hw && ( fmt8 || fmt10 ) ) { v->fake_hw = 1; v->hwmode = fmt10 ? 2 : 1; }
             if ( v->hw || v->fake_hw ) v->gpu = 1;
-            else if ( g_use_gpu && fmt8 ) { v->gpu = 1; v->hwmode = 0; }
+            else if ( !v->hwkind && g_use_gpu && fmt8 ) { v->gpu = 1; v->hwmode = 0; }
         }
     }
     if ( v->gpu ) {
