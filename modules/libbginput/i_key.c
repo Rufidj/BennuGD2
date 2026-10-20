@@ -82,6 +82,8 @@ static key_equiv sdlkey_table[SDL_NUM_SCANCODES+1]; /* SDL to key code */
 
 static int64_t equivs[] = {
     SDL_SCANCODE_ESCAPE,        1,
+    /* el boton de atras del sistema es la tecla ESC (es lo que espera el juego) */
+    SDL_SCANCODE_AC_BACK,        1,
     SDL_SCANCODE_1,             2,
     SDL_SCANCODE_KP_1,          2,
     SDL_SCANCODE_2,             3,
