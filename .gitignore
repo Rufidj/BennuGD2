@@ -28,3 +28,6 @@ android_projects/*/build/
 android_projects/*/.gradle/
 android_projects/*/app/build/
 android_projects/*/app/.cxx/
+
+# dependencias de Android: se descargan y compilan con build-android-deps.sh
+vendor/android/

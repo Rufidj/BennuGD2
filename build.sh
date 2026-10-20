@@ -320,6 +320,11 @@ build_target() {
                     -DSDL2_IMAGE_LIBRARY=$PREFIX_JNI/lib/libSDL2_image.so \
                     -DSDL2_MIXER_INCLUDE_DIR=$PREFIX_JNI/include/SDL2 \
                     -DSDLMIXER_LIBRARY=$PREFIX_JNI/lib/libSDL2_mixer.so \
+                    -DFREETYPE_INCLUDE_DIRS=$PREFIX_JNI/include/freetype2 \
+                    -DFREETYPE_LIBRARY=$PREFIX_JNI/lib/libfreetype.so \
+                    -DFFMPEG_INCLUDE_DIRS=$PREFIX_JNI/include \
+                    -DFFMPEG_LIBRARIES=$PREFIX_JNI/lib/libavformat.so;$PREFIX_JNI/lib/libavcodec.so;$PREFIX_JNI/lib/libavutil.so;$PREFIX_JNI/lib/libswscale.so;$PREFIX_JNI/lib/libswresample.so \
+                    -DSKIP_MODULES=libmod_3d \
                     -DBUILD_TARGET=interpreter"
                 ;;
 
@@ -338,6 +343,11 @@ build_target() {
                     -DSDL2_IMAGE_LIBRARY=$PREFIX_JNI/lib/libSDL2_image.so \
                     -DSDL2_MIXER_INCLUDE_DIR=$PREFIX_JNI/include/SDL2 \
                     -DSDLMIXER_LIBRARY=$PREFIX_JNI/lib/libSDL2_mixer.so \
+                    -DFREETYPE_INCLUDE_DIRS=$PREFIX_JNI/include/freetype2 \
+                    -DFREETYPE_LIBRARY=$PREFIX_JNI/lib/libfreetype.so \
+                    -DFFMPEG_INCLUDE_DIRS=$PREFIX_JNI/include \
+                    -DFFMPEG_LIBRARIES=$PREFIX_JNI/lib/libavformat.so;$PREFIX_JNI/lib/libavcodec.so;$PREFIX_JNI/lib/libavutil.so;$PREFIX_JNI/lib/libswscale.so;$PREFIX_JNI/lib/libswresample.so \
+                    -DSKIP_MODULES=libmod_3d \
                     -DBUILD_TARGET=interpreter"
                 ;;
 
@@ -356,6 +366,11 @@ build_target() {
                     -DSDL2_IMAGE_LIBRARY=$PREFIX_JNI/lib/libSDL2_image.so \
                     -DSDL2_MIXER_INCLUDE_DIR=$PREFIX_JNI/include/SDL2 \
                     -DSDLMIXER_LIBRARY=$PREFIX_JNI/lib/libSDL2_mixer.so \
+                    -DFREETYPE_INCLUDE_DIRS=$PREFIX_JNI/include/freetype2 \
+                    -DFREETYPE_LIBRARY=$PREFIX_JNI/lib/libfreetype.so \
+                    -DFFMPEG_INCLUDE_DIRS=$PREFIX_JNI/include \
+                    -DFFMPEG_LIBRARIES=$PREFIX_JNI/lib/libavformat.so;$PREFIX_JNI/lib/libavcodec.so;$PREFIX_JNI/lib/libavutil.so;$PREFIX_JNI/lib/libswscale.so;$PREFIX_JNI/lib/libswresample.so \
+                    -DSKIP_MODULES=libmod_3d \
                     -DBUILD_TARGET=interpreter"
                 ;;
 
@@ -374,6 +389,11 @@ build_target() {
                     -DSDL2_IMAGE_LIBRARY=$PREFIX_JNI/lib/libSDL2_image.so \
                     -DSDL2_MIXER_INCLUDE_DIR=$PREFIX_JNI/include/SDL2 \
                     -DSDLMIXER_LIBRARY=$PREFIX_JNI/lib/libSDL2_mixer.so \
+                    -DFREETYPE_INCLUDE_DIRS=$PREFIX_JNI/include/freetype2 \
+                    -DFREETYPE_LIBRARY=$PREFIX_JNI/lib/libfreetype.so \
+                    -DFFMPEG_INCLUDE_DIRS=$PREFIX_JNI/include \
+                    -DFFMPEG_LIBRARIES=$PREFIX_JNI/lib/libavformat.so;$PREFIX_JNI/lib/libavcodec.so;$PREFIX_JNI/lib/libavutil.so;$PREFIX_JNI/lib/libswscale.so;$PREFIX_JNI/lib/libswresample.so \
+                    -DSKIP_MODULES=libmod_3d \
                     -DBUILD_TARGET=interpreter"
                 ;;
 

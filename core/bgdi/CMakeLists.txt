@@ -110,14 +110,16 @@ if(ANDROID)
 
     include_directories(${SDL2_INCLUDE_DIR} ${SDL2_INCLUDE_DIRS})
 
-    add_definitions(-D__ANDROID__ -DUSE_GLES2)
+    add_definitions(-D__ANDROID__ -DUSE_GLES2)   # el main() de la app (SDL2) y el del motor no pueden llamarse igual
     include_directories(${CMAKE_SOURCE_DIR}/vendor/android/include)
     set(ANDROID_PATH_LIB -L${CMAKE_SOURCE_DIR}/vendor/android/lib)
     set(OGL_LIB GLESv1_CM GLESv2 OpenSLES log android)
 
-    add_library(main SHARED ${SOURCES})
+    # el nombre es "bgdi" y no "main": la libreria nativa de la app (la que lleva el
+    # pegamento JNI del SDL2) se llama libmain.so y su punto de entrada es SDL_main
+    add_library(bgdi SHARED ${SOURCES})
     list(APPEND OTHER_LIBS log)
-    target_link_libraries(main  ${SDL2_LIBRARY} ${SDL2_LIBRARIES} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ${EXTRA_LIBS} ${OTHER_LIBS})
+    target_link_libraries(bgdi  ${SDL2_LIBRARY} ${SDL2_LIBRARIES} -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${OGL_LIB} ${STDLIBSFLAGS} ${ANDROID_PATH_LIB} ${EXTRA_LIBS} ${OTHER_LIBS})
 else()
     add_executable(bgdi ${SOURCES})
     target_link_libraries(bgdi -L${CMAKE_SOURCE_DIR}/bin bgdrtm ${EXTRA_LIBS} ${OTHER_LIBS})

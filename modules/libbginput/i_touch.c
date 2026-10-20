@@ -37,6 +37,14 @@
 #endif
 
 #include "bgddl.h"
+/* SDL 2.32 quito el evento de "dedo cancelado" (SDL_FINGERCANCEL): se trata como el dedo soltado */
+#if SDL_VERSION_ATLEAST(2, 32, 0)
+#define TOUCH_CANCEL_EVENT SDL_FINGERUP
+#define TOUCH_LAST_EVENT SDL_FINGERMOTION
+#else
+#define TOUCH_CANCEL_EVENT SDL_FINGERCANCEL
+#define TOUCH_LAST_EVENT SDL_FINGERCANCEL
+#endif
 #include "dlvaracc.h"
 
 #include "libbggfx.h"
@@ -98,7 +106,7 @@ void process_touch_events() {
 
     /* NOTE: TOUCH ONLY IN ANDROID AT THIS MOMENT !!!*/
     /* Touch events */
-    while ( SDL_PeepEvents( &e, 1, SDL_GETEVENT, SDL_FINGERDOWN, SDL_FINGERCANCEL ) > 0 ) {
+    while ( SDL_PeepEvents( &e, 1, SDL_GETEVENT, SDL_FINGERDOWN, TOUCH_LAST_EVENT ) > 0 ) {
         switch ( e.type ) {
             case SDL_FINGERDOWN: {
                 if ( e.tfinger.touchId == SDL_MOUSE_TOUCHID) break;
@@ -151,7 +159,8 @@ void process_touch_events() {
                 break;
             }
 
-            case SDL_FINGERCANCEL: {
+#if !SDL_VERSION_ATLEAST(2, 32, 0)
+            case TOUCH_CANCEL_EVENT: {
                 if ( e.tfinger.touchId == SDL_MOUSE_TOUCHID) break;
                 SDL_TouchID id = e.tfinger.touchId;
                 for (int i = 0; i < MAX_TOUCHES; i++) {
@@ -164,6 +173,7 @@ void process_touch_events() {
                 }
                 break;
             }
+#endif
         }
     }
 #endif
@@ -175,7 +185,7 @@ void touch_init() {
 #ifdef __ANDROID__
     if ( SDL_GetNumTouchDevices() > 0 ) {
         touches = (TouchPoint *)GLOADDR( libbginput, TOUCHES );
-        if (touches) enableSDLEventRange(SDL_FINGERDOWN, SDL_FINGERCANCEL);
+        if (touches) enableSDLEventRange(SDL_FINGERDOWN, TOUCH_LAST_EVENT);
         //SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
         //SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
     }

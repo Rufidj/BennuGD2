@@ -53,6 +53,8 @@
 #include "jni.h"
 #include <android/log.h>
 #define LOG_TAG "bgdi-native"
+#undef main                       /* el SDL2 convierte main en SDL_main, que es el punto de entrada de la app */
+#define main bgdi_main
 #endif
 
 #if defined(__PROSPERO__) && !defined(USE_REAL_PS5_OPENGL)
