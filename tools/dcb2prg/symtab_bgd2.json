@@ -1,0 +1,9547 @@
+{
+ "constants": {
+  "ADS_BANNER_POS_BOTTOM": {
+   "module": "libmod_ads",
+   "value": "1"
+  },
+  "ADS_BANNER_POS_TOP": {
+   "module": "libmod_ads",
+   "value": "0"
+  },
+  "ADS_EVENT_CONSENT_ERROR": {
+   "module": "libmod_ads",
+   "value": "7"
+  },
+  "ADS_EVENT_CONSENT_FORM_DISMISSED": {
+   "module": "libmod_ads",
+   "value": "8"
+  },
+  "ADS_EVENT_CONSENT_FORM_ERROR": {
+   "module": "libmod_ads",
+   "value": "9"
+  },
+  "ADS_EVENT_CONSENT_READY": {
+   "module": "libmod_ads",
+   "value": "6"
+  },
+  "ADS_EVENT_INTERSTITIAL_CLOSED": {
+   "module": "libmod_ads",
+   "value": "1"
+  },
+  "ADS_EVENT_NONE": {
+   "module": "libmod_ads",
+   "value": "0"
+  },
+  "ADS_EVENT_REWARDED_CLOSED": {
+   "module": "libmod_ads",
+   "value": "4"
+  },
+  "ADS_EVENT_REWARDED_EARNED": {
+   "module": "libmod_ads",
+   "value": "5"
+  },
+  "ADS_EVENT_REWARDED_LOADED": {
+   "module": "libmod_ads",
+   "value": "2"
+  },
+  "ADS_EVENT_REWARDED_SHOW_FAILED": {
+   "module": "libmod_ads",
+   "value": "3"
+  },
+  "ALIGN_BOTTOM": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_BOTTOM"
+  },
+  "ALIGN_BOTTOM_LEFT": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_BOTTOM_LEFT"
+  },
+  "ALIGN_BOTTOM_RIGHT": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_BOTTOM_RIGHT"
+  },
+  "ALIGN_CENTER": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_CENTER"
+  },
+  "ALIGN_CENTER_LEFT": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_CENTER_LEFT"
+  },
+  "ALIGN_CENTER_RIGHT": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_CENTER_RIGHT"
+  },
+  "ALIGN_TOP": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_TOP"
+  },
+  "ALIGN_TOP_LEFT": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_TOP_LEFT"
+  },
+  "ALIGN_TOP_RIGHT": {
+   "module": "libmod_gfx",
+   "value": "ALIGN_TOP_RIGHT"
+  },
+  "ALL_PROCESS": {
+   "module": "libmod_misc",
+   "value": "ALL_PROCESS"
+  },
+  "ALL_SOUND": {
+   "module": "libmod_sound",
+   "value": "-1"
+  },
+  "ALL_TEXT": {
+   "module": "libmod_gfx",
+   "value": "0"
+  },
+  "ATTRIBUTE_FLOAT": {
+   "module": "libmod_gfx",
+   "value": "ATTRIBUTE_FLOAT"
+  },
+  "ATTRIBUTE_FLOAT_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "ATTRIBUTE_FLOAT_ARRAY"
+  },
+  "ATTRIBUTE_INT": {
+   "module": "libmod_gfx",
+   "value": "ATTRIBUTE_INT"
+  },
+  "ATTRIBUTE_INT_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "ATTRIBUTE_INT_ARRAY"
+  },
+  "ATTRIBUTE_UINT": {
+   "module": "libmod_gfx",
+   "value": "ATTRIBUTE_UINT"
+  },
+  "ATTRIBUTE_UINT_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "ATTRIBUTE_UINT_ARRAY"
+  },
+  "BLEND_ADD": {
+   "module": "libbggfx",
+   "value": "BLEND_ADD"
+  },
+  "BLEND_ALPHA_MASK": {
+   "module": "libbggfx",
+   "value": "BLEND_ALPHA_MASK"
+  },
+  "BLEND_CUSTOM": {
+   "module": "libbggfx",
+   "value": "BLEND_CUSTOM"
+  },
+  "BLEND_DISABLED": {
+   "module": "libbggfx",
+   "value": "BLEND_DISABLED"
+  },
+  "BLEND_MOD_ALPHA": {
+   "module": "libbggfx",
+   "value": "BLEND_MOD_ALPHA"
+  },
+  "BLEND_MULTIPLY": {
+   "module": "libbggfx",
+   "value": "BLEND_MULTIPLY"
+  },
+  "BLEND_NONE": {
+   "module": "libbggfx",
+   "value": "BLEND_NONE"
+  },
+  "BLEND_NORMAL": {
+   "module": "libbggfx",
+   "value": "BLEND_NORMAL"
+  },
+  "BLEND_NORMAL_ADD_ALPHA": {
+   "module": "libbggfx",
+   "value": "BLEND_NORMAL_ADD_ALPHA"
+  },
+  "BLEND_NORMAL_FACTOR_ALPHA": {
+   "module": "libbggfx",
+   "value": "BLEND_NORMAL_FACTOR_ALPHA"
+  },
+  "BLEND_NORMAL_KEEP_ALPHA": {
+   "module": "libbggfx",
+   "value": "BLEND_NORMAL_KEEP_ALPHA"
+  },
+  "BLEND_PREMULTIPLIED_ALPHA": {
+   "module": "libbggfx",
+   "value": "BLEND_PREMULTIPLIED_ALPHA"
+  },
+  "BLEND_SET": {
+   "module": "libbggfx",
+   "value": "BLEND_SET"
+  },
+  "BLEND_SET_ALPHA": {
+   "module": "libbggfx",
+   "value": "BLEND_SET_ALPHA"
+  },
+  "BLEND_SUBTRACT": {
+   "module": "libbggfx",
+   "value": "BLEND_SUBTRACT"
+  },
+  "B_ABLEND": {
+   "module": "libbggfx",
+   "value": "B_ABLEND"
+  },
+  "B_CLEAR": {
+   "module": "libmod_gfx",
+   "value": "B_CLEAR"
+  },
+  "B_HMIRROR": {
+   "module": "libbggfx",
+   "value": "B_HMIRROR"
+  },
+  "B_NOCOLORKEY": {
+   "module": "libbggfx",
+   "value": "B_NOCOLORKEY"
+  },
+  "B_SBLEND": {
+   "module": "libbggfx",
+   "value": "B_SBLEND"
+  },
+  "B_TRANSLUCENT": {
+   "module": "libbggfx",
+   "value": "B_TRANSLUCENT"
+  },
+  "B_VMIRROR": {
+   "module": "libbggfx",
+   "value": "B_VMIRROR"
+  },
+  "C3D_CAMERA": {
+   "module": "libmod_3d",
+   "value": "3"
+  },
+  "C3D_ENTITY": {
+   "module": "libmod_3d",
+   "value": "1"
+  },
+  "C3D_LIGHT": {
+   "module": "libmod_3d",
+   "value": "2"
+  },
+  "C3D_SCATTER": {
+   "module": "libmod_3d",
+   "value": "4"
+  },
+  "C3D_WATER": {
+   "module": "libmod_3d",
+   "value": "5"
+  },
+  "CHARSET_CP850": {
+   "module": "libmod_gfx",
+   "value": "CHARSET_CP850"
+  },
+  "CHARSET_ISO8859": {
+   "module": "libmod_gfx",
+   "value": "CHARSET_ISO8859"
+  },
+  "CPOINT_UNDEFINED": {
+   "module": "libbggfx",
+   "value": "CPOINT_UNDEFINED"
+  },
+  "CRYPT_3DES": {
+   "module": "libmod_misc",
+   "value": "CRYPT_3DES"
+  },
+  "CRYPT_DES": {
+   "module": "libmod_misc",
+   "value": "CRYPT_DES"
+  },
+  "CRYPT_NONE": {
+   "module": "libmod_misc",
+   "value": "CRYPT_NONE"
+  },
+  "C_3D": {
+   "module": "libmod_3d",
+   "value": "C_3D"
+  },
+  "C_SCREEN": {
+   "module": "libbggfx",
+   "value": "C_SCREEN"
+  },
+  "C_SCROLL": {
+   "module": "libbggfx",
+   "value": "C_SCROLL"
+  },
+  "G3D_LIGHT_DIRECTIONAL": {
+   "module": "libmod_3d",
+   "value": "0"
+  },
+  "G3D_LIGHT_POINT": {
+   "module": "libmod_3d",
+   "value": "1"
+  },
+  "G3D_LIGHT_SPOT": {
+   "module": "libmod_3d",
+   "value": "2"
+  },
+  "GL_CONSTANT_ALPHA": {
+   "module": "libbggfx",
+   "value": "0x8003"
+  },
+  "GL_CONSTANT_COLOR": {
+   "module": "libbggfx",
+   "value": "0x8001"
+  },
+  "GL_DST_ALPHA": {
+   "module": "libbggfx",
+   "value": "0x0304"
+  },
+  "GL_DST_COLOR": {
+   "module": "libbggfx",
+   "value": "0x0306"
+  },
+  "GL_FUNC_ADD": {
+   "module": "libbggfx",
+   "value": "0x8006"
+  },
+  "GL_FUNC_REVERSE_SUBTRACT": {
+   "module": "libbggfx",
+   "value": "0x800B"
+  },
+  "GL_FUNC_SUBTRACT": {
+   "module": "libbggfx",
+   "value": "0x800A"
+  },
+  "GL_MAX": {
+   "module": "libbggfx",
+   "value": "0x8008"
+  },
+  "GL_MIN": {
+   "module": "libbggfx",
+   "value": "0x8007"
+  },
+  "GL_ONE": {
+   "module": "libbggfx",
+   "value": "1"
+  },
+  "GL_ONE_MINUS_CONSTANT_ALPHA": {
+   "module": "libbggfx",
+   "value": "0x8004"
+  },
+  "GL_ONE_MINUS_CONSTANT_COLOR": {
+   "module": "libbggfx",
+   "value": "0x8002"
+  },
+  "GL_ONE_MINUS_DST_ALPHA": {
+   "module": "libbggfx",
+   "value": "0x0305"
+  },
+  "GL_ONE_MINUS_DST_COLOR": {
+   "module": "libbggfx",
+   "value": "0x0307"
+  },
+  "GL_ONE_MINUS_SRC_ALPHA": {
+   "module": "libbggfx",
+   "value": "0x0303"
+  },
+  "GL_ONE_MINUS_SRC_COLOR": {
+   "module": "libbggfx",
+   "value": "0x0301"
+  },
+  "GL_SRC_ALPHA": {
+   "module": "libbggfx",
+   "value": "0x0302"
+  },
+  "GL_SRC_ALPHA_SATURATE": {
+   "module": "libbggfx",
+   "value": "0x0308"
+  },
+  "GL_SRC_COLOR": {
+   "module": "libbggfx",
+   "value": "0x0300"
+  },
+  "GL_ZERO": {
+   "module": "libbggfx",
+   "value": "0"
+  },
+  "GRAPH_AVERAGE_SIZE": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_CIRCLE_GRAPH_AVERAGE_SIZE"
+  },
+  "GRAPH_HEIGHT": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_CIRCLE_GRAPH_HEIGHT"
+  },
+  "GRAPH_MAX_SIZE": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_CIRCLE_GRAPH_MAX_SIZE"
+  },
+  "GRAPH_MIN_SIZE": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_CIRCLE_GRAPH_MIN_SIZE"
+  },
+  "GRAPH_SIZE": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_CIRCLE_GRAPH_SIZE"
+  },
+  "GRAPH_WIDTH": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_CIRCLE_GRAPH_WIDTH"
+  },
+  "G_CENTER_X": {
+   "module": "libmod_gfx",
+   "value": "G_CENTER_X"
+  },
+  "G_CENTER_Y": {
+   "module": "libmod_gfx",
+   "value": "G_CENTER_Y"
+  },
+  "G_DEPTH": {
+   "module": "libmod_gfx",
+   "value": "G_DEPTH"
+  },
+  "G_HEIGHT": {
+   "module": "libmod_gfx",
+   "value": "G_HEIGHT"
+  },
+  "G_PITCH": {
+   "module": "libmod_gfx",
+   "value": "G_PITCH"
+  },
+  "G_WIDE": {
+   "module": "libmod_gfx",
+   "value": "G_WIDE"
+  },
+  "G_WIDTH": {
+   "module": "libmod_gfx",
+   "value": "G_WIDTH"
+  },
+  "G_X_CENTER": {
+   "module": "libmod_gfx",
+   "value": "G_X_CENTER"
+  },
+  "G_Y_CENTER": {
+   "module": "libmod_gfx",
+   "value": "G_Y_CENTER"
+  },
+  "IAP_EVENT_CONSUME_FAIL": {
+   "module": "libmod_iap",
+   "value": "7"
+  },
+  "IAP_EVENT_CONSUME_OK": {
+   "module": "libmod_iap",
+   "value": "6"
+  },
+  "IAP_EVENT_NONE": {
+   "module": "libmod_iap",
+   "value": "0"
+  },
+  "IAP_EVENT_PURCHASE_CANCEL": {
+   "module": "libmod_iap",
+   "value": "4"
+  },
+  "IAP_EVENT_PURCHASE_FAIL": {
+   "module": "libmod_iap",
+   "value": "5"
+  },
+  "IAP_EVENT_PURCHASE_OK": {
+   "module": "libmod_iap",
+   "value": "3"
+  },
+  "IAP_EVENT_SETUP_FAIL": {
+   "module": "libmod_iap",
+   "value": "2"
+  },
+  "IAP_EVENT_SETUP_OK": {
+   "module": "libmod_iap",
+   "value": "1"
+  },
+  "MEDIA_STATUS_ENDED": {
+   "module": "libmod_gfx",
+   "value": "MEDIA_STATUS_ENDED"
+  },
+  "MEDIA_STATUS_ERROR": {
+   "module": "libmod_gfx",
+   "value": "MEDIA_STATUS_ERROR"
+  },
+  "MEDIA_STATUS_PAUSED": {
+   "module": "libmod_gfx",
+   "value": "MEDIA_STATUS_PAUSED"
+  },
+  "MEDIA_STATUS_PLAYING": {
+   "module": "libmod_gfx",
+   "value": "MEDIA_STATUS_PLAYING"
+  },
+  "MEDIA_STATUS_STOPPED": {
+   "module": "libmod_gfx",
+   "value": "MEDIA_STATUS_STOPPED"
+  },
+  "MIX_FADING_IN": {
+   "module": "libmod_sound",
+   "value": "MIX_FADING_IN"
+  },
+  "MIX_FADING_OUT": {
+   "module": "libmod_sound",
+   "value": "MIX_FADING_OUT"
+  },
+  "MIX_NO_FADING": {
+   "module": "libmod_sound",
+   "value": "MIX_NO_FADING"
+  },
+  "MODE_FRAMELESS": {
+   "module": "libbggfx",
+   "value": "MODE_FRAMELESS"
+  },
+  "MODE_FULLSCREEN": {
+   "module": "libbggfx",
+   "value": "MODE_FULLSCREEN"
+  },
+  "MODE_GRAB_INPUT": {
+   "module": "libbggfx",
+   "value": "MODE_GRAB_INPUT"
+  },
+  "MODE_MODAL": {
+   "module": "libbggfx",
+   "value": "MODE_GRAB_INPUT"
+  },
+  "MODE_MONO": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_MONO"
+  },
+  "MODE_STEREO": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_STEREO"
+  },
+  "MODE_STEREO_2_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_STEREO_2_1"
+  },
+  "MODE_SURROUND_4_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_SURROUND_4_1"
+  },
+  "MODE_SURROUND_5_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_SURROUND_5_1"
+  },
+  "MODE_SURROUND_7_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_SURROUND_7_1"
+  },
+  "MODE_WAITVSYNC": {
+   "module": "libbggfx",
+   "value": "MODE_WAITVSYNC"
+  },
+  "MODE_WINDOW": {
+   "module": "libbggfx",
+   "value": "MODE_WINDOW"
+  },
+  "MUSIC_TYPE_CMD": {
+   "module": "libmod_sound",
+   "value": "MUS_CMD"
+  },
+  "MUSIC_TYPE_FLAC": {
+   "module": "libmod_sound",
+   "value": "MUS_FLAC"
+  },
+  "MUSIC_TYPE_MID": {
+   "module": "libmod_sound",
+   "value": "MUS_MID"
+  },
+  "MUSIC_TYPE_MOD": {
+   "module": "libmod_sound",
+   "value": "MUS_MOD"
+  },
+  "MUSIC_TYPE_MODPLUG_UNUSED": {
+   "module": "libmod_sound",
+   "value": "MUS_MODPLUG_UNUSED"
+  },
+  "MUSIC_TYPE_MP3": {
+   "module": "libmod_sound",
+   "value": "MUS_MP3"
+  },
+  "MUSIC_TYPE_MP3_MAD_UNUSED": {
+   "module": "libmod_sound",
+   "value": "MUS_MP3_MAD_UNUSED"
+  },
+  "MUSIC_TYPE_NONE": {
+   "module": "libmod_sound",
+   "value": "MUS_NONE"
+  },
+  "MUSIC_TYPE_OGG": {
+   "module": "libmod_sound",
+   "value": "MUS_OGG"
+  },
+  "MUSIC_TYPE_OPU": {
+   "module": "libmod_sound",
+   "value": "MUS_OPUS"
+  },
+  "MUSIC_TYPE_WAV": {
+   "module": "libmod_sound",
+   "value": "MUS_WAV"
+  },
+  "NET_DISCONNECTED": {
+   "module": "libmod_net",
+   "value": "NET_DISCONNECTED"
+  },
+  "NET_ERROR": {
+   "module": "libmod_net",
+   "value": "NET_ERROR"
+  },
+  "NET_MODE_CLIENT": {
+   "module": "libmod_net",
+   "value": "NET_MODE_CLIENT"
+  },
+  "NET_MODE_SERVER": {
+   "module": "libmod_net",
+   "value": "NET_MODE_SERVER"
+  },
+  "NET_PROTO_TCP": {
+   "module": "libmod_net",
+   "value": "NET_PROTO_TCP"
+  },
+  "NET_PROTO_UDP": {
+   "module": "libmod_net",
+   "value": "NET_PROTO_UDP"
+  },
+  "NET_TIMEOUT": {
+   "module": "libmod_net",
+   "value": "NET_TIMEOUT"
+  },
+  "NFB_FIXEDWIDTH": {
+   "module": "libmod_gfx",
+   "value": "NFB_FIXEDWIDTH"
+  },
+  "NFB_FIXEDWIDTHCENTER": {
+   "module": "libmod_gfx",
+   "value": "NFB_FIXEDWIDTHCENTER"
+  },
+  "NFB_VARIABLEWIDTH": {
+   "module": "libmod_gfx",
+   "value": "NFB_VARIABLEWIDTH"
+  },
+  "O_RDWR": {
+   "module": "libmod_misc",
+   "value": "1"
+  },
+  "O_READ": {
+   "module": "libmod_misc",
+   "value": "0"
+  },
+  "O_READWRITE": {
+   "module": "libmod_misc",
+   "value": "1"
+  },
+  "O_WRITE": {
+   "module": "libmod_misc",
+   "value": "2"
+  },
+  "O_ZREAD": {
+   "module": "libmod_misc",
+   "value": "3"
+  },
+  "O_ZWRITE": {
+   "module": "libmod_misc",
+   "value": "4"
+  },
+  "PF_CHEBYSHEV": {
+   "module": "libmod_gfx",
+   "value": "PF_HEURISTIC_CHEBYSHEV"
+  },
+  "PF_DIAG": {
+   "module": "libmod_gfx",
+   "value": "PF_DIAG"
+  },
+  "PF_EUCLIDEAN": {
+   "module": "libmod_gfx",
+   "value": "PF_HEURISTIC_EUCLIDEAN"
+  },
+  "PF_MANHATTAN": {
+   "module": "libmod_gfx",
+   "value": "PF_HEURISTIC_MANHATTAN"
+  },
+  "PF_OCTILE": {
+   "module": "libmod_gfx",
+   "value": "PF_HEURISTIC_OCTILE"
+  },
+  "PI": {
+   "module": "libmod_misc",
+   "value": "180000"
+  },
+  "POINT_UNDEFINED": {
+   "module": "libbggfx",
+   "value": "POINT_UNDEFINED"
+  },
+  "Q_BEST": {
+   "module": "libmod_gfx",
+   "value": "Q_BEST"
+  },
+  "Q_LINEAR": {
+   "module": "libmod_gfx",
+   "value": "Q_LINEAR"
+  },
+  "Q_MIPMAP": {
+   "module": "libmod_gfx",
+   "value": "Q_MIPMAP"
+  },
+  "Q_NEAREST": {
+   "module": "libmod_gfx",
+   "value": "Q_NEAREST"
+  },
+  "SEEK_CUR": {
+   "module": "libmod_misc",
+   "value": "1"
+  },
+  "SEEK_END": {
+   "module": "libmod_misc",
+   "value": "2"
+  },
+  "SEEK_SET": {
+   "module": "libmod_misc",
+   "value": "0"
+  },
+  "SHADER_IMAGE": {
+   "module": "libmod_gfx",
+   "value": "SHADER_IMAGE"
+  },
+  "SHADER_LANGUAGE_ARB_ASSEMBLY": {
+   "module": "libbggfx",
+   "value": "SHADER_LANGUAGE_ARB_ASSEMBLY"
+  },
+  "SHADER_LANGUAGE_CG": {
+   "module": "libbggfx",
+   "value": "SHADER_LANGUAGE_CG"
+  },
+  "SHADER_LANGUAGE_GLSL": {
+   "module": "libbggfx",
+   "value": "SHADER_LANGUAGE_GLSL"
+  },
+  "SHADER_LANGUAGE_GLSLES": {
+   "module": "libbggfx",
+   "value": "SHADER_LANGUAGE_GLSLES"
+  },
+  "SHADER_LANGUAGE_HLSL": {
+   "module": "libbggfx",
+   "value": "SHADER_LANGUAGE_HLSL"
+  },
+  "SHADER_LANGUAGE_NONE": {
+   "module": "libbggfx",
+   "value": "SHADER_LANGUAGE_NONE"
+  },
+  "SHAPE_BOX": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_SHAPE_BOX"
+  },
+  "SHAPE_CIRCLE": {
+   "module": "libmod_gfx",
+   "value": "BITMAP_CB_SHAPE_CIRCLE"
+  },
+  "SOUND_MODE_MONO": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_MONO"
+  },
+  "SOUND_MODE_STEREO": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_STEREO"
+  },
+  "SOUND_MODE_STEREO_2_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_STEREO_2_1"
+  },
+  "SOUND_MODE_SURROUND_4_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_SURROUND_4_1"
+  },
+  "SOUND_MODE_SURROUND_5_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_SURROUND_5_1"
+  },
+  "SOUND_MODE_SURROUND_7_1": {
+   "module": "libmod_sound",
+   "value": "SOUND_MODE_SURROUND_7_1"
+  },
+  "SPRITE_INVISIBLE": {
+   "module": "ref_repo",
+   "value": "1"
+  },
+  "SRA_FIT": {
+   "module": "libbggfx",
+   "value": "SRA_FIT"
+  },
+  "SRA_OVERSCAN": {
+   "module": "libbggfx",
+   "value": "SRA_OVERSCAN"
+  },
+  "SRA_PRESERVE": {
+   "module": "libbggfx",
+   "value": "SRA_PRESERVE"
+  },
+  "S_DFL": {
+   "module": "libmod_misc",
+   "value": "S_DFL"
+  },
+  "S_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_FORCE"
+  },
+  "S_FREEZE": {
+   "module": "libmod_misc",
+   "value": "S_FREEZE"
+  },
+  "S_FREEZE_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_FREEZE_FORCE"
+  },
+  "S_FREEZE_TREE": {
+   "module": "libmod_misc",
+   "value": "S_FREEZE_TREE"
+  },
+  "S_FREEZE_TREE_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_FREEZE_TREE_FORCE"
+  },
+  "S_IGN": {
+   "module": "libmod_misc",
+   "value": "S_IGN"
+  },
+  "S_KILL": {
+   "module": "libmod_misc",
+   "value": "S_KILL"
+  },
+  "S_KILL_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_KILL_FORCE"
+  },
+  "S_KILL_TREE": {
+   "module": "libmod_misc",
+   "value": "S_KILL_TREE"
+  },
+  "S_KILL_TREE_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_KILL_TREE_FORCE"
+  },
+  "S_SLEEP": {
+   "module": "libmod_misc",
+   "value": "S_SLEEP"
+  },
+  "S_SLEEP_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_SLEEP_FORCE"
+  },
+  "S_SLEEP_TREE": {
+   "module": "libmod_misc",
+   "value": "S_SLEEP_TREE"
+  },
+  "S_SLEEP_TREE_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_SLEEP_TREE_FORCE"
+  },
+  "S_TREE": {
+   "module": "libmod_misc",
+   "value": "S_TREE"
+  },
+  "S_WAKEUP": {
+   "module": "libmod_misc",
+   "value": "S_WAKEUP"
+  },
+  "S_WAKEUP_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_WAKEUP_FORCE"
+  },
+  "S_WAKEUP_TREE": {
+   "module": "libmod_misc",
+   "value": "S_WAKEUP_TREE"
+  },
+  "S_WAKEUP_TREE_FORCE": {
+   "module": "libmod_misc",
+   "value": "S_WAKEUP_TREE_FORCE"
+  },
+  "TEXT_BYTE": {
+   "module": "libmod_gfx",
+   "value": "TEXT_BYTE"
+  },
+  "TEXT_CHAR": {
+   "module": "libmod_gfx",
+   "value": "TEXT_CHAR"
+  },
+  "TEXT_CHARARRAY": {
+   "module": "libmod_gfx",
+   "value": "TEXT_CHARARRAY"
+  },
+  "TEXT_DOUBLE": {
+   "module": "libmod_gfx",
+   "value": "TEXT_DOUBLE"
+  },
+  "TEXT_DWORD": {
+   "module": "libmod_gfx",
+   "value": "TEXT_DWORD"
+  },
+  "TEXT_FLOAT": {
+   "module": "libmod_gfx",
+   "value": "TEXT_FLOAT"
+  },
+  "TEXT_INT": {
+   "module": "libmod_gfx",
+   "value": "TEXT_INT"
+  },
+  "TEXT_INT32": {
+   "module": "libmod_gfx",
+   "value": "TEXT_INT32"
+  },
+  "TEXT_POINTER": {
+   "module": "libmod_gfx",
+   "value": "TEXT_POINTER"
+  },
+  "TEXT_QWORD": {
+   "module": "libmod_gfx",
+   "value": "TEXT_QWORD"
+  },
+  "TEXT_SBYTE": {
+   "module": "libmod_gfx",
+   "value": "TEXT_SBYTE"
+  },
+  "TEXT_SHORT": {
+   "module": "libmod_gfx",
+   "value": "TEXT_SHORT"
+  },
+  "TEXT_STRING": {
+   "module": "libmod_gfx",
+   "value": "TEXT_STRING"
+  },
+  "TEXT_TEXT": {
+   "module": "libmod_gfx",
+   "value": "TEXT_TEXT"
+  },
+  "TEXT_WORD": {
+   "module": "libmod_gfx",
+   "value": "TEXT_WORD"
+  },
+  "UNIFORM_INT": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_INT"
+  },
+  "UNIFORM_INT2_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_INT2_ARRAY"
+  },
+  "UNIFORM_INT3_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_INT3_ARRAY"
+  },
+  "UNIFORM_INT4_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_INT4_ARRAY"
+  },
+  "UNIFORM_INT_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_INT_ARRAY"
+  },
+  "UNIFORM_UINT": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_UINT"
+  },
+  "UNIFORM_UINT2_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_UINT2_ARRAY"
+  },
+  "UNIFORM_UINT3_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_UINT3_ARRAY"
+  },
+  "UNIFORM_UINT_ARRAY": {
+   "module": "libmod_gfx",
+   "value": "UNIFORM_UINT_ARRAY"
+  },
+  "WAITVSYNC": {
+   "module": "libbggfx",
+   "value": "MODE_WAITVSYNC"
+  },
+  "_0": {
+   "module": "libbginput",
+   "value": "11"
+  },
+  "_1": {
+   "module": "libbginput",
+   "value": "2"
+  },
+  "_2": {
+   "module": "libbginput",
+   "value": "3"
+  },
+  "_3": {
+   "module": "libbginput",
+   "value": "4"
+  },
+  "_4": {
+   "module": "libbginput",
+   "value": "5"
+  },
+  "_5": {
+   "module": "libbginput",
+   "value": "6"
+  },
+  "_6": {
+   "module": "libbginput",
+   "value": "7"
+  },
+  "_7": {
+   "module": "libbginput",
+   "value": "8"
+  },
+  "_8": {
+   "module": "libbginput",
+   "value": "9"
+  },
+  "_9": {
+   "module": "libbginput",
+   "value": "10"
+  },
+  "_A": {
+   "module": "libbginput",
+   "value": "30"
+  },
+  "_ALT": {
+   "module": "libbginput",
+   "value": "56"
+  },
+  "_APOSTROPHE": {
+   "module": "libbginput",
+   "value": "40"
+  },
+  "_B": {
+   "module": "libbginput",
+   "value": "48"
+  },
+  "_BACKSLASH": {
+   "module": "libbginput",
+   "value": "43"
+  },
+  "_BACKSPACE": {
+   "module": "libbginput",
+   "value": "14"
+  },
+  "_C": {
+   "module": "libbginput",
+   "value": "46"
+  },
+  "_CAPS_LOCK": {
+   "module": "libbginput",
+   "value": "58"
+  },
+  "_COMMA": {
+   "module": "libbginput",
+   "value": "51"
+  },
+  "_CONTROL": {
+   "module": "libbginput",
+   "value": "29"
+  },
+  "_C_ASTERISK": {
+   "module": "libbginput",
+   "value": "55"
+  },
+  "_C_BACKSLASH": {
+   "module": "libbginput",
+   "value": "53"
+  },
+  "_C_CENTER": {
+   "module": "libbginput",
+   "value": "76"
+  },
+  "_C_ENTER": {
+   "module": "libbginput",
+   "value": "28"
+  },
+  "_C_HOME": {
+   "module": "libbginput",
+   "value": "71"
+  },
+  "_C_LEFT": {
+   "module": "libbginput",
+   "value": "75"
+  },
+  "_C_MINUS": {
+   "module": "libbginput",
+   "value": "74"
+  },
+  "_C_PGUP": {
+   "module": "libbginput",
+   "value": "73"
+  },
+  "_C_UP": {
+   "module": "libbginput",
+   "value": "72"
+  },
+  "_D": {
+   "module": "libbginput",
+   "value": "32"
+  },
+  "_E": {
+   "module": "libbginput",
+   "value": "18"
+  },
+  "_ENTER": {
+   "module": "libbginput",
+   "value": "28"
+  },
+  "_ESC": {
+   "module": "libbginput",
+   "value": "1"
+  },
+  "_F": {
+   "module": "libbginput",
+   "value": "33"
+  },
+  "_F1": {
+   "module": "libbginput",
+   "value": "59"
+  },
+  "_F10": {
+   "module": "libbginput",
+   "value": "68"
+  },
+  "_F2": {
+   "module": "libbginput",
+   "value": "60"
+  },
+  "_F3": {
+   "module": "libbginput",
+   "value": "61"
+  },
+  "_F4": {
+   "module": "libbginput",
+   "value": "62"
+  },
+  "_F5": {
+   "module": "libbginput",
+   "value": "63"
+  },
+  "_F6": {
+   "module": "libbginput",
+   "value": "64"
+  },
+  "_F7": {
+   "module": "libbginput",
+   "value": "65"
+  },
+  "_F8": {
+   "module": "libbginput",
+   "value": "66"
+  },
+  "_F9": {
+   "module": "libbginput",
+   "value": "67"
+  },
+  "_G": {
+   "module": "libbginput",
+   "value": "34"
+  },
+  "_H": {
+   "module": "libbginput",
+   "value": "35"
+  },
+  "_HOME": {
+   "module": "libbginput",
+   "value": "71"
+  },
+  "_I": {
+   "module": "libbginput",
+   "value": "23"
+  },
+  "_J": {
+   "module": "libbginput",
+   "value": "36"
+  },
+  "_K": {
+   "module": "libbginput",
+   "value": "37"
+  },
+  "_L": {
+   "module": "libbginput",
+   "value": "38"
+  },
+  "_LEFT": {
+   "module": "libbginput",
+   "value": "75"
+  },
+  "_L_BRACKET": {
+   "module": "libbginput",
+   "value": "26"
+  },
+  "_L_SHIFT": {
+   "module": "libbginput",
+   "value": "42"
+  },
+  "_M": {
+   "module": "libbginput",
+   "value": "50"
+  },
+  "_MINUS": {
+   "module": "libbginput",
+   "value": "12"
+  },
+  "_N": {
+   "module": "libbginput",
+   "value": "49"
+  },
+  "_NUM_LOCK": {
+   "module": "libbginput",
+   "value": "69"
+  },
+  "_O": {
+   "module": "libbginput",
+   "value": "24"
+  },
+  "_P": {
+   "module": "libbginput",
+   "value": "25"
+  },
+  "_PGUP": {
+   "module": "libbginput",
+   "value": "73"
+  },
+  "_PLUS": {
+   "module": "libbginput",
+   "value": "13"
+  },
+  "_POINT": {
+   "module": "libbginput",
+   "value": "52"
+  },
+  "_PRN_SCR": {
+   "module": "libbginput",
+   "value": "55"
+  },
+  "_P_NOWAIT": {
+   "module": "libmod_misc",
+   "value": "_P_NOWAIT"
+  },
+  "_P_WAIT": {
+   "module": "libmod_misc",
+   "value": "_P_WAIT"
+  },
+  "_Q": {
+   "module": "libbginput",
+   "value": "16"
+  },
+  "_R": {
+   "module": "libbginput",
+   "value": "19"
+  },
+  "_RIGHT": {
+   "module": "libbginput",
+   "value": "77"
+  },
+  "_R_BRACKET": {
+   "module": "libbginput",
+   "value": "27"
+  },
+  "_R_SHIFT": {
+   "module": "libbginput",
+   "value": "54"
+  },
+  "_S": {
+   "module": "libbginput",
+   "value": "31"
+  },
+  "_SCROLL_LOCK": {
+   "module": "libbginput",
+   "value": "70"
+  },
+  "_SEMICOLON": {
+   "module": "libbginput",
+   "value": "39"
+  },
+  "_SLASH": {
+   "module": "libbginput",
+   "value": "53"
+  },
+  "_SPACE": {
+   "module": "libbginput",
+   "value": "57"
+  },
+  "_T": {
+   "module": "libbginput",
+   "value": "20"
+  },
+  "_TAB": {
+   "module": "libbginput",
+   "value": "15"
+  },
+  "_U": {
+   "module": "libbginput",
+   "value": "22"
+  },
+  "_UP": {
+   "module": "libbginput",
+   "value": "72"
+  },
+  "_V": {
+   "module": "libbginput",
+   "value": "47"
+  },
+  "_W": {
+   "module": "libbginput",
+   "value": "17"
+  },
+  "_WAVE": {
+   "module": "libbginput",
+   "value": "41"
+  },
+  "_X": {
+   "module": "libbginput",
+   "value": "45"
+  },
+  "_Y": {
+   "module": "libbginput",
+   "value": "21"
+  },
+  "_Z": {
+   "module": "libbginput",
+   "value": "44"
+  }
+ },
+ "functions": {
+  "ABS": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ACOS": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ADS_CHECK_CONSENT": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_HIDE_BANNER": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_INITIALIZE": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_IS_INTERSTITIAL_LOADED": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_IS_REWARDED_LOADED": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_LOAD_INTERSTITIAL": [
+   {
+    "module": "libmod_ads",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_LOAD_REWARDED": [
+   {
+    "module": "libmod_ads",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_POLL_EVENT": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_SET_CHILD_DIRECTED": [
+   {
+    "module": "libmod_ads",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_SHOW_BANNER": [
+   {
+    "module": "libmod_ads",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_SHOW_CONSENT_FORM": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_SHOW_INTERSTITIAL": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADS_SHOW_REWARDED": [
+   {
+    "module": "libmod_ads",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ADVANCE": [
+   {
+    "module": "libmod_gfx",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ALLOC": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "ASC": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_BYTE"
+   }
+  ],
+  "ASIN": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ATAN": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ATAN2": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ATOF": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ATOI": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BETWEEN": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BOX_GET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIPPPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BOX_GET_BY_POS": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIPPPPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPPPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BOX_GET_REAL_VERTEX": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BOX_REMOVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BOX_SET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CALLOC": [
+   {
+    "module": "libmod_misc",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "CD": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CEIL": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "CENTER_SET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHANNEL_SET_DISTANCE": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHANNEL_SET_EXPIRE": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHANNEL_SET_PANNING": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHANNEL_SET_VOLUME": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHDIR": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHR": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "CLAMP": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLLISION": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COS": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "CRYPT_DECRYPT": [
+   {
+    "module": "libmod_misc",
+    "params": "PPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "IPPPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CRYPT_DEL": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CRYPT_ENCRYPT": [
+   {
+    "module": "libmod_misc",
+    "params": "PPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "IPPPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CRYPT_NEW": [
+   {
+    "module": "libmod_misc",
+    "params": "IP",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "DECIMAL": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "DEG": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DESKTOP_GET_SIZE": [
+   {
+    "module": "libmod_gfx",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIRCLOSE": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIROPEN": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIRREAD": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "DISPLAY_GET_ORIENTATION": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIST": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "DISTANCE": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "DRAWING_BLENDMODE": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_COLOR": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_MAP": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_RGBA": [
+   {
+    "module": "libmod_gfx",
+    "params": "BBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IBBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_Z": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_ARC": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_ARC_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_CIRCLE": [
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_CIRCLE_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_COORDS": [
+   {
+    "module": "libmod_gfx",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_CURVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_DELETE": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_ELLIPSE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_ELLIPSE_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_GET_THICKNESS": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "DRAW_LINE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_LINES": [
+   {
+    "module": "libmod_gfx",
+    "params": "IP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_MOVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_POINT": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_POINTS": [
+   {
+    "module": "libmod_gfx",
+    "params": "IP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_POLYGON": [
+   {
+    "module": "libmod_gfx",
+    "params": "IP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_POLYGON_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_POLYLINE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECTANGLE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECTANGLES": [
+   {
+    "module": "libmod_gfx",
+    "params": "IP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECTANGLES_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECTANGLE_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECTANGLE_ROUND": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECTANGLE_ROUND_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_SECTOR": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_SECTOR_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_SET_THICKNESS": [
+   {
+    "module": "libmod_gfx",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "DRAW_TRIANGLE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_TRIANGLE_FILLED": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXEC": [
+   {
+    "module": "libmod_misc",
+    "params": "ISIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXISTS": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXIT": [
+   {
+    "module": "libmod_misc",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXP": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "FADE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE_OFF": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE_ON": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FCLOSE": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FEOF": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FEXISTS": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FFLUSH": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FGETS": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FGET_ANGLE": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDD",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FGET_DIST": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "FILE": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FIND": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "SSI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FINITE": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLENGTH": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLOOR": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "FMOD": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "FMOVE": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_LOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_NEW": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIIS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIISIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIISIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_UNLOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FOPEN": [
+   {
+    "module": "libmod_misc",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FORMAT": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "DI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FPG_ADD": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_DEL": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_EXISTS": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_LOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_NEW": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_UNLOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPUTS": [
+   {
+    "module": "libmod_misc",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FRAC": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "FREAD": [
+   {
+    "module": "libmod_misc",
+    "params": "IV++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREE": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREMOVE": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREWIND": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "FSEEK": [
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FTELL": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FTIME": [
+   {
+    "module": "libmod_misc",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FTOA": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FWRITE": [
+   {
+    "module": "libmod_misc",
+    "params": "IV++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CAMERA_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CAMERA_LOOK_AT": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CAMERA_SAFE_DISTANCE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFFF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_CAMERA_SET_ACTIVE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CAMERA_SET_FOV": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CAMERA_SET_POSITION": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CAMERA_SET_PROJECTION": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_DESTROY": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_GROUNDED": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_JUMP": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_MOVE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_SET_POSITION": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_SET_PUSH": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_SET_TUNING": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_SET_WATER": [
+   {
+    "module": "libmod_3d",
+    "params": "IIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_UPDATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CHAR_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_CHAR_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_CHAR_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_CLOTH_CLEAR_COLLIDER": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CLOTH_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFIIFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CLOTH_PIN": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CLOTH_SET_COLLIDER": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CLOTH_SET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CLOTH_SET_WIND": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_CLOTH_UPDATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_COLLIDER_ADD_BOX": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_COLLIDER_ADD_MESH": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_COLLIDER_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_COLLIDE_FLOOR": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_COLLIDE_MOVE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_COLLIDE_X": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_COLLIDE_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_CULLED": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_DRAW_CALLS": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_DESTROY": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_GET_POSITION": [
+   {
+    "module": "libmod_3d",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_GET_ROTATION": [
+   {
+    "module": "libmod_3d",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_ALPHA": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_BLEND": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_COLLIDER": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_MATERIAL": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_MESH": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_PARENT": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_POSITION": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_ROTATION": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SET_SCALE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ENTITY_SPAWN": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FBX_SET_RECENTER": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FIRE_ADD": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FIRE_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_ADD": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_ADD_RIVER": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_SET_CLIP": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_SET_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_SET_FOAM": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_SET_SPEED": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLOW_SET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLUID_ADD": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLUID_BLOCK_RESET": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLUID_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLUID_SET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_FLUID_STYLE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_GLTF_SET_CHUNKING": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_GLTF_SET_RECENTER": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_IBL_REFRESH": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_ADD": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_CREATE_SKINNED": [
+   {
+    "module": "libmod_3d",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_SET": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_SET_ALPHA_CUT": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_SET_DISTANCE": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_INSTANCES_SET_WIND": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LAKE_ADD": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LAKE_ADD_R": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LAKE_SPILL_LEVEL": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_LIGHT_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_ENABLE_SHADOW": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_CONE": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_DIRECTION": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_INTENSITY": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_POSITION": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_RANGE": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LIGHT_SET_SHADOW_QUALITY": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_FBX": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_GLTF": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_GLTF_FRACTURED": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_MD3": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_OBJ": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_LOAD_TR": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_SET_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_SET_MAP": [
+   {
+    "module": "libmod_3d",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_SET_METALLIC": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_SET_OUTLINE": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_SET_ROUGHNESS": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MATERIAL_SET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MIRROR_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MIRROR_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MIRROR_SET_DISTANCE": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MIRROR_SET_FLIP": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MIRROR_SET_TINT": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_ANIMATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_ANIMATE_ALL": [
+   {
+    "module": "libmod_3d",
+    "params": "IFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_ANIMATE_BLEND": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFIFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_ANIM_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_ANIM_DURATION": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_DESPAWN": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_LOCK_ROOT": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_MESH": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_NODE_FIND": [
+   {
+    "module": "libmod_3d",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_NODE_X": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_NODE_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_NODE_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_ORIENT": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_REST_POSE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SET_GPU_SKIN": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SIZE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SPAWN": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_CX": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_CY": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_CZ": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_HX": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_HY": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_HZ": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_IS_WATER": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_LOD": [
+   {
+    "module": "libmod_3d",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_MAP": [
+   {
+    "module": "libmod_3d",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_SUBMESH_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MODEL_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MOUSE_CAPTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MOUSE_DX": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MOUSE_DY": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_MOUSE_UPDATE": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PAINT_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PAINT_FILL": [
+   {
+    "module": "libmod_3d",
+    "params": "IIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PAINT_GET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PAINT_SAVE": [
+   {
+    "module": "libmod_3d",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PARTICLES_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PARTICLES_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFFFFFFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PARTICLES_SET_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PARTICLES_SET_FLOOR": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PHYSICS_BODY_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PHYSICS_BODY_SET_VELOCITY": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PHYSICS_SET_GRAVITY": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PHYSICS_STEP": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PICK_ENTITY": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PICK_TERRAIN": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PICK_X": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_PICK_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_PICK_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_PREFAB_ADD_BOX": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFFFFFFFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PREFAB_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PREFAB_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PREFAB_INSTANTIATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IIFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PREFAB_LOAD": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PREFAB_PIECE_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PREFAB_SAVE": [
+   {
+    "module": "libmod_3d",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PRIMITIVE_CLIFFS": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFIFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PRIMITIVE_CUBE": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PRIMITIVE_MOUNTAIN": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PRIMITIVE_PLANE": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PRIMITIVE_SPHERE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_PRIMITIVE_TERRAIN": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RAYCAST": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFF",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RAY_ENTITY": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RAY_HIT_X": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RAY_HIT_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RAY_HIT_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RENDER_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RENDER_WIDTH": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_ANGLE_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_ANGLE_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_ANGLE_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_APPLY_ANGULAR_IMPULSE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_APPLY_IMPULSE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_CLEAR": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_CREATE_CAPSULE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_CREATE_CONVEX": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFIIFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_CREATE_CYLINDER": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_CREATE_SPHERE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_DESTROY": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_GROUNDED": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_RENDER_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_RENDER_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_RENDER_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_ANGULAR_VELOCITY": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_BOUNCE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_BUOYANCY": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_CCD": [
+   {
+    "module": "libmod_3d",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_DAMPING": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_MODEL_OFFSET": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_UPRIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_SET_VELOCITY": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_STEP": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIGIDBODY_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIGIDBODY_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_RIVER_BEGIN": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIVER_BLOCK": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIVER_END": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIVER_FALLS": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_RIVER_POINT": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCATTER_GROUP": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCATTER_LOAD": [
+   {
+    "module": "libmod_3d",
+    "params": "SF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCATTER_MESH": [
+   {
+    "module": "libmod_3d",
+    "params": "IIIIFFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCATTER_MODEL": [
+   {
+    "module": "libmod_3d",
+    "params": "IIIFFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCENE_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCENE_DESTROY": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCENE_HAS_SPAWN": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCENE_LOAD": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCENE_PLAYER_CLIMB": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_PLAYER_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_PLAYER_RADIUS": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_SET_ACTIVE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SCENE_SPAWN_X": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_SPAWN_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_SPAWN_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_TERRAIN_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SCENE_WATER_LEVEL": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_SET_AMBIENT_LIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_BACKFACE_CULL": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_BLOOM": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_CLEAR_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_CULLING": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_EXPOSURE": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_FOG": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_FSR": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_FSR_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "IIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_HDR": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_IBL": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_LOD": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_OCCLUSION": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_SHADOWS": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_SHADOW_RESOLUTION": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_SMAA": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_SSAO": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_SUN": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_TERRAIN_COLLIDER": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_TONEMAP": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_UNDERWATER": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SET_WIREFRAME_MODE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SKY_ENABLE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SKY_SET_CLOUDS": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SKY_SET_GRADIENT": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SKY_SET_LOW_CLOUDS": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_SKY_SET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_INIT": [
+   {
+    "module": "libmod_3d",
+    "params": "FI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_LOADED_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_LOAD_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_LOAD_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_LOAD_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_UNLOAD_COUNT": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_UNLOAD_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_UNLOAD_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_STREAM_UPDATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TERRAIN_FLATTEN": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TERRAIN_GET_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "IFF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_TERRAIN_HOLE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TERRAIN_LOAD": [
+   {
+    "module": "libmod_3d",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TERRAIN_PAINT": [
+   {
+    "module": "libmod_3d",
+    "params": "IIIFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TERRAIN_RAISE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TERRAIN_SMOOTH": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TRIANGLES": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_TR_PROBE": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VEHICLE_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VEHICLE_DESTROY": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VEHICLE_PITCH": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VEHICLE_ROLL": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VEHICLE_SET_GEOMETRY": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VEHICLE_SET_TUNING": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VEHICLE_SPEED": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VEHICLE_UPDATE": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VEHICLE_X": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VEHICLE_Y": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VEHICLE_YAW": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VEHICLE_Z": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VOXTERRAIN_BLOCKED": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VOXTERRAIN_FLOOR": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VOXTERRAIN_SOLID": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VOXTERRAIN_WALK": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_VOXTERRAIN_WALKX": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VOXTERRAIN_WALKY": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VOXTERRAIN_WALKZ": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_VOXTERRAIN_WORLDSIZE": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_WATERFALL_ADD": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATERSIM_ADD_SOURCE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATERSIM_SETTLE": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATERSIM_SET_EVAPORATION": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATERSIM_SET_VISCOSITY": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_ADD_RIPPLE_SOURCE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_CLEAR_RIPPLE_SOURCES": [
+   {
+    "module": "libmod_3d",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_CREATE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_LEVEL_AT": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_WATER_RIPPLE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_CAUSTICS": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_COLOR": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_ENABLED": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_FOAM": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_OCEAN": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_REFLECTION": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_REFLECTION_FLIP": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_SPLASH": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_SSR": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_SURF": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_SURF_WAVE": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_TESSELLATION": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_TEXTURE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_UNDERWATER_LOOK": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SET_WAVES": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WATER_SPLASH": [
+   {
+    "module": "libmod_3d",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WORLDGEN_HEIGHT": [
+   {
+    "module": "libmod_3d",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "G3D_WORLDGEN_SET": [
+   {
+    "module": "libmod_3d",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WORLDGEN_SET_BIOME_TEXTURES": [
+   {
+    "module": "libmod_3d",
+    "params": "IIIIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WORLDGEN_SET_WATER_DEPTH": [
+   {
+    "module": "libmod_3d",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WORLDGEN_TILE": [
+   {
+    "module": "libmod_3d",
+    "params": "IIIFIFFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WORLDGEN_TILE_FREE": [
+   {
+    "module": "libmod_3d",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_WORLD_REBASE": [
+   {
+    "module": "libmod_3d",
+    "params": "FFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ZONE_BLOCKED": [
+   {
+    "module": "libmod_3d",
+    "params": "FFI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ZONE_INIT": [
+   {
+    "module": "libmod_3d",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "G3D_ZONE_LOAD": [
+   {
+    "module": "libmod_3d",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GETENV": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GET_ANGLE": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_BASE_PATH": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GET_DIST": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "GET_DISTX": [
+   {
+    "module": "libmod_misc",
+    "params": "ID",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "GET_DISTY": [
+   {
+    "module": "libmod_misc",
+    "params": "ID",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "GET_ID": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_JOY_BUTTON": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_JOY_POSITION": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_MUSIC_DECODER": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GET_NUM_MUSIC_DECODERS": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_PREF_LANGUAGE": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GET_PREF_PATH": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GET_REAL_POINT": [
+   {
+    "module": "libmod_gfx",
+    "params": "IDDPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_STATUS": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_QWORD"
+   }
+  ],
+  "GET_TEX_IMAGE": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_TIMER": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_QWORD"
+   }
+  ],
+  "GET_TYPE": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GLOB": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GLYPH_GET": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GLYPH_SET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GRAPHIC_INFO": [
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GRAPHIC_SET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "HAS_MUSIC_DECODER": [
+   {
+    "module": "libmod_sound",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "HEIGHTMAP_RENDER_WLD_3D": [
+   {
+    "module": "OLD",
+    "params": "IIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "IIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "HEIGHTMAP_SET_WLD_FOV": [
+   {
+    "module": "OLD",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "IAP_CONSUME": [
+   {
+    "module": "libmod_iap",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "IAP_GET_LAST_PURCHASE_SKU": [
+   {
+    "module": "libmod_iap",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "IAP_GET_LAST_PURCHASE_TOKEN": [
+   {
+    "module": "libmod_iap",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "IAP_GET_PRICE": [
+   {
+    "module": "libmod_iap",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "IAP_INITIALIZE": [
+   {
+    "module": "libmod_iap",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "IAP_POLL_EVENT": [
+   {
+    "module": "libmod_iap",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "IAP_PURCHASE": [
+   {
+    "module": "libmod_iap",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "INTERSECT": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDDDDDDPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "INTERSECT_CIRCLE": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDDDDPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "INTERSECT_LINE_CIRCLE": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDDDDDPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "INVLERP": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "ISALNUM": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISALPHA": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISINF": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISNAN": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISNUM": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISORT": [
+   {
+    "module": "libmod_misc",
+    "params": "PIIIBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISSPACE": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISWORDCHAR": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISWORDFIRST": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISXNUM": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ITOA": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "JOIN": [
+   {
+    "module": "libmod_misc",
+    "params": "SPI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "JOY_AXES": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_BUTTONS": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETACCEL": [
+   {
+    "module": "libmod_input",
+    "params": "PPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETAXIS": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETBALL": [
+   {
+    "module": "libmod_input",
+    "params": "IPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "IIPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETBUTTON": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETHAT": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETPOSITION": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_IS_ATTACHED": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NAME": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "JOY_NUMAXES": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMBALLS": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMBER": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMBUTTONS": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMHATS": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMJOYSTICKS": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_QUERY": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_SELECT": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_SET": [
+   {
+    "module": "libmod_input",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_input",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KEY": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KEYDOWN": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KEYUP": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KEY_DOWN": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KEY_UP": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KSORT": [
+   {
+    "module": "libmod_misc",
+    "params": "V++V++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "V++V++I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LCASE": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "LEN": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LERP": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "LET_ME_ALONE": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LIST_CREATE": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_POINTER"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "LIST_EMPTY": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LIST_FREE": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LIST_INSERTITEM": [
+   {
+    "module": "libmod_misc",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LIST_REMOVEITEM": [
+   {
+    "module": "libmod_misc",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LIST_SIZE": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LIST_WALK": [
+   {
+    "module": "libmod_misc",
+    "params": "PP",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "LOAD": [
+   {
+    "module": "libmod_misc",
+    "params": "SV++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_WLD": [
+   {
+    "module": "OLD",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOG": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "LOG10": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "LPAD": [
+   {
+    "module": "libmod_misc",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MAG": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MAP_BLOCK_COPY": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIBBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIBBBBI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIIBBBBIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_CLEAR": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_CLONE": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_DEL": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_EXISTS": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_GET_PALETTE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_GET_PIXEL": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_INFO": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_INFO_SET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_LOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_NAME": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MAP_NEW": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_PUT": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIBBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIBBBBI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIIIIBBBBIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_PUT_PIXEL": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_SAVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_SET_NAME": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_SET_PALETTE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_UNLOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAX": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MEDIA_GET_DURATION": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_GET_MUTE": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_GET_STATUS": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_GET_TIME": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_GET_VOLUME": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_LOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "SP",
+    "ret": "TYPE_POINTER"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "SPI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEDIA_PAUSE": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_PLAY": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_RESUME": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_SET_MUTE": [
+   {
+    "module": "libmod_gfx",
+    "params": "PI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_SET_VOLUME": [
+   {
+    "module": "libmod_gfx",
+    "params": "PI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_STOP": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEDIA_UNLOAD": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMCMP": [
+   {
+    "module": "libmod_misc",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMCOPY": [
+   {
+    "module": "libmod_misc",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMMOVE": [
+   {
+    "module": "libmod_misc",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMORY_FREE": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMORY_TOTAL": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSET": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSETD": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSETI": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSETW": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_ALLOC": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEM_AVAILABLE": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_CALLOC": [
+   {
+    "module": "libmod_misc",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEM_CMP": [
+   {
+    "module": "libmod_misc",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_COPY": [
+   {
+    "module": "libmod_misc",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_FREE": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_MOVE": [
+   {
+    "module": "libmod_misc",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_REALLOC": [
+   {
+    "module": "libmod_misc",
+    "params": "PI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEM_SET": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_SETD": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_SETI": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_SETW": [
+   {
+    "module": "libmod_misc",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_TOTAL": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MIN": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MKDIR": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MMOD": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MODULUS": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_FADE_IN": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "IIID",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_FADE_OFF": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_GET_ALBUM_TAG": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MUSIC_GET_ARTIST_TAG": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MUSIC_GET_COPYRIGHT_TAG": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MUSIC_GET_DURATION": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_GET_LOOP_END": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_GET_LOOP_LEN": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_GET_LOOP_START": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_GET_PLAYBACK_POSITION": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_GET_TIME_POSITION": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "MUSIC_GET_TITLE": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MUSIC_GET_TITLE_TAG": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MUSIC_GET_TYPE": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_GET_VOLUME": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_IS_FADING": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_IS_PAUSED": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_IS_PLAYING": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_LOAD": [
+   {
+    "module": "libmod_sound",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_PAUSE": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_PLAY": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_RESUME": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_REWIND": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_SET_PLAYBACK_POSITION": [
+   {
+    "module": "libmod_sound",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_SET_TIME_POSITION": [
+   {
+    "module": "libmod_sound",
+    "params": "D",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_SET_VOLUME": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_STOP": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MUSIC_UNLOAD": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NEAR_ANGLE": [
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_CLOSE": [
+   {
+    "module": "libmod_net",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_GETAVAILABLEBYTES": [
+   {
+    "module": "libmod_net",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_GETRECEIVEBUFFERSIZE": [
+   {
+    "module": "libmod_net",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_GETREMOTEADDR": [
+   {
+    "module": "libmod_net",
+    "params": "P",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "NET_IS_MESSAGE_INCOMING": [
+   {
+    "module": "libmod_net",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_IS_NEW_CONNECTION": [
+   {
+    "module": "libmod_net",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_OPEN": [
+   {
+    "module": "libmod_net",
+    "params": "IISI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "NET_RECV": [
+   {
+    "module": "libmod_net",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_SEND": [
+   {
+    "module": "libmod_net",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NET_WAIT": [
+   {
+    "module": "libmod_net",
+    "params": "PIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NORMALIZE": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "NUMBER_JOY": [
+   {
+    "module": "libmod_input",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ORTHO": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDDDDPP",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "PATH_DESTROY": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PATH_FIND": [
+   {
+    "module": "libmod_gfx",
+    "params": "PIIIII",
+    "ret": "TYPE_POINTER"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIIIIIII",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "PATH_FREE_RESULTS": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PATH_NEW": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "PAUSE": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POINT_GET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POINT_GET_TOTAL": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POINT_SET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POW": [
+   {
+    "module": "libmod_misc",
+    "params": "DD",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "PROJECT": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDDDDPP",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "RAD": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "RAND": [
+   {
+    "module": "libmod_misc",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAND_SEED": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RANGECHK": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_ADD_SPRITE": [
+   {
+    "module": "reference_code",
+    "params": "FFFIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "FFFIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "FFFIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "FFFIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "FFFIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_FREE": [
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_GET_TIME": [
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_CAMERA_IS_PLAYING": [
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_LOAD": [
+   {
+    "module": "ref_repo",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_PATH_UPDATE": [
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_PAUSE": [
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_PLAY": [
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_RESUME": [
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_SET_TIME": [
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_STOP": [
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CAMERA_UPDATE": [
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CHECK_COLLISION": [
+   {
+    "module": "reference_code",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "FFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CHECK_COLLISION_Z": [
+   {
+    "module": "ref_repo",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_CLEAR_FLAG": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_FREE_MAP": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_GET_CAMERA_PITCH": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_CAMERA_ROT": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_CAMERA_SECTOR": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_GET_CAMERA_X": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_CAMERA_Y": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_CAMERA_Z": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_COLLISION": [
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_GET_FLAG_X": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_FLAG_Y": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_FLAG_Z": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_FLOOR_HEIGHT": [
+   {
+    "module": "reference_code",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "backup",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_FLOOR_HEIGHT_Z": [
+   {
+    "module": "ref_repo",
+    "params": "FFF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "RAY_GET_GLTF_ANIM_COUNT": [
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_GET_TAG_POINT": [
+   {
+    "module": "reference_code",
+    "params": "ISPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "ISPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "ISPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "ISPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_INIT": [
+   {
+    "module": "reference_code",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_JUMP": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LIGHT_ADD": [
+   {
+    "module": "ref_repo",
+    "params": "FFFIIIFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LIGHT_CLEAR": [
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LOAD_GLTF": [
+   {
+    "module": "ref_repo",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LOAD_MAP": [
+   {
+    "module": "reference_code",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LOAD_MD2": [
+   {
+    "module": "reference_code",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LOAD_MD3": [
+   {
+    "module": "reference_code",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_LOOK_UP_DOWN": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_MOVE_BACKWARD": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_MOVE_FORWARD": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_MOVE_SPRITE": [
+   {
+    "module": "ref_repo",
+    "params": "IFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_MOVE_UP_DOWN": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_REMOVE_SPRITE": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_RENDER": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_ROTATE": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_BILLBOARD": [
+   {
+    "module": "reference_code",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_CAMERA": [
+   {
+    "module": "reference_code",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "FFFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_COLLISION_BOX": [
+   {
+    "module": "ref_repo",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_DRAW_MINIMAP": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_DRAW_WEAPON": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_FLAG": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_FOG": [
+   {
+    "module": "reference_code",
+    "params": "IIIIFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IIIIFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "IIIIFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "IIIIFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IIIIFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_FOV": [
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_MINIMAP": [
+   {
+    "module": "reference_code",
+    "params": "IIIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IIIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "IIIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "IIIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IIIIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SKY_TEXTURE": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_ANGLE": [
+   {
+    "module": "reference_code",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_ANIM": [
+   {
+    "module": "reference_code",
+    "params": "IIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "IIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "IIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IIIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_FLAGS": [
+   {
+    "module": "ref_repo",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_GLB_ANIM": [
+   {
+    "module": "ref_repo",
+    "params": "IIF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_GLB_SPEED": [
+   {
+    "module": "ref_repo",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_GLTF": [
+   {
+    "module": "ref_repo",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_GRAPH": [
+   {
+    "module": "ref_repo",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_MD2": [
+   {
+    "module": "reference_code",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_MD3": [
+   {
+    "module": "ref_repo",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_MD3_SURFACE": [
+   {
+    "module": "ref_repo",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_SPRITE_SCALE": [
+   {
+    "module": "reference_code",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_STEP_HEIGHT": [
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SET_TEXTURE_QUALITY": [
+   {
+    "module": "reference_code",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_SHUTDOWN": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_STRAFE_LEFT": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_STRAFE_RIGHT": [
+   {
+    "module": "reference_code",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_TOGGLE_DOOR": [
+   {
+    "module": "reference_code",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAY_UPDATE_SPRITE_POSITION": [
+   {
+    "module": "reference_code",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "ref_repo",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "backup",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "md3_implementation_20260101_232613",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "temp_repo",
+    "params": "IFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REALLOC": [
+   {
+    "module": "libmod_misc",
+    "params": "PI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "REGEX": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REGEX_REPLACE": [
+   {
+    "module": "libmod_misc",
+    "params": "SSS",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "REGION_DEFINE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REGION_OUT": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REMAP": [
+   {
+    "module": "libmod_misc",
+    "params": "DDDDD",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RENDER_WLD_2D": [
+   {
+    "module": "OLD",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RESERVE_CHANNELS": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RESUME": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REVERSE_STEREO": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RFIND": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "SSI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGB": [
+   {
+    "module": "libmod_gfx",
+    "params": "BBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGBA": [
+   {
+    "module": "libmod_gfx",
+    "params": "BBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIBBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGBA_GET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IPPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGB_GET": [
+   {
+    "module": "libmod_gfx",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RM": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RMDIR": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ROUND": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "RPAD": [
+   {
+    "module": "libmod_misc",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "SAVE": [
+   {
+    "module": "libmod_misc",
+    "params": "SV++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAY": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "SAY_FAST": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "SCREEN_GET": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCROLL_MOVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCROLL_START": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCROLL_STOP": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SELECT_JOY": [
+   {
+    "module": "libmod_input",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_DISTANCE": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_FPS": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_MASTER_VOLUME": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_MODE": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_PANNING": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_POSITION": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SGN": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_CREATE": [
+   {
+    "module": "libmod_gfx",
+    "params": "SS",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "SHADER_CREATE_PARAMS": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "SHADER_FREE": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_FREE_PARAMS": [
+   {
+    "module": "libmod_gfx",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_GETATTRIBUTELOCATION": [
+   {
+    "module": "libmod_gfx",
+    "params": "PS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_GET_LANGUAGE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_GET_MAX_VERSION": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_GET_MIN_VERSION": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_GET_PARAM": [
+   {
+    "module": "libmod_gfx",
+    "params": "PIPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIPPPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_GET_PARAM_LOCATION": [
+   {
+    "module": "libmod_gfx",
+    "params": "PS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SHADER_SET_PARAM": [
+   {
+    "module": "libmod_gfx",
+    "params": "PIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIIF",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIIIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "PIIPIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SIGNAL": [
+   {
+    "module": "libmod_misc",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SIGNAL_ACTION": [
+   {
+    "module": "libmod_misc",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SIN": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "SORT": [
+   {
+    "module": "libmod_misc",
+    "params": "V++I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "V++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUNDSYS_INIT": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUNDSYS_QUIT": [
+   {
+    "module": "libmod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_FADE_IN": [
+   {
+    "module": "libmod_sound",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_FADE_OFF": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_AVAILABLE": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_CHANNEL": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_CHANNELS": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_COUNT": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_FADE_OUT": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_HALT": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_NEWER": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_GROUP_OLDEST": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_IS_FADING": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_IS_PAUSED": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_IS_PLAYING": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_LOAD": [
+   {
+    "module": "libmod_sound",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_PAUSE": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_PLAY": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_RESUME": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_SET_LOCATION": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_SET_SPATIAL_POSITION": [
+   {
+    "module": "libmod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_SET_VOLUME": [
+   {
+    "module": "libmod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_STOP": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_UNLOAD": [
+   {
+    "module": "libmod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_sound",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SPLIT": [
+   {
+    "module": "libmod_misc",
+    "params": "SSPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SQRT": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "STRCASECMP": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRING_DELA": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRING_DEL_ARRAY": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRING_DUMP": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRING_NEWA": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_POINTER"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "STRING_NEW_ARRAY": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_POINTER"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "STRING_RESIZEA": [
+   {
+    "module": "libmod_misc",
+    "params": "PI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "STRING_RESIZE_ARRAY": [
+   {
+    "module": "libmod_misc",
+    "params": "PI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "STRING_SIZEA": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRING_SIZE_ARRAY": [
+   {
+    "module": "libmod_misc",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRLEN": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRREV": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "STRTOK": [
+   {
+    "module": "libmod_misc",
+    "params": "SS",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "SUBSTR": [
+   {
+    "module": "libmod_misc",
+    "params": "SII",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "TAN": [
+   {
+    "module": "libmod_misc",
+    "params": "I",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "TEST_RENDER_BUFFER": [
+   {
+    "module": "OLD",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TEXTURE_SET_QUALITY": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TEXT_HEIGHT": [
+   {
+    "module": "libmod_gfx",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TEXT_WIDTH": [
+   {
+    "module": "libmod_gfx",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TIME": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_QWORD"
+   }
+  ],
+  "TOLOWER": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TOUPPER": [
+   {
+    "module": "libmod_misc",
+    "params": "B",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TOWARDS": [
+   {
+    "module": "libmod_misc",
+    "params": "DDD",
+    "ret": "TYPE_DOUBLE"
+   },
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TRACE": [
+   {
+    "module": "libmod_debug",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TRIM": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "TRUNC": [
+   {
+    "module": "libmod_misc",
+    "params": "D",
+    "ret": "TYPE_DOUBLE"
+   }
+  ],
+  "UCASE": [
+   {
+    "module": "libmod_misc",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "UPTIME": [
+   {
+    "module": "libmod_misc",
+    "params": "",
+    "ret": "TYPE_QWORD"
+   }
+  ],
+  "WINDOW_GET_POS": [
+   {
+    "module": "libmod_gfx",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_GET_SIZE": [
+   {
+    "module": "libmod_gfx",
+    "params": "PPPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_HIDE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_MAXIMIZE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_MINIMIZE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_MOVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_RAISE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_RESTORE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_SET_DPI_AWARE": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_SET_ICON": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_SET_POS": [
+   {
+    "module": "libmod_gfx",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_SET_TITLE": [
+   {
+    "module": "libmod_gfx",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WINDOW_SHOW": [
+   {
+    "module": "libmod_gfx",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_ADJUST_HEIGHT": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_LOOK_HORIZONTAL": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_LOOK_VERTICAL": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_MOVE_BACKWARD": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_MOVE_FORWARD": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_SET_CAMERA": [
+   {
+    "module": "OLD",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_STRAFE_LEFT": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WLD_STRAFE_RIGHT": [
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "OLD",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRAP": [
+   {
+    "module": "libmod_misc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_DELETE": [
+   {
+    "module": "libmod_gfx",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_GET_RGBA": [
+   {
+    "module": "libmod_gfx",
+    "params": "IPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_IN_MAP": [
+   {
+    "module": "libmod_gfx",
+    "params": "ISI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIISI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_MOVE": [
+   {
+    "module": "libmod_gfx",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_SET_RGBA": [
+   {
+    "module": "libmod_gfx",
+    "params": "IBBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_VALUE": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_VAR": [
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIV++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "libmod_gfx",
+    "params": "IIIIIV++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "XADVANCE": [
+   {
+    "module": "libmod_gfx",
+    "params": "ID",
+    "ret": "TYPE_INT"
+   }
+  ]
+ },
+ "global_fields": {
+  "ACCESSED": "fileinfo.accessed",
+  "ACTIVE": "touches.active",
+  "ALPHA": "text.alpha",
+  "ALPHA2": "scroll.alpha2",
+  "ANGLE": "background.angle",
+  "ASCII": "keyboard.ascii",
+  "BLENDMODE": "text.blendmode",
+  "BLENDMODE1": "scroll.blendmode1",
+  "BLENDMODE2": "scroll.blendmode2",
+  "CAMERA": "scroll.camera",
+  "CENTER": "mouse.center",
+  "CHANNELS": "sound.channels",
+  "CLIP": "mouse.clip",
+  "COLOR_B": "text.color_b",
+  "COLOR_B2": "scroll.color_b2",
+  "COLOR_G": "text.color_g",
+  "COLOR_G2": "scroll.color_g2",
+  "COLOR_R": "text.color_r",
+  "COLOR_R2": "scroll.color_r2",
+  "CREATED": "fileinfo.created",
+  "CUSTOM_BLENDMODE": "text.custom_blendmode",
+  "CUSTOM_BLENDMODE1": "scroll.custom_blendmode1",
+  "CUSTOM_BLENDMODE2": "scroll.custom_blendmode2",
+  "DIRECTORY": "fileinfo.directory",
+  "EXIT_STATUS": "wm_info.exit_status",
+  "FADING": "fade_info.fading",
+  "FILE": "background.file",
+  "FINGERID": "touches.fingerid",
+  "FLAGS": "text.flags",
+  "FLAGS1": "scroll.flags1",
+  "FLAGS2": "scroll.flags2",
+  "FOCUS_STATUS": "wm_info.focus_status",
+  "FOLLOW": "scroll.follow",
+  "FPS": "frame_info.fps",
+  "FRAMES_COUNT": "frame_info.frames_count",
+  "FRAME_TIME": "frame_info.frame_time",
+  "FREQ": "sound.freq",
+  "FULLSCREEN": "screen.fullscreen",
+  "GRAPH": "background.graph",
+  "HIDDEN": "fileinfo.hidden",
+  "INSTANCE_ID": "sensors.instance_id",
+  "MODE": "sound.mode",
+  "MODIFIED": "fileinfo.modified",
+  "MOUSE_STATUS": "wm_info.mouse_status",
+  "NAME": "fileinfo.name",
+  "PATH": "fileinfo.path",
+  "PRESSURE": "touches.pressure",
+  "RATIO": "scroll.ratio",
+  "READONLY": "fileinfo.readonly",
+  "REGION": "text.region",
+  "REGION1": "scroll.region1",
+  "REGION2": "scroll.region2",
+  "SCALE_RESOLUTION": "screen.scale_resolution",
+  "SCALE_RESOLUTION_ASPECTRATIO": "screen.scale_resolution_aspectratio",
+  "SCAN_CODE": "keyboard.scan_code",
+  "SHADER": "text.shader",
+  "SHADER1": "scroll.shader1",
+  "SHADER2": "scroll.shader2",
+  "SHADER_PARAMS": "text.shader_params",
+  "SHADER_PARAMS1": "scroll.shader_params1",
+  "SHADER_PARAMS2": "scroll.shader_params2",
+  "SHIFT_STATUS": "keyboard.shift_status",
+  "SIZE": "fileinfo.size",
+  "SIZE_X": "background.size_x",
+  "SIZE_Y": "background.size_y",
+  "SPEED": "scroll.speed",
+  "SPEED_GAUGE": "frame_info.speed_gauge",
+  "STATECHG": "fileinfo.statechg",
+  "TOUCHID": "touches.touchid",
+  "TYPE": "sensors.type",
+  "VALUES": "sensors.values",
+  "WINDOW_STATUS": "wm_info.window_status",
+  "X": "mouse.x",
+  "X0": "scroll.x0",
+  "X1": "scroll.x1",
+  "Y": "touches.y",
+  "Y0": "scroll.y0",
+  "Y1": "scroll.y1",
+  "Z": "text.z"
+ },
+ "global_types": {
+  "ACCESSED": "STRING",
+  "ACTIVE": "BOOL",
+  "ALPHA": "BYTE",
+  "ALPHA2": "BYTE",
+  "ANGLE": "INT",
+  "ARGC": "INT",
+  "ARGV": "STRING",
+  "ASCII": "INT",
+  "BLENDMODE": "INT",
+  "BLENDMODE1": "INT",
+  "BLENDMODE2": "INT",
+  "CAMERA": "INT",
+  "CENTER": "G_POINT",
+  "CHANNELS": "INT",
+  "CLIP": "G_RECT",
+  "COLOR_B": "BYTE",
+  "COLOR_B2": "BYTE",
+  "COLOR_G": "BYTE",
+  "COLOR_G2": "BYTE",
+  "COLOR_R": "BYTE",
+  "COLOR_R2": "BYTE",
+  "CREATED": "STRING",
+  "CUSTOM_BLENDMODE": "G_CUSTOM_BLENDMODE",
+  "CUSTOM_BLENDMODE1": "G_CUSTOM_BLENDMODE",
+  "CUSTOM_BLENDMODE2": "G_CUSTOM_BLENDMODE",
+  "DIRECTORY": "INT",
+  "EXIT_STATUS": "INT",
+  "FADING": "INT",
+  "FILE": "INT",
+  "FINGERID": "INT64",
+  "FLAGS": "INT",
+  "FLAGS1": "INT",
+  "FLAGS2": "INT",
+  "FOCUS_STATUS": "INT",
+  "FOLLOW": "INT",
+  "FPS": "INT",
+  "FRAMES_COUNT": "INT",
+  "FRAME_TIME": "DOUBLE",
+  "FREQ": "INT",
+  "FULLSCREEN": "INT",
+  "GRAPH": "INT",
+  "HIDDEN": "INT",
+  "INSTANCE_ID": "INT64",
+  "MODE": "INT",
+  "MODIFIED": "STRING",
+  "MOUSE_STATUS": "INT",
+  "NAME": "STRING",
+  "OS_ID": "INT",
+  "PATH": "STRING",
+  "PRESSURE": "FLOAT",
+  "RATIO": "DOUBLE",
+  "READONLY": "INT",
+  "REGEX_REG": "STRING",
+  "REGION": "INT",
+  "REGION1": "INT",
+  "REGION2": "INT",
+  "SCALE_RESOLUTION": "INT",
+  "SCALE_RESOLUTION_ASPECTRATIO": "INT",
+  "SCAN_CODE": "INT",
+  "SHADER": "UINT",
+  "SHADER1": "UINT",
+  "SHADER2": "UINT",
+  "SHADER_PARAMS": "INT",
+  "SHADER_PARAMS1": "INT",
+  "SHADER_PARAMS2": "INT",
+  "SHIFT_STATUS": "INT",
+  "SIZE": "INT",
+  "SIZE_X": "DOUBLE",
+  "SIZE_Y": "DOUBLE",
+  "SPEED": "DOUBLE",
+  "SPEED_GAUGE": "INT",
+  "STATECHG": "STRING",
+  "TIMER": "INT",
+  "TOUCHID": "INT64",
+  "TYPE": "INT8",
+  "VALUES": "FLOAT",
+  "WINDOW_STATUS": "INT",
+  "X": "INT",
+  "X0": "DOUBLE",
+  "X1": "DOUBLE",
+  "Y": "FLOAT",
+  "Y0": "DOUBLE",
+  "Y1": "DOUBLE",
+  "Z": "INT"
+ },
+ "globals": {
+  "ARGC": "bgdc",
+  "ARGV": "bgdc",
+  "BACKGROUND": "libbggfx",
+  "FADE_INFO": "libbggfx",
+  "FILEINFO": "libmod_misc",
+  "FRAME_INFO": "libbggfx",
+  "GLOBALS_DEF": "bgdc",
+  "KEYBOARD": "libbginput",
+  "LIBBGINPUT": "include",
+  "LIBBGLOAD": "include",
+  "LIBMOD_DEBUG": "include",
+  "LIBMOD_GFX": "include",
+  "LIBMOD_INPUT": "include",
+  "LIBMOD_MISC": "include",
+  "LIBMOD_NET": "include",
+  "LIBMOD_SOUND": "include",
+  "LIBSDLHANDLER": "include",
+  "MOUSE": "libbginput",
+  "OS_ID": "bgdc",
+  "REGEX_REG": "libmod_misc",
+  "SCREEN": "libbggfx",
+  "SCROLL": "libbggfx",
+  "SENSORS": "libbginput",
+  "SOUND": "libmod_sound",
+  "TEXT": "libbggfx",
+  "TIMER": "libmod_misc",
+  "TOUCHES": "libbginput",
+  "WM_INFO": "libbggfx"
+ },
+ "local_fields": {
+  "COLLIDED_CBOX": "collision_info.collided_cbox",
+  "COLLIDED_ID": "collision_info.collided_id",
+  "COLLIDER_CBOX": "collision_info.collider_cbox",
+  "CONTEXT": "__collision_reserved.context",
+  "EVAPORATION": "water.evaporation",
+  "FLOW": "water.flow",
+  "FOAM": "water.foam",
+  "FRAME_PERCENT": "reserved.frame_percent",
+  "IDX_CBOXA": "__collision_reserved.idx_cboxa",
+  "IDX_CBOXB": "__collision_reserved.idx_cboxb",
+  "ID_SCAN": "__collision_reserved.id_scan",
+  "ID_SCROLL": "__collision_reserved.id_scroll",
+  "MODE": "__collision_reserved.mode",
+  "OBJECT_ID": "_render_reserved_.object_id",
+  "PENETRATION_X": "collision_info.penetration_x",
+  "PENETRATION_Y": "collision_info.penetration_y",
+  "PROCESS_TYPE": "reserved.process_type",
+  "SAVED_PRIORITY": "reserved.saved_priority",
+  "SAVED_STATUS": "reserved.saved_status",
+  "SIGNAL_ACTION": "__proccess_reserved.signal_action",
+  "SPLASH": "water.splash",
+  "STATUS": "reserved.status",
+  "SURF": "water.surf",
+  "WAVES": "water.waves",
+  "WAVE_LEN": "water.wave_len",
+  "WAVE_SPEED": "water.wave_speed",
+  "XGRAPH_FLAGS": "_render_reserved_.xgraph_flags"
+ },
+ "local_types": {
+  "ALPHA": "BYTE",
+  "ANGLE": "INT",
+  "ANGLE_X": "DOUBLE",
+  "ANGLE_Y": "DOUBLE",
+  "ANGLE_Z": "DOUBLE",
+  "BIGBRO": "INT",
+  "BLENDMODE": "INT",
+  "CBOX": "G_RECT",
+  "CENTER": "G_POINTD",
+  "CLIP": "G_RECT",
+  "CNUMBER": "INT",
+  "COLLIDED_CBOX": "INT",
+  "COLLIDED_ID": "INT",
+  "COLLIDER_CBOX": "INT",
+  "COLOR_B": "BYTE",
+  "COLOR_G": "BYTE",
+  "COLOR_R": "BYTE",
+  "CONE_ANGLE": "DOUBLE",
+  "CONTEXT": "UINT",
+  "CSHAPE": "INT",
+  "CSUBTYPE": "INT",
+  "CTYPE": "INT",
+  "CUSTOM_BLENDMODE": "G_CUSTOM_BLENDMODE",
+  "DRAW_DIST": "DOUBLE",
+  "ENTITY": "INT",
+  "EVAPORATION": "DOUBLE",
+  "FATHER": "INT",
+  "FILE": "INT",
+  "FLAGS": "INT",
+  "FLOW": "DOUBLE",
+  "FOAM": "DOUBLE",
+  "FOV": "DOUBLE",
+  "FRAME_PERCENT": "INT",
+  "GRAPH": "INT",
+  "ID": "INT",
+  "IDX_CBOXA": "UINT",
+  "IDX_CBOXB": "UINT",
+  "ID_SCAN": "UINT",
+  "ID_SCROLL": "UINT",
+  "INTENSITY": "DOUBLE",
+  "MODE": "INT",
+  "OBJECT_ID": "INT",
+  "PENETRATION_X": "INT",
+  "PENETRATION_Y": "INT",
+  "PRIORITY": "INT",
+  "PROCESS_TYPE": "INT",
+  "RANGE": "DOUBLE",
+  "REGION": "INT",
+  "RENDER_FILE": "INT",
+  "RENDER_GRAPH": "INT",
+  "RESOLUTION": "INT",
+  "SAVED_PRIORITY": "INT",
+  "SAVED_STATUS": "INT",
+  "SHADER": "UINT",
+  "SHADER_PARAMS": "INT",
+  "SIGNAL_ACTION": "QWORD",
+  "SIZE": "DOUBLE",
+  "SIZE_X": "DOUBLE",
+  "SIZE_Y": "DOUBLE",
+  "SIZE_Z": "DOUBLE",
+  "SMALLBRO": "INT",
+  "SOLID": "INT",
+  "SON": "INT",
+  "SPLASH": "DOUBLE",
+  "STATUS": "INT",
+  "SURF": "DOUBLE",
+  "TARGET_X": "DOUBLE",
+  "TARGET_Y": "DOUBLE",
+  "TARGET_Z": "DOUBLE",
+  "WAVES": "DOUBLE",
+  "WAVE_LEN": "DOUBLE",
+  "WAVE_SPEED": "DOUBLE",
+  "WIND": "DOUBLE",
+  "X": "DOUBLE",
+  "XGRAPH": "INT",
+  "XGRAPH_FLAGS": "INT",
+  "Y": "DOUBLE",
+  "Z": "DOUBLE"
+ },
+ "locals": {
+  "ALPHA": "libbggfx",
+  "ANGLE": "libbggfx",
+  "ANGLE_X": "libmod_3d",
+  "ANGLE_Y": "libmod_3d",
+  "ANGLE_Z": "libmod_3d",
+  "BIGBRO": "bgdc",
+  "BLENDMODE": "libbggfx",
+  "CBOX": "libmod_gfx",
+  "CENTER": "libbggfx",
+  "CLIP": "libbggfx",
+  "CNUMBER": "libbggfx",
+  "COLLISION_INFO": "libmod_gfx",
+  "COLOR_B": "libbggfx",
+  "COLOR_G": "libbggfx",
+  "COLOR_R": "libbggfx",
+  "CONE_ANGLE": "libmod_3d",
+  "CSHAPE": "libmod_gfx",
+  "CSUBTYPE": "libbggfx",
+  "CTYPE": "libbggfx",
+  "CUSTOM_BLENDMODE": "libbggfx",
+  "DRAW_DIST": "libmod_3d",
+  "ENTITY": "libmod_3d",
+  "FATHER": "bgdc",
+  "FILE": "libbggfx",
+  "FLAGS": "libbggfx",
+  "FOV": "libmod_3d",
+  "GRAPH": "libbggfx",
+  "ID": "bgdc",
+  "INTENSITY": "libmod_3d",
+  "LIBBGINPUT": "include",
+  "LIBBGLOAD": "include",
+  "LIBMOD_DEBUG": "include",
+  "LIBMOD_GFX": "include",
+  "LIBMOD_INPUT": "include",
+  "LIBMOD_MISC": "include",
+  "LIBMOD_NET": "include",
+  "LIBMOD_SOUND": "include",
+  "LIBSDLHANDLER": "include",
+  "LOCALS_DEF": "bgdc",
+  "PRIORITY": "bgdc",
+  "RANGE": "libmod_3d",
+  "REGION": "libbggfx",
+  "RENDER_FILE": "libbggfx",
+  "RENDER_GRAPH": "libbggfx",
+  "RESERVED": "bgdc",
+  "RESOLUTION": "libbggfx",
+  "SHADER": "libbggfx",
+  "SHADER_PARAMS": "libbggfx",
+  "SIZE": "libbggfx",
+  "SIZE_X": "libbggfx",
+  "SIZE_Y": "libbggfx",
+  "SIZE_Z": "libmod_3d",
+  "SMALLBRO": "bgdc",
+  "SOLID": "libmod_3d",
+  "SON": "bgdc",
+  "TARGET_X": "libmod_3d",
+  "TARGET_Y": "libmod_3d",
+  "TARGET_Z": "libmod_3d",
+  "WATER": "libmod_3d",
+  "WIND": "libmod_3d",
+  "X": "libbggfx",
+  "XGRAPH": "libbggfx",
+  "Y": "libbggfx",
+  "Z": "libbggfx",
+  "_RENDER_RESERVED_": "libbggfx",
+  "__COLLISION_RESERVED": "libmod_gfx",
+  "__PROCCESS_RESERVED": "libmod_misc"
+ }
+}

@@ -1,0 +1,4579 @@
+{
+ "constants": {
+  "ALIGN_BOTTOM": {
+   "module": "mod_text",
+   "value": "ALIGN_BOTTOM"
+  },
+  "ALIGN_BOTTOM_LEFT": {
+   "module": "mod_text",
+   "value": "ALIGN_BOTTOM_LEFT"
+  },
+  "ALIGN_BOTTOM_RIGHT": {
+   "module": "mod_text",
+   "value": "ALIGN_BOTTOM_RIGHT"
+  },
+  "ALIGN_CENTER": {
+   "module": "mod_text",
+   "value": "ALIGN_CENTER"
+  },
+  "ALIGN_CENTER_LEFT": {
+   "module": "mod_text",
+   "value": "ALIGN_CENTER_LEFT"
+  },
+  "ALIGN_CENTER_RIGHT": {
+   "module": "mod_text",
+   "value": "ALIGN_CENTER_RIGHT"
+  },
+  "ALIGN_TOP": {
+   "module": "mod_text",
+   "value": "ALIGN_TOP"
+  },
+  "ALIGN_TOP_LEFT": {
+   "module": "mod_text",
+   "value": "ALIGN_TOP_LEFT"
+  },
+  "ALIGN_TOP_RIGHT": {
+   "module": "mod_text",
+   "value": "ALIGN_TOP_RIGHT"
+  },
+  "ALL_PROCESS": {
+   "module": "mod_proc",
+   "value": "ALL_PROCESS"
+  },
+  "ALL_SOUND": {
+   "module": "mod_sound",
+   "value": "-1"
+  },
+  "ALL_TEXT": {
+   "module": "mod_text",
+   "value": "0"
+  },
+  "BACKGROUND": {
+   "module": "librender",
+   "value": "0"
+  },
+  "BLUR_NORMAL": {
+   "module": "mod_effects",
+   "value": "BLUR_NORMAL"
+  },
+  "B_ABLEND": {
+   "module": "libblit",
+   "value": "B_ABLEND"
+  },
+  "B_ALPHA": {
+   "module": "libblit",
+   "value": "B_ALPHA"
+  },
+  "B_CLEAR": {
+   "module": "mod_map",
+   "value": "B_CLEAR"
+  },
+  "B_HMIRROR": {
+   "module": "libblit",
+   "value": "B_HMIRROR"
+  },
+  "B_NOCOLORKEY": {
+   "module": "libblit",
+   "value": "B_NOCOLORKEY"
+  },
+  "B_SBLEND": {
+   "module": "libblit",
+   "value": "B_SBLEND"
+  },
+  "B_TRANSLUCENT": {
+   "module": "libblit",
+   "value": "B_TRANSLUCENT"
+  },
+  "B_VMIRROR": {
+   "module": "libblit",
+   "value": "B_VMIRROR"
+  },
+  "CD_ERROR": {
+   "module": "mod_cd",
+   "value": "-1"
+  },
+  "CD_PAUSED": {
+   "module": "mod_cd",
+   "value": "3"
+  },
+  "CD_PLAYING": {
+   "module": "mod_cd",
+   "value": "2"
+  },
+  "CD_STOPPED": {
+   "module": "mod_cd",
+   "value": "1"
+  },
+  "CD_TRAYEMPTY": {
+   "module": "mod_cd",
+   "value": "0"
+  },
+  "CHARSET_CP850": {
+   "module": "mod_map",
+   "value": "CHARSET_CP850"
+  },
+  "CHARSET_ISO8859": {
+   "module": "mod_map",
+   "value": "CHARSET_ISO8859"
+  },
+  "COMPLETE_DUMP": {
+   "module": "librender",
+   "value": "1"
+  },
+  "COMPLETE_RESTORE": {
+   "module": "librender",
+   "value": "1"
+  },
+  "CRYPT_3DES": {
+   "module": "mod_crypt",
+   "value": "CRYPT_3DES"
+  },
+  "CRYPT_DES": {
+   "module": "mod_crypt",
+   "value": "CRYPT_DES"
+  },
+  "CRYPT_NONE": {
+   "module": "mod_crypt",
+   "value": "CRYPT_NONE"
+  },
+  "C_0": {
+   "module": "libscroll",
+   "value": "0x0001"
+  },
+  "C_1": {
+   "module": "libscroll",
+   "value": "0x0002"
+  },
+  "C_2": {
+   "module": "libscroll",
+   "value": "0x0004"
+  },
+  "C_3": {
+   "module": "libscroll",
+   "value": "0x0008"
+  },
+  "C_4": {
+   "module": "libscroll",
+   "value": "0x0010"
+  },
+  "C_5": {
+   "module": "libscroll",
+   "value": "0x0020"
+  },
+  "C_6": {
+   "module": "libscroll",
+   "value": "0x0040"
+  },
+  "C_7": {
+   "module": "libscroll",
+   "value": "0x0080"
+  },
+  "C_8": {
+   "module": "libscroll",
+   "value": "0x0100"
+  },
+  "C_9": {
+   "module": "libscroll",
+   "value": "0x0200"
+  },
+  "C_M7": {
+   "module": "mod_m7",
+   "value": "C_M7"
+  },
+  "C_SCREEN": {
+   "module": "librender",
+   "value": "C_SCREEN"
+  },
+  "C_SCROLL": {
+   "module": "libscroll",
+   "value": "C_SCROLL"
+  },
+  "DOUBLE_BUFFER": {
+   "module": "libvideo",
+   "value": "MODE_DOUBLEBUFFER"
+  },
+  "GSCALE_B": {
+   "module": "mod_effects",
+   "value": "GSCALE_B"
+  },
+  "GSCALE_G": {
+   "module": "mod_effects",
+   "value": "GSCALE_G"
+  },
+  "GSCALE_GB": {
+   "module": "mod_effects",
+   "value": "GSCALE_GB"
+  },
+  "GSCALE_OFF": {
+   "module": "mod_effects",
+   "value": "GSCALE_OFF"
+  },
+  "GSCALE_R": {
+   "module": "mod_effects",
+   "value": "GSCALE_R"
+  },
+  "GSCALE_RB": {
+   "module": "mod_effects",
+   "value": "GSCALE_RB"
+  },
+  "GSCALE_RG": {
+   "module": "mod_effects",
+   "value": "GSCALE_RG"
+  },
+  "GSCALE_RGB": {
+   "module": "mod_effects",
+   "value": "GSCALE_RGB"
+  },
+  "G_CENTER_X": {
+   "module": "mod_map",
+   "value": "G_CENTER_X"
+  },
+  "G_CENTER_Y": {
+   "module": "mod_map",
+   "value": "G_CENTER_Y"
+  },
+  "G_DEPTH": {
+   "module": "mod_map",
+   "value": "G_DEPTH"
+  },
+  "G_HEIGHT": {
+   "module": "mod_map",
+   "value": "G_HEIGHT"
+  },
+  "G_PITCH": {
+   "module": "mod_map",
+   "value": "G_PITCH"
+  },
+  "G_WIDE": {
+   "module": "mod_map",
+   "value": "G_WIDE"
+  },
+  "G_WIDTH": {
+   "module": "mod_map",
+   "value": "G_WIDTH"
+  },
+  "G_X_CENTER": {
+   "module": "mod_map",
+   "value": "G_X_CENTER"
+  },
+  "G_Y_CENTER": {
+   "module": "mod_map",
+   "value": "G_Y_CENTER"
+  },
+  "HW_SURFACE": {
+   "module": "libvideo",
+   "value": "MODE_HARDWARE"
+  },
+  "JOY_HAT_CENTERED": {
+   "module": "libjoy",
+   "value": "SDL_HAT_CENTERED"
+  },
+  "JOY_HAT_DOWN": {
+   "module": "libjoy",
+   "value": "SDL_HAT_DOWN"
+  },
+  "JOY_HAT_LEFT": {
+   "module": "libjoy",
+   "value": "SDL_HAT_LEFT"
+  },
+  "JOY_HAT_LEFTDOWN": {
+   "module": "libjoy",
+   "value": "SDL_HAT_LEFTDOWN"
+  },
+  "JOY_HAT_LEFTUP": {
+   "module": "libjoy",
+   "value": "SDL_HAT_LEFTUP"
+  },
+  "JOY_HAT_RIGHT": {
+   "module": "libjoy",
+   "value": "SDL_HAT_RIGHT"
+  },
+  "JOY_HAT_RIGHTDOWN": {
+   "module": "libjoy",
+   "value": "SDL_HAT_RIGHTDOWN"
+  },
+  "JOY_HAT_RIGHTUP": {
+   "module": "libjoy",
+   "value": "SDL_HAT_RIGHTUP"
+  },
+  "JOY_HAT_UP": {
+   "module": "libjoy",
+   "value": "SDL_HAT_UP"
+  },
+  "M1024X768": {
+   "module": "libvideo",
+   "value": "10240768"
+  },
+  "M1280X1024": {
+   "module": "libvideo",
+   "value": "12801024"
+  },
+  "M320X200": {
+   "module": "libvideo",
+   "value": "3200200"
+  },
+  "M320X240": {
+   "module": "libvideo",
+   "value": "3200240"
+  },
+  "M320X400": {
+   "module": "libvideo",
+   "value": "3200400"
+  },
+  "M360X240": {
+   "module": "libvideo",
+   "value": "3600240"
+  },
+  "M376X282": {
+   "module": "libvideo",
+   "value": "3760282"
+  },
+  "M400X300": {
+   "module": "libvideo",
+   "value": "4000300"
+  },
+  "M512X384": {
+   "module": "libvideo",
+   "value": "5120384"
+  },
+  "M640X400": {
+   "module": "libvideo",
+   "value": "6400400"
+  },
+  "M640X480": {
+   "module": "libvideo",
+   "value": "6400480"
+  },
+  "M800X600": {
+   "module": "libvideo",
+   "value": "8000600"
+  },
+  "MODE_16BITS": {
+   "module": "libvideo",
+   "value": "16"
+  },
+  "MODE_16BPP": {
+   "module": "libvideo",
+   "value": "16"
+  },
+  "MODE_2XSCALE": {
+   "module": "libvideo",
+   "value": "MODE_2XSCALE"
+  },
+  "MODE_32BITS": {
+   "module": "libvideo",
+   "value": "32"
+  },
+  "MODE_32BPP": {
+   "module": "libvideo",
+   "value": "32"
+  },
+  "MODE_8BITS": {
+   "module": "libvideo",
+   "value": "8"
+  },
+  "MODE_8BPP": {
+   "module": "libvideo",
+   "value": "8"
+  },
+  "MODE_DOUBLEBUFFER": {
+   "module": "libvideo",
+   "value": "MODE_DOUBLEBUFFER"
+  },
+  "MODE_FRAMELESS": {
+   "module": "libvideo",
+   "value": "MODE_FRAMELESS"
+  },
+  "MODE_FULLSCREEN": {
+   "module": "libvideo",
+   "value": "MODE_FULLSCREEN"
+  },
+  "MODE_HARDWARE": {
+   "module": "libvideo",
+   "value": "MODE_HARDWARE"
+  },
+  "MODE_MODAL": {
+   "module": "libvideo",
+   "value": "MODE_MODAL"
+  },
+  "MODE_MONO": {
+   "module": "mod_sound",
+   "value": "0"
+  },
+  "MODE_STEREO": {
+   "module": "mod_sound",
+   "value": "1"
+  },
+  "MODE_WAITVSYNC": {
+   "module": "libvideo",
+   "value": "MODE_WAITVSYNC"
+  },
+  "MODE_WINDOW": {
+   "module": "libvideo",
+   "value": "MODE_WINDOW"
+  },
+  "NFB_FIXEDWIDTH": {
+   "module": "mod_map",
+   "value": "NFB_FIXEDWIDTH"
+  },
+  "NFB_VARIABLEWIDTH": {
+   "module": "mod_map",
+   "value": "0"
+  },
+  "NO_RESTORE": {
+   "module": "librender",
+   "value": "-1"
+  },
+  "O_RDWR": {
+   "module": "mod_file",
+   "value": "1"
+  },
+  "O_READ": {
+   "module": "mod_file",
+   "value": "0"
+  },
+  "O_READWRITE": {
+   "module": "mod_file",
+   "value": "1"
+  },
+  "O_WRITE": {
+   "module": "mod_file",
+   "value": "2"
+  },
+  "O_ZREAD": {
+   "module": "mod_file",
+   "value": "3"
+  },
+  "O_ZWRITE": {
+   "module": "mod_file",
+   "value": "4"
+  },
+  "PARTIAL_DUMP": {
+   "module": "librender",
+   "value": "0"
+  },
+  "PARTIAL_RESTORE": {
+   "module": "librender",
+   "value": "0"
+  },
+  "PF_NODIAG": {
+   "module": "mod_path",
+   "value": "PF_NODIAG"
+  },
+  "PF_REVERSE": {
+   "module": "mod_path",
+   "value": "PF_REVERSE"
+  },
+  "PI": {
+   "module": "mod_mathi",
+   "value": "180000"
+  },
+  "SCALE_HQ2X": {
+   "module": "librender",
+   "value": "SCALE_HQ2X"
+  },
+  "SCALE_NOFILTER": {
+   "module": "librender",
+   "value": "SCALE_NOFILTER"
+  },
+  "SCALE_NONE": {
+   "module": "libvideo",
+   "value": "SCALE_NONE"
+  },
+  "SCALE_NORMAL2X": {
+   "module": "librender",
+   "value": "SCALE_NOFILTER"
+  },
+  "SCALE_SCALE2X": {
+   "module": "librender",
+   "value": "SCALE_SCALE2X"
+  },
+  "SCALE_SCANLINE2X": {
+   "module": "librender",
+   "value": "SCALE_SCANLINE2X"
+  },
+  "SCREEN": {
+   "module": "librender",
+   "value": "-1"
+  },
+  "SEEK_CUR": {
+   "module": "mod_file",
+   "value": "1"
+  },
+  "SEEK_END": {
+   "module": "mod_file",
+   "value": "2"
+  },
+  "SEEK_SET": {
+   "module": "mod_file",
+   "value": "0"
+  },
+  "SRA_PRESERVE": {
+   "module": "libvideo",
+   "value": "SRA_PRESERVE"
+  },
+  "SRA_STRETCH": {
+   "module": "libvideo",
+   "value": "SRA_STRETCH"
+  },
+  "SRO_DOWN": {
+   "module": "libvideo",
+   "value": "SRO_DOWN"
+  },
+  "SRO_LEFT": {
+   "module": "libvideo",
+   "value": "SRO_LEFT"
+  },
+  "SRO_NORMAL": {
+   "module": "libvideo",
+   "value": "SRO_NORMAL"
+  },
+  "SRO_RIGHT": {
+   "module": "libvideo",
+   "value": "SRO_RIGHT"
+  },
+  "STAT_ALT": {
+   "module": "libkey",
+   "value": "STAT_ALT"
+  },
+  "STAT_CAPS": {
+   "module": "libkey",
+   "value": "STAT_CAPS"
+  },
+  "STAT_CTRL": {
+   "module": "libkey",
+   "value": "STAT_CTRL"
+  },
+  "STAT_LALT": {
+   "module": "libkey",
+   "value": "STAT_LALT"
+  },
+  "STAT_LCTRL": {
+   "module": "libkey",
+   "value": "STAT_LCTRL"
+  },
+  "STAT_LSHIFT": {
+   "module": "libkey",
+   "value": "STAT_LSHIFT"
+  },
+  "STAT_NUM": {
+   "module": "libkey",
+   "value": "STAT_NUM"
+  },
+  "STAT_RALT": {
+   "module": "libkey",
+   "value": "STAT_RALT"
+  },
+  "STAT_RCTRL": {
+   "module": "libkey",
+   "value": "STAT_RCTRL"
+  },
+  "STAT_RSHIFT": {
+   "module": "libkey",
+   "value": "STAT_RSHIFT"
+  },
+  "STAT_SHIFT": {
+   "module": "libkey",
+   "value": "STAT_SHIFT"
+  },
+  "S_DFL": {
+   "module": "mod_proc",
+   "value": "S_DFL"
+  },
+  "S_FORCE": {
+   "module": "mod_proc",
+   "value": "S_FORCE"
+  },
+  "S_FREEZE": {
+   "module": "mod_proc",
+   "value": "S_FREEZE"
+  },
+  "S_FREEZE_FORCE": {
+   "module": "mod_proc",
+   "value": "S_FREEZE_FORCE"
+  },
+  "S_FREEZE_TREE": {
+   "module": "mod_proc",
+   "value": "S_FREEZE_TREE"
+  },
+  "S_FREEZE_TREE_FORCE": {
+   "module": "mod_proc",
+   "value": "S_FREEZE_TREE_FORCE"
+  },
+  "S_IGN": {
+   "module": "mod_proc",
+   "value": "S_IGN"
+  },
+  "S_KILL": {
+   "module": "mod_proc",
+   "value": "S_KILL"
+  },
+  "S_KILL_FORCE": {
+   "module": "mod_proc",
+   "value": "S_KILL_FORCE"
+  },
+  "S_KILL_TREE": {
+   "module": "mod_proc",
+   "value": "S_KILL_TREE"
+  },
+  "S_KILL_TREE_FORCE": {
+   "module": "mod_proc",
+   "value": "S_KILL_TREE_FORCE"
+  },
+  "S_SLEEP": {
+   "module": "mod_proc",
+   "value": "S_SLEEP"
+  },
+  "S_SLEEP_FORCE": {
+   "module": "mod_proc",
+   "value": "S_SLEEP_FORCE"
+  },
+  "S_SLEEP_TREE": {
+   "module": "mod_proc",
+   "value": "S_SLEEP_TREE"
+  },
+  "S_SLEEP_TREE_FORCE": {
+   "module": "mod_proc",
+   "value": "S_SLEEP_TREE_FORCE"
+  },
+  "S_TREE": {
+   "module": "mod_proc",
+   "value": "S_TREE"
+  },
+  "S_WAKEUP": {
+   "module": "mod_proc",
+   "value": "S_WAKEUP"
+  },
+  "S_WAKEUP_FORCE": {
+   "module": "mod_proc",
+   "value": "S_WAKEUP_FORCE"
+  },
+  "S_WAKEUP_TREE": {
+   "module": "mod_proc",
+   "value": "S_WAKEUP_TREE"
+  },
+  "S_WAKEUP_TREE_FORCE": {
+   "module": "mod_proc",
+   "value": "S_WAKEUP_TREE_FORCE"
+  },
+  "WAITVSYNC": {
+   "module": "libvideo",
+   "value": "MODE_WAITVSYNC"
+  },
+  "_0": {
+   "module": "libkey",
+   "value": "11"
+  },
+  "_1": {
+   "module": "libkey",
+   "value": "2"
+  },
+  "_2": {
+   "module": "libkey",
+   "value": "3"
+  },
+  "_3": {
+   "module": "libkey",
+   "value": "4"
+  },
+  "_4": {
+   "module": "libkey",
+   "value": "5"
+  },
+  "_5": {
+   "module": "libkey",
+   "value": "6"
+  },
+  "_6": {
+   "module": "libkey",
+   "value": "7"
+  },
+  "_7": {
+   "module": "libkey",
+   "value": "8"
+  },
+  "_8": {
+   "module": "libkey",
+   "value": "9"
+  },
+  "_9": {
+   "module": "libkey",
+   "value": "10"
+  },
+  "_A": {
+   "module": "libkey",
+   "value": "30"
+  },
+  "_ALT": {
+   "module": "libkey",
+   "value": "56"
+  },
+  "_APOSTROPHE": {
+   "module": "libkey",
+   "value": "40"
+  },
+  "_ASTERISK": {
+   "module": "libkey",
+   "value": "92"
+  },
+  "_B": {
+   "module": "libkey",
+   "value": "48"
+  },
+  "_BACKSLASH": {
+   "module": "libkey",
+   "value": "43"
+  },
+  "_BACKSPACE": {
+   "module": "libkey",
+   "value": "14"
+  },
+  "_C": {
+   "module": "libkey",
+   "value": "46"
+  },
+  "_CAPS_LOCK": {
+   "module": "libkey",
+   "value": "58"
+  },
+  "_COMMA": {
+   "module": "libkey",
+   "value": "51"
+  },
+  "_CONTROL": {
+   "module": "libkey",
+   "value": "29"
+  },
+  "_C_ASTERISK": {
+   "module": "libkey",
+   "value": "55"
+  },
+  "_C_BACKSLASH": {
+   "module": "libkey",
+   "value": "53"
+  },
+  "_C_CENTER": {
+   "module": "libkey",
+   "value": "76"
+  },
+  "_C_DEL": {
+   "module": "libkey",
+   "value": "83"
+  },
+  "_C_DOWN": {
+   "module": "libkey",
+   "value": "80"
+  },
+  "_C_END": {
+   "module": "libkey",
+   "value": "79"
+  },
+  "_C_ENTER": {
+   "module": "libkey",
+   "value": "28"
+  },
+  "_C_HOME": {
+   "module": "libkey",
+   "value": "71"
+  },
+  "_C_INS": {
+   "module": "libkey",
+   "value": "82"
+  },
+  "_C_LEFT": {
+   "module": "libkey",
+   "value": "75"
+  },
+  "_C_MINUS": {
+   "module": "libkey",
+   "value": "74"
+  },
+  "_C_PGDN": {
+   "module": "libkey",
+   "value": "81"
+  },
+  "_C_PGUP": {
+   "module": "libkey",
+   "value": "73"
+  },
+  "_C_PLUS": {
+   "module": "libkey",
+   "value": "78"
+  },
+  "_C_RIGHT": {
+   "module": "libkey",
+   "value": "77"
+  },
+  "_C_UP": {
+   "module": "libkey",
+   "value": "72"
+  },
+  "_D": {
+   "module": "libkey",
+   "value": "32"
+  },
+  "_DEL": {
+   "module": "libkey",
+   "value": "83"
+  },
+  "_DOWN": {
+   "module": "libkey",
+   "value": "80"
+  },
+  "_E": {
+   "module": "libkey",
+   "value": "18"
+  },
+  "_END": {
+   "module": "libkey",
+   "value": "79"
+  },
+  "_ENTER": {
+   "module": "libkey",
+   "value": "28"
+  },
+  "_EQUALS": {
+   "module": "libkey",
+   "value": "90"
+  },
+  "_ESC": {
+   "module": "libkey",
+   "value": "1"
+  },
+  "_F": {
+   "module": "libkey",
+   "value": "33"
+  },
+  "_F1": {
+   "module": "libkey",
+   "value": "59"
+  },
+  "_F10": {
+   "module": "libkey",
+   "value": "68"
+  },
+  "_F11": {
+   "module": "libkey",
+   "value": "87"
+  },
+  "_F12": {
+   "module": "libkey",
+   "value": "88"
+  },
+  "_F2": {
+   "module": "libkey",
+   "value": "60"
+  },
+  "_F3": {
+   "module": "libkey",
+   "value": "61"
+  },
+  "_F4": {
+   "module": "libkey",
+   "value": "62"
+  },
+  "_F5": {
+   "module": "libkey",
+   "value": "63"
+  },
+  "_F6": {
+   "module": "libkey",
+   "value": "64"
+  },
+  "_F7": {
+   "module": "libkey",
+   "value": "65"
+  },
+  "_F8": {
+   "module": "libkey",
+   "value": "66"
+  },
+  "_F9": {
+   "module": "libkey",
+   "value": "67"
+  },
+  "_G": {
+   "module": "libkey",
+   "value": "34"
+  },
+  "_GREATER": {
+   "module": "libkey",
+   "value": "91"
+  },
+  "_H": {
+   "module": "libkey",
+   "value": "35"
+  },
+  "_HOME": {
+   "module": "libkey",
+   "value": "71"
+  },
+  "_I": {
+   "module": "libkey",
+   "value": "23"
+  },
+  "_INS": {
+   "module": "libkey",
+   "value": "82"
+  },
+  "_J": {
+   "module": "libkey",
+   "value": "36"
+  },
+  "_K": {
+   "module": "libkey",
+   "value": "37"
+  },
+  "_L": {
+   "module": "libkey",
+   "value": "38"
+  },
+  "_LEFT": {
+   "module": "libkey",
+   "value": "75"
+  },
+  "_LESS": {
+   "module": "libkey",
+   "value": "89"
+  },
+  "_L_ALT": {
+   "module": "libkey",
+   "value": "95"
+  },
+  "_L_BRACKET": {
+   "module": "libkey",
+   "value": "26"
+  },
+  "_L_CONTROL": {
+   "module": "libkey",
+   "value": "96"
+  },
+  "_L_SHIFT": {
+   "module": "libkey",
+   "value": "42"
+  },
+  "_L_WINDOWS": {
+   "module": "libkey",
+   "value": "98"
+  },
+  "_M": {
+   "module": "libkey",
+   "value": "50"
+  },
+  "_MENU": {
+   "module": "libkey",
+   "value": "97"
+  },
+  "_MINUS": {
+   "module": "libkey",
+   "value": "12"
+  },
+  "_N": {
+   "module": "libkey",
+   "value": "49"
+  },
+  "_NUM_LOCK": {
+   "module": "libkey",
+   "value": "69"
+  },
+  "_O": {
+   "module": "libkey",
+   "value": "24"
+  },
+  "_P": {
+   "module": "libkey",
+   "value": "25"
+  },
+  "_PGDN": {
+   "module": "libkey",
+   "value": "81"
+  },
+  "_PGUP": {
+   "module": "libkey",
+   "value": "73"
+  },
+  "_PLUS": {
+   "module": "libkey",
+   "value": "13"
+  },
+  "_POINT": {
+   "module": "libkey",
+   "value": "52"
+  },
+  "_PRN_SCR": {
+   "module": "libkey",
+   "value": "55"
+  },
+  "_P_NOWAIT": {
+   "module": "mod_sys",
+   "value": "_P_NOWAIT"
+  },
+  "_P_WAIT": {
+   "module": "mod_sys",
+   "value": "_P_WAIT"
+  },
+  "_Q": {
+   "module": "libkey",
+   "value": "16"
+  },
+  "_R": {
+   "module": "libkey",
+   "value": "19"
+  },
+  "_RIGHT": {
+   "module": "libkey",
+   "value": "77"
+  },
+  "_R_ALT": {
+   "module": "libkey",
+   "value": "93"
+  },
+  "_R_BRACKET": {
+   "module": "libkey",
+   "value": "27"
+  },
+  "_R_CONTROL": {
+   "module": "libkey",
+   "value": "94"
+  },
+  "_R_SHIFT": {
+   "module": "libkey",
+   "value": "54"
+  },
+  "_R_WINDOWS": {
+   "module": "libkey",
+   "value": "99"
+  },
+  "_S": {
+   "module": "libkey",
+   "value": "31"
+  },
+  "_SCROLL_LOCK": {
+   "module": "libkey",
+   "value": "70"
+  },
+  "_SEMICOLON": {
+   "module": "libkey",
+   "value": "39"
+  },
+  "_SLASH": {
+   "module": "libkey",
+   "value": "53"
+  },
+  "_SPACE": {
+   "module": "libkey",
+   "value": "57"
+  },
+  "_T": {
+   "module": "libkey",
+   "value": "20"
+  },
+  "_TAB": {
+   "module": "libkey",
+   "value": "15"
+  },
+  "_U": {
+   "module": "libkey",
+   "value": "22"
+  },
+  "_UP": {
+   "module": "libkey",
+   "value": "72"
+  },
+  "_V": {
+   "module": "libkey",
+   "value": "47"
+  },
+  "_W": {
+   "module": "libkey",
+   "value": "17"
+  },
+  "_WAVE": {
+   "module": "libkey",
+   "value": "41"
+  },
+  "_X": {
+   "module": "libkey",
+   "value": "45"
+  },
+  "_Y": {
+   "module": "libkey",
+   "value": "21"
+  },
+  "_Z": {
+   "module": "libkey",
+   "value": "44"
+  }
+ },
+ "functions": {
+  "ABS": [
+   {
+    "module": "mod_mathi",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "ACOS": [
+   {
+    "module": "mod_mathi",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "ADVANCE": [
+   {
+    "module": "mod_grproc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ALLOC": [
+   {
+    "module": "mod_mem",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "ASC": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_BYTE"
+   }
+  ],
+  "ASIN": [
+   {
+    "module": "mod_mathi",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "ATAN": [
+   {
+    "module": "mod_mathi",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "ATAN2": [
+   {
+    "module": "mod_mathi",
+    "params": "II",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "ATOF": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "ATOI": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BDF_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_APPLY": [
+   {
+    "module": "mod_blendop",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_ASSIGN": [
+   {
+    "module": "mod_blendop",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_FREE": [
+   {
+    "module": "mod_blendop",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_GRAYSCALE": [
+   {
+    "module": "mod_blendop",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_IDENTITY": [
+   {
+    "module": "mod_blendop",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_INTENSITY": [
+   {
+    "module": "mod_blendop",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_NEW": [
+   {
+    "module": "mod_blendop",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_SWAP": [
+   {
+    "module": "mod_blendop",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_TINT": [
+   {
+    "module": "mod_blendop",
+    "params": "IFIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLENDOP_TRANSLUCENCY": [
+   {
+    "module": "mod_blendop",
+    "params": "IF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "BLUR": [
+   {
+    "module": "mod_effects",
+    "params": "IIB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CALLOC": [
+   {
+    "module": "mod_mem",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "CD": [
+   {
+    "module": "mod_dir",
+    "params": "",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_DRIVES": [
+   {
+    "module": "mod_cd",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_EJECT": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_GETINFO": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_NAME": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "CD_PAUSE": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_PLAY": [
+   {
+    "module": "mod_cd",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_cd",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_RESUME": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_STATUS": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CD_STOP": [
+   {
+    "module": "mod_cd",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CENTER_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHDIR": [
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CHR": [
+   {
+    "module": "mod_string",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "CLEAR_SCREEN": [
+   {
+    "module": "mod_screen",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLLISION": [
+   {
+    "module": "mod_grproc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLLISION_BOX": [
+   {
+    "module": "mod_grproc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLLISION_CIRCLE": [
+   {
+    "module": "mod_grproc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLORS_GET": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLORS_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COLOR_FIND": [
+   {
+    "module": "mod_map",
+    "params": "BBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CONVERT_PALETTE": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "COS": [
+   {
+    "module": "mod_mathi",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "CRYPT_DECRYPT": [
+   {
+    "module": "mod_crypt",
+    "params": "PPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_crypt",
+    "params": "IPPPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CRYPT_DEL": [
+   {
+    "module": "mod_crypt",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CRYPT_ENCRYPT": [
+   {
+    "module": "mod_crypt",
+    "params": "PPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_crypt",
+    "params": "IPPPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "CRYPT_NEW": [
+   {
+    "module": "mod_crypt",
+    "params": "IP",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "DEFINE_REGION": [
+   {
+    "module": "mod_screen",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DELETE_DRAW": [
+   {
+    "module": "mod_draw",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DELETE_TEXT": [
+   {
+    "module": "mod_text",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIRCLOSE": [
+   {
+    "module": "mod_dir",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIROPEN": [
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DIRREAD": [
+   {
+    "module": "mod_dir",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "DRAWING_ALPHA": [
+   {
+    "module": "mod_draw",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_COLOR": [
+   {
+    "module": "mod_draw",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_MAP": [
+   {
+    "module": "mod_draw",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_STIPPLE": [
+   {
+    "module": "mod_draw",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAWING_Z": [
+   {
+    "module": "mod_draw",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_BOX": [
+   {
+    "module": "mod_draw",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_CIRCLE": [
+   {
+    "module": "mod_draw",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_CURVE": [
+   {
+    "module": "mod_draw",
+    "params": "IIIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_FCIRCLE": [
+   {
+    "module": "mod_draw",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_LINE": [
+   {
+    "module": "mod_draw",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "DRAW_RECT": [
+   {
+    "module": "mod_draw",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "END_FLI": [
+   {
+    "module": "mod_flic",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXEC": [
+   {
+    "module": "mod_sys",
+    "params": "ISIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXISTS": [
+   {
+    "module": "mod_proc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "EXIT": [
+   {
+    "module": "mod_proc",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_proc",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_proc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE_MUSIC_IN": [
+   {
+    "module": "mod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE_MUSIC_OFF": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE_OFF": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FADE_ON": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FCLOSE": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FEOF": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FEXISTS": [
+   {
+    "module": "mod_file",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FFLUSH": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FGETS": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FGET_ANGLE": [
+   {
+    "module": "mod_mathi",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FGET_DIST": [
+   {
+    "module": "mod_mathi",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FILE": [
+   {
+    "module": "mod_file",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FILE_EXISTS": [
+   {
+    "module": "mod_file",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FILTER": [
+   {
+    "module": "mod_effects",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FIND": [
+   {
+    "module": "mod_string",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_string",
+    "params": "SSI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FIND_COLOR": [
+   {
+    "module": "mod_map",
+    "params": "BBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FINITE": [
+   {
+    "module": "mod_mathi",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLENGTH": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_ANGLE": [
+   {
+    "module": "mod_flic",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_END": [
+   {
+    "module": "mod_flic",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_FLAGS": [
+   {
+    "module": "mod_flic",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_FRAME": [
+   {
+    "module": "mod_flic",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_GETINFO": [
+   {
+    "module": "mod_flic",
+    "params": "IPPPPPPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_MOVE": [
+   {
+    "module": "mod_flic",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_PARAMS": [
+   {
+    "module": "mod_flic",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_RESET": [
+   {
+    "module": "mod_flic",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_SIZE": [
+   {
+    "module": "mod_flic",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_START": [
+   {
+    "module": "mod_flic",
+    "params": "SII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_flic",
+    "params": "SIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLI_Z": [
+   {
+    "module": "mod_flic",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FLUSH": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FMOVE": [
+   {
+    "module": "mod_file",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_NEW": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_SAVE": [
+   {
+    "module": "mod_map",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FNT_UNLOAD": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FOPEN": [
+   {
+    "module": "mod_file",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FORMAT": [
+   {
+    "module": "mod_string",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "mod_string",
+    "params": "F",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "mod_string",
+    "params": "FI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FPG_ADD": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_DEL": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_EXISTS": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_NEW": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_SAVE": [
+   {
+    "module": "mod_map",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPG_UNLOAD": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FPUTS": [
+   {
+    "module": "mod_file",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FRAME_FLI": [
+   {
+    "module": "mod_flic",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREAD": [
+   {
+    "module": "mod_file",
+    "params": "IV++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_file",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREE": [
+   {
+    "module": "mod_mem",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREMOVE": [
+   {
+    "module": "mod_file",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FREWIND": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "FSEEK": [
+   {
+    "module": "mod_file",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FTELL": [
+   {
+    "module": "mod_file",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "FTIME": [
+   {
+    "module": "mod_time",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FTOA": [
+   {
+    "module": "mod_string",
+    "params": "F",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "FWRITE": [
+   {
+    "module": "mod_file",
+    "params": "IV++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_file",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GETENV": [
+   {
+    "module": "mod_sys",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GET_ANGLE": [
+   {
+    "module": "mod_grproc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_COLORS": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_DESKTOP_SIZE": [
+   {
+    "module": "mod_wm",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_DIST": [
+   {
+    "module": "mod_grproc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_DISTX": [
+   {
+    "module": "mod_mathi",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_DISTY": [
+   {
+    "module": "mod_mathi",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_GLYPH": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_ID": [
+   {
+    "module": "mod_proc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_JOY_BUTTON": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_JOY_POSITION": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_MODES": [
+   {
+    "module": "mod_video",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "GET_PIXEL": [
+   {
+    "module": "mod_draw",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_POINT": [
+   {
+    "module": "mod_map",
+    "params": "IIIPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_REAL_POINT": [
+   {
+    "module": "mod_grproc",
+    "params": "IPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_RGB": [
+   {
+    "module": "mod_map",
+    "params": "IIIPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_RGBA": [
+   {
+    "module": "mod_map",
+    "params": "IIIPPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_SCREEN": [
+   {
+    "module": "mod_screen",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_STATUS": [
+   {
+    "module": "mod_proc",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_TEXT_COLOR": [
+   {
+    "module": "mod_text",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_TIMER": [
+   {
+    "module": "mod_time",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_WINDOW_POS": [
+   {
+    "module": "mod_wm",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GET_WINDOW_SIZE": [
+   {
+    "module": "mod_wm",
+    "params": "PPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GLOB": [
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "GLYPH_GET": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GLYPH_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GRAPHIC_INFO": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GRAPHIC_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "GRAYSCALE": [
+   {
+    "module": "mod_effects",
+    "params": "IIB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISINF": [
+   {
+    "module": "mod_mathi",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ISNAN": [
+   {
+    "module": "mod_mathi",
+    "params": "F",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "IS_PLAYING_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "IS_PLAYING_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ITOA": [
+   {
+    "module": "mod_string",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "JOIN": [
+   {
+    "module": "mod_regex",
+    "params": "SPI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "JOY_AXES": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_BUTTONS": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETACCEL": [
+   {
+    "module": "mod_joy",
+    "params": "PPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETAXIS": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETBALL": [
+   {
+    "module": "mod_joy",
+    "params": "IPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "IIPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETBUTTON": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETHAT": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_GETPOSITION": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NAME": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "JOY_NUMAXES": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMBALLS": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMBER": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMBUTTONS": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMHATS": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_NUMJOYSTICKS": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "JOY_SELECT": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KEY": [
+   {
+    "module": "mod_key",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "KSORT": [
+   {
+    "module": "mod_sort",
+    "params": "V++V++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sort",
+    "params": "V++V++I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LCASE": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "LEN": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LET_ME_ALONE": [
+   {
+    "module": "mod_proc",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD": [
+   {
+    "module": "mod_file",
+    "params": "SV++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_BDF": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_FNT": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_FPG": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_MAP": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_PAL": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_PCX": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_PNG": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sound",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LOAD_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sound",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "LPAD": [
+   {
+    "module": "mod_string",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MAP_BLOCK_COPY": [
+   {
+    "module": "mod_map",
+    "params": "IIIIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_BUFFER": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MAP_CLEAR": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_CLONE": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_DEL": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_EXISTS": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_GET_PIXEL": [
+   {
+    "module": "mod_draw",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_INFO": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_INFO_GET": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_INFO_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_NAME": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "MAP_NEW": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_PUT": [
+   {
+    "module": "mod_map",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_PUT_PIXEL": [
+   {
+    "module": "mod_draw",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_SAVE": [
+   {
+    "module": "mod_map",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_SET_NAME": [
+   {
+    "module": "mod_map",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_UNLOAD": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_XPUT": [
+   {
+    "module": "mod_map",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MAP_XPUTNP": [
+   {
+    "module": "mod_map",
+    "params": "IIIIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMCMP": [
+   {
+    "module": "mod_mem",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMCOPY": [
+   {
+    "module": "mod_mem",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMMOVE": [
+   {
+    "module": "mod_mem",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMORY_FREE": [
+   {
+    "module": "mod_mem",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMORY_TOTAL": [
+   {
+    "module": "mod_mem",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSET": [
+   {
+    "module": "mod_mem",
+    "params": "PBI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSETI": [
+   {
+    "module": "mod_mem",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEMSETW": [
+   {
+    "module": "mod_mem",
+    "params": "PWI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_ALLOC": [
+   {
+    "module": "mod_mem",
+    "params": "I",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEM_AVAILABLE": [
+   {
+    "module": "mod_mem",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_CALLOC": [
+   {
+    "module": "mod_mem",
+    "params": "II",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEM_CMP": [
+   {
+    "module": "mod_mem",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_COPY": [
+   {
+    "module": "mod_mem",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_FREE": [
+   {
+    "module": "mod_mem",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_MOVE": [
+   {
+    "module": "mod_mem",
+    "params": "PPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_REALLOC": [
+   {
+    "module": "mod_mem",
+    "params": "PI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "MEM_SET": [
+   {
+    "module": "mod_mem",
+    "params": "PBI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_SETI": [
+   {
+    "module": "mod_mem",
+    "params": "PII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_SETW": [
+   {
+    "module": "mod_mem",
+    "params": "PWI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MEM_TOTAL": [
+   {
+    "module": "mod_mem",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MINIMIZE": [
+   {
+    "module": "mod_wm",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MKDIR": [
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MODE7_START": [
+   {
+    "module": "mod_m7",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_m7",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MODE7_STOP": [
+   {
+    "module": "mod_m7",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MODE_IS_OK": [
+   {
+    "module": "mod_video",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MOVE_DRAW": [
+   {
+    "module": "mod_draw",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MOVE_SCROLL": [
+   {
+    "module": "mod_scroll",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MOVE_TEXT": [
+   {
+    "module": "mod_text",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "MOVE_WINDOW": [
+   {
+    "module": "mod_wm",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NEAR_ANGLE": [
+   {
+    "module": "mod_mathi",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_math",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NEW_FNT": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NEW_FPG": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NEW_MAP": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NEW_PAL": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "NUMBER_JOY": [
+   {
+    "module": "mod_joy",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "OUT_REGION": [
+   {
+    "module": "mod_screen",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PALETTE_CONVERT": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PALETTE_ROLL": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_CLONE": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_DEL": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_GET": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_MAP_ASSIGN": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_MAP_GETID": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_MAP_REMOVE": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_NEW": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_REFRESH": [
+   {
+    "module": "mod_map",
+    "params": "",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_SAVE": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_SYS_SET": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAL_UNLOAD": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PATH_FIND": [
+   {
+    "module": "mod_path",
+    "params": "IIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PATH_GETXY": [
+   {
+    "module": "mod_path",
+    "params": "PP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PATH_WALL": [
+   {
+    "module": "mod_path",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAUSE_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PAUSE_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PCX_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PLAY_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PLAY_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PNG_LOAD": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PNG_SAVE": [
+   {
+    "module": "mod_map",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POINT_GET": [
+   {
+    "module": "mod_map",
+    "params": "IIIPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POINT_SET": [
+   {
+    "module": "mod_map",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "POW": [
+   {
+    "module": "mod_mathi",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "FF",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "PUT": [
+   {
+    "module": "mod_screen",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PUT_PIXEL": [
+   {
+    "module": "mod_draw",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "PUT_SCREEN": [
+   {
+    "module": "mod_screen",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "QUICKSORT": [
+   {
+    "module": "mod_sort",
+    "params": "PIIIBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAND": [
+   {
+    "module": "mod_rand",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RAND_SEED": [
+   {
+    "module": "mod_rand",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REALLOC": [
+   {
+    "module": "mod_mem",
+    "params": "PI",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "REGEX": [
+   {
+    "module": "mod_regex",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REGEX_REPLACE": [
+   {
+    "module": "mod_regex",
+    "params": "SSS",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "REGION_DEFINE": [
+   {
+    "module": "mod_screen",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REGION_OUT": [
+   {
+    "module": "mod_screen",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RESERVE_CHANNELS": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RESET_FLI": [
+   {
+    "module": "mod_flic",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RESUME_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RESUME_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "REVERSE_STEREO": [
+   {
+    "module": "mod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGB": [
+   {
+    "module": "mod_map",
+    "params": "IIBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "BBBI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "BBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGBA": [
+   {
+    "module": "mod_map",
+    "params": "IIBBBB",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "BBBBI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "BBBB",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGBA_GET": [
+   {
+    "module": "mod_map",
+    "params": "IIIPPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGBSCALE": [
+   {
+    "module": "mod_effects",
+    "params": "IIFFF",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RGB_GET": [
+   {
+    "module": "mod_map",
+    "params": "IIIPPP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPPI",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IPPP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RM": [
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RMDIR": [
+   {
+    "module": "mod_dir",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "ROLL_PALETTE": [
+   {
+    "module": "mod_map",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "RPAD": [
+   {
+    "module": "mod_string",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "SAVE": [
+   {
+    "module": "mod_file",
+    "params": "SV++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAVE_FNT": [
+   {
+    "module": "mod_map",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAVE_FPG": [
+   {
+    "module": "mod_map",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAVE_MAP": [
+   {
+    "module": "mod_map",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAVE_PAL": [
+   {
+    "module": "mod_map",
+    "params": "S",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "SI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAVE_PNG": [
+   {
+    "module": "mod_map",
+    "params": "IIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SAY": [
+   {
+    "module": "mod_say",
+    "params": "S",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "SAY_FAST": [
+   {
+    "module": "mod_say",
+    "params": "S",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "SCREEN_CLEAR": [
+   {
+    "module": "mod_screen",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCREEN_GET": [
+   {
+    "module": "mod_screen",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCREEN_PUT": [
+   {
+    "module": "mod_screen",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCROLL_MOVE": [
+   {
+    "module": "mod_scroll",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCROLL_START": [
+   {
+    "module": "mod_scroll",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_scroll",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SCROLL_STOP": [
+   {
+    "module": "mod_scroll",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SELECT_JOY": [
+   {
+    "module": "mod_joy",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_CENTER": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_CHANNEL_VOLUME": [
+   {
+    "module": "mod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_COLORS": [
+   {
+    "module": "mod_map",
+    "params": "IIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_map",
+    "params": "IIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_DISTANCE": [
+   {
+    "module": "mod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_FPS": [
+   {
+    "module": "mod_video",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_GLYPH": [
+   {
+    "module": "mod_map",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_ICON": [
+   {
+    "module": "mod_wm",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_MODE": [
+   {
+    "module": "mod_video",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_video",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_video",
+    "params": "III",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_video",
+    "params": "IIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_MUSIC_POSITION": [
+   {
+    "module": "mod_sound",
+    "params": "F",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_PANNING": [
+   {
+    "module": "mod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_POINT": [
+   {
+    "module": "mod_map",
+    "params": "IIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_POSITION": [
+   {
+    "module": "mod_sound",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_SONG_VOLUME": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_TEXT_COLOR": [
+   {
+    "module": "mod_text",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_TITLE": [
+   {
+    "module": "mod_wm",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_WAV_VOLUME": [
+   {
+    "module": "mod_sound",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SET_WINDOW_POS": [
+   {
+    "module": "mod_wm",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SIGNAL": [
+   {
+    "module": "mod_proc",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SIGNAL_ACTION": [
+   {
+    "module": "mod_proc",
+    "params": "II",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_proc",
+    "params": "III",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SIN": [
+   {
+    "module": "mod_mathi",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "SORT": [
+   {
+    "module": "mod_sort",
+    "params": "V++I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sort",
+    "params": "V++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_CLOSE": [
+   {
+    "module": "mod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SOUND_INIT": [
+   {
+    "module": "mod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SPLIT": [
+   {
+    "module": "mod_regex",
+    "params": "SSPI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "SQRT": [
+   {
+    "module": "mod_mathi",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "START_FLI": [
+   {
+    "module": "mod_flic",
+    "params": "SII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "START_MODE7": [
+   {
+    "module": "mod_m7",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_m7",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "START_SCROLL": [
+   {
+    "module": "mod_scroll",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_scroll",
+    "params": "IIIIII",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STOP_MODE7": [
+   {
+    "module": "mod_m7",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STOP_SCROLL": [
+   {
+    "module": "mod_scroll",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STOP_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STOP_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRCASECMP": [
+   {
+    "module": "mod_string",
+    "params": "SS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRING_ALLOC": [
+   {
+    "module": "mod_string",
+    "params": "",
+    "ret": "TYPE_POINTER"
+   },
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "STRING_BUFFER": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_POINTER"
+   }
+  ],
+  "STRING_DUMP": [
+   {
+    "module": "mod_string",
+    "params": "",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "STRING_RELEASE": [
+   {
+    "module": "mod_string",
+    "params": "P",
+    "ret": "TYPE_UNDEFINED"
+   }
+  ],
+  "STRLEN": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "STRREV": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "SUBSTR": [
+   {
+    "module": "mod_string",
+    "params": "SII",
+    "ret": "TYPE_STRING"
+   },
+   {
+    "module": "mod_string",
+    "params": "SI",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "TAN": [
+   {
+    "module": "mod_mathi",
+    "params": "I",
+    "ret": "TYPE_FLOAT"
+   },
+   {
+    "module": "mod_math",
+    "params": "F",
+    "ret": "TYPE_FLOAT"
+   }
+  ],
+  "TEXT_HEIGHT": [
+   {
+    "module": "mod_text",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TEXT_WIDTH": [
+   {
+    "module": "mod_text",
+    "params": "IS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TIME": [
+   {
+    "module": "mod_time",
+    "params": "",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TRACE": [
+   {
+    "module": "mod_debug",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "TRIM": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "UCASE": [
+   {
+    "module": "mod_string",
+    "params": "S",
+    "ret": "TYPE_STRING"
+   }
+  ],
+  "UNLOAD_FNT": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "UNLOAD_FPG": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "UNLOAD_MAP": [
+   {
+    "module": "mod_map",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "UNLOAD_PAL": [
+   {
+    "module": "mod_map",
+    "params": "I",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "UNLOAD_SONG": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sound",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "UNLOAD_WAV": [
+   {
+    "module": "mod_sound",
+    "params": "I",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_sound",
+    "params": "P",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE": [
+   {
+    "module": "mod_text",
+    "params": "IIIIS",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "IIIIIS",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_FLOAT": [
+   {
+    "module": "mod_text",
+    "params": "IIIIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "IIIIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_INT": [
+   {
+    "module": "mod_text",
+    "params": "IIIIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "IIIIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_IN_MAP": [
+   {
+    "module": "mod_text",
+    "params": "ISI",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_STRING": [
+   {
+    "module": "mod_text",
+    "params": "IIIIP",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "IIIIIP",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "WRITE_VAR": [
+   {
+    "module": "mod_text",
+    "params": "IIIIV++",
+    "ret": "TYPE_INT"
+   },
+   {
+    "module": "mod_text",
+    "params": "IIIIIV++",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "XADVANCE": [
+   {
+    "module": "mod_grproc",
+    "params": "II",
+    "ret": "TYPE_INT"
+   }
+  ],
+  "XPUT": [
+   {
+    "module": "mod_screen",
+    "params": "IIIIIIII",
+    "ret": "TYPE_INT"
+   }
+  ]
+ },
+ "global_fields": {
+  "ACCESSED": "fileinfo.accessed",
+  "ANGLE": "mouse.angle",
+  "AUDIO": "cdinfo.track.audio",
+  "CAMERA": "m7.camera",
+  "COLOR": "m7.color",
+  "CREATED": "fileinfo.created",
+  "CURRENT_FRAME": "cdinfo.current_frame",
+  "CURRENT_TRACK": "cdinfo.current_track",
+  "DIRECTORY": "fileinfo.directory",
+  "DISTANCE": "m7.distance",
+  "FILE": "mouse.file",
+  "FLAGS": "m7.flags",
+  "FLAGS1": "scroll.flags1",
+  "FLAGS2": "scroll.flags2",
+  "FOCUS": "m7.focus",
+  "FOLLOW": "scroll.follow",
+  "GRAPH": "mouse.graph",
+  "HEIGHT": "m7.height",
+  "HIDDEN": "fileinfo.hidden",
+  "HORIZON": "m7.horizon",
+  "MINUTE": "cdinfo.minute",
+  "MINUTES": "cdinfo.minutes",
+  "MODIFIED": "fileinfo.modified",
+  "NAME": "fileinfo.name",
+  "PATH": "fileinfo.path",
+  "RATIO": "scroll.ratio",
+  "READONLY": "fileinfo.readonly",
+  "REGION": "mouse.region",
+  "REGION1": "scroll.region1",
+  "REGION2": "scroll.region2",
+  "RESERVED": "scroll.reserved",
+  "SECOND": "cdinfo.second",
+  "SECONDS": "cdinfo.seconds",
+  "SIZE": "fileinfo.size",
+  "SPEED": "scroll.speed",
+  "STATECHG": "fileinfo.statechg",
+  "SUBFRAME": "cdinfo.subframe",
+  "SUBFRAMES": "cdinfo.subframes",
+  "TRACKS": "cdinfo.tracks",
+  "X": "mouse.x",
+  "Z": "m7.z"
+ },
+ "global_types": {
+  "ACCESSED": "STRING",
+  "ARGV": "STRING",
+  "CREATED": "STRING",
+  "FRAME_TIME": "FLOAT",
+  "MODIFIED": "STRING",
+  "NAME": "STRING",
+  "PATH": "STRING",
+  "REGEX_REG": "STRING",
+  "STATECHG": "STRING"
+ },
+ "globals": {
+  "ALPHA_STEPS": "libgrbase",
+  "ARGC": "src",
+  "ARGV": "src",
+  "ASCII": "libkey",
+  "CDINFO": "mod_cd",
+  "DUMP_TYPE": "librender",
+  "EXIT_STATUS": "libwm",
+  "FADING": "librender",
+  "FILEINFO": "mod_dir",
+  "FOCUS_STATUS": "libwm",
+  "FPS": "librender",
+  "FRAME_TIME": "librender",
+  "FULL_SCREEN": "libvideo",
+  "GLOBALS_DEF": "src",
+  "GRAPH_MODE": "libvideo",
+  "LIBBGLOAD": "include",
+  "LIBBLIT": "include",
+  "LIBDRAW": "include",
+  "LIBFONT": "include",
+  "LIBJOY": "include",
+  "LIBKEY": "include",
+  "LIBMOUSE": "include",
+  "LIBRENDER": "include",
+  "LIBSCROLL": "include",
+  "LIBSDLHANDLER": "include",
+  "LIBTEXT": "include",
+  "LIBVIDEO": "include",
+  "LIBWM": "include",
+  "M7": "mod_m7",
+  "MOD_BLENDOP": "include",
+  "MOD_CD": "include",
+  "MOD_CRYPT": "include",
+  "MOD_DEBUG": "include",
+  "MOD_DIR": "include",
+  "MOD_DRAW": "include",
+  "MOD_EFFECTS": "include",
+  "MOD_FILE": "include",
+  "MOD_FLIC": "include",
+  "MOD_GRPROC": "include",
+  "MOD_JOY": "include",
+  "MOD_KEY": "include",
+  "MOD_M7": "include",
+  "MOD_MAP": "include",
+  "MOD_MATH": "include",
+  "MOD_MEM": "include",
+  "MOD_MOUSE": "include",
+  "MOD_PATH": "include",
+  "MOD_PROC": "include",
+  "MOD_RAND": "include",
+  "MOD_REGEX": "include",
+  "MOD_SAY": "include",
+  "MOD_SCREEN": "include",
+  "MOD_SCROLL": "include",
+  "MOD_SORT": "include",
+  "MOD_SOUND": "include",
+  "MOD_STRING": "include",
+  "MOD_SYS": "include",
+  "MOD_TEXT": "include",
+  "MOD_TIME": "include",
+  "MOD_TIMERS": "include",
+  "MOD_VIDEO": "include",
+  "MOD_WM": "include",
+  "MOUSE": "libmouse",
+  "MOUSE_STATUS": "libwm",
+  "OS_ID": "src",
+  "REGEX_REG": "mod_regex",
+  "RESTORE_TYPE": "librender",
+  "SCALE_MODE": "libvideo",
+  "SCALE_RESOLUTION": "libvideo",
+  "SCALE_RESOLUTION_ASPECTRATIO": "libvideo",
+  "SCALE_RESOLUTION_ORIENTATION": "libvideo",
+  "SCAN_CODE": "libkey",
+  "SCROLL": "libscroll",
+  "SHIFT_STATUS": "libkey",
+  "SOUND_CHANNELS": "mod_sound",
+  "SOUND_FREQ": "mod_sound",
+  "SOUND_MODE": "mod_sound",
+  "SPEED_GAUGE": "librender",
+  "TEXT_FLAGS": "libtext",
+  "TEXT_Z": "libtext",
+  "TIMER": "mod_timers",
+  "WINDOW_STATUS": "libwm"
+ },
+ "local_fields": {
+  "ALPHA": "_render_reserved_._saved_.alpha",
+  "ANGLE": "_render_reserved_._saved_.angle",
+  "BLENDOP": "_render_reserved_._saved_.blendop",
+  "CENTERX": "_render_reserved_._saved_.centerx",
+  "CENTERY": "_render_reserved_._saved_.centery",
+  "CONTEXT": "mod_proc_reserved.context",
+  "DISTANCE1": "_m7_reserved.distance1",
+  "FILE": "_render_reserved_._saved_.file",
+  "FLAGS": "_render_reserved_._saved_.flags",
+  "FRAME_PERCENT": "reserved.frame_percent",
+  "GRAPH": "_render_reserved_._saved_.graph",
+  "GRAPH_PTR": "_render_reserved_.graph_ptr",
+  "ID_SCAN": "mod_proc_reserved.id_scan",
+  "OBJECT_ID": "_render_reserved_.object_id",
+  "PALETTE": "_render_reserved_._saved_.palette",
+  "PROCESS_TYPE": "reserved.process_type",
+  "SAVED_PRIORITY": "reserved.saved_priority",
+  "SAVED_STATUS": "reserved.saved_status",
+  "SIGNAL_ACTION": "mod_proc_reserved.signal_action",
+  "SIZE": "_render_reserved_._saved_.size",
+  "SIZE_X": "_render_reserved_._saved_.size_x",
+  "SIZE_Y": "_render_reserved_._saved_.size_y",
+  "STATUS": "reserved.status",
+  "X": "_render_reserved_._saved_.x",
+  "XGRAPH": "_render_reserved_._saved_.xgraph",
+  "XGRAPH_FLAGS": "_render_reserved_.xgraph_flags",
+  "Y": "_render_reserved_._saved_.y",
+  "Z": "_render_reserved_._saved_.z"
+ },
+ "local_types": {
+  "CONTEXT": "INT",
+  "ID_SCAN": "INT",
+  "SIGNAL_ACTION": "DWORD",
+  "XGRAPH": "POINTER"
+ },
+ "locals": {
+  "ALPHA": "librender",
+  "ANGLE": "librender",
+  "BIGBRO": "src",
+  "BLENDOP": "librender",
+  "CNUMBER": "mod_m7",
+  "CTYPE": "mod_m7",
+  "FATHER": "src",
+  "FILE": "librender",
+  "FLAGS": "librender",
+  "GRAPH": "librender",
+  "HEIGHT": "mod_m7",
+  "ID": "src",
+  "LIBBGLOAD": "include",
+  "LIBBLIT": "include",
+  "LIBDRAW": "include",
+  "LIBFONT": "include",
+  "LIBJOY": "include",
+  "LIBKEY": "include",
+  "LIBMOUSE": "include",
+  "LIBRENDER": "include",
+  "LIBSCROLL": "include",
+  "LIBSDLHANDLER": "include",
+  "LIBTEXT": "include",
+  "LIBVIDEO": "include",
+  "LIBWM": "include",
+  "LOCALS_DEF": "src",
+  "MOD_BLENDOP": "include",
+  "MOD_CD": "include",
+  "MOD_CRYPT": "include",
+  "MOD_DEBUG": "include",
+  "MOD_DIR": "include",
+  "MOD_DRAW": "include",
+  "MOD_EFFECTS": "include",
+  "MOD_FILE": "include",
+  "MOD_FLIC": "include",
+  "MOD_GRPROC": "include",
+  "MOD_JOY": "include",
+  "MOD_KEY": "include",
+  "MOD_M7": "include",
+  "MOD_MAP": "include",
+  "MOD_MATH": "include",
+  "MOD_MEM": "include",
+  "MOD_MOUSE": "include",
+  "MOD_PATH": "include",
+  "MOD_PROC": "include",
+  "MOD_PROC_RESERVED": "mod_proc",
+  "MOD_RAND": "include",
+  "MOD_REGEX": "include",
+  "MOD_SAY": "include",
+  "MOD_SCREEN": "include",
+  "MOD_SCROLL": "include",
+  "MOD_SORT": "include",
+  "MOD_SOUND": "include",
+  "MOD_STRING": "include",
+  "MOD_SYS": "include",
+  "MOD_TEXT": "include",
+  "MOD_TIME": "include",
+  "MOD_TIMERS": "include",
+  "MOD_VIDEO": "include",
+  "MOD_WM": "include",
+  "PALETTE": "librender",
+  "PRIORITY": "src",
+  "REGION": "librender",
+  "RESERVED": "src",
+  "RESOLUTION": "librender",
+  "SIZE": "librender",
+  "SIZE_X": "librender",
+  "SIZE_Y": "librender",
+  "SMALLBRO": "src",
+  "SON": "src",
+  "X": "librender",
+  "XGRAPH": "librender",
+  "Y": "librender",
+  "Z": "librender",
+  "_M7_RESERVED": "mod_m7",
+  "_MOD_GRPROC_RESERVED": "mod_grproc",
+  "_RENDER_RESERVED_": "librender"
+ }
+}

@@ -44,6 +44,7 @@
 #include <libavutil/dict.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/hwcontext.h>
 #include <libavutil/samplefmt.h>
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
@@ -98,6 +99,8 @@ typedef struct {
     int             hwmode;                    /* 0 planar yuv420p, 1 NV12, 2 16-bit (10 bit) NV12   */
     HWDEC           * hw;                      /* console decoder (PS5), NULL = libavcodec          */
     int             fake_hw;                   /* PC test: NV12/P010 made with swscale              */
+    int             hwpc;                      /* PC: FFmpeg's hardware decoder (VAAPI, D3D11VA...)  */
+    int             hwkind;                    /* 0 software, 1 NVDEC (cuvid), 2 hwaccel de FFmpeg  */
     AVBSFContext    * bsf;                     /* mp4 -> Annex B for the console decoder            */
     AVPacket        * bsf_pkt;
     int             hw_wait_key, hw_skip_rasl, hw_fail, hw_errors;
@@ -363,6 +366,7 @@ static const char * sub_lang( AVFormatContext * f, int stream, char * buf, size_
 
 static int g_use_gpu = 1;                      /* VIDEO_USE_GPU                                 */
 static int g_use_hw = 1;                       /* VIDEO_USE_HW (console decoder, PS5)            */
+static int g_pc_hw = 1;                        /* LIBMOD_VIDEO_PC_HW=0: en el PC, sin hardware  */
 static int g_fake_hw = 0;                      /* PC test: LIBMOD_VIDEO_FAKE_HW=1 (NV12/P010 via swscale) */
 static Uint32 g_yuv_prog = 0;                  /* shared program, 0 = not built / failed        */
 static int g_yuv_tried = 0;
@@ -693,6 +697,16 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
         }
         pack_nv( v, v->vq[slot].rgba, v->fk_y, v->fk_ypitch, v->fk_uv, v->fk_uvpitch, 0 );
     } else if ( v->gpu ) {
+        if ( v->hwkind == 1 || v->hwpc ) {
+            /* NV12 (Y + UV intercalado) del decodificador de la GPU: los planos van tal cual */
+            pack_nv( v, v->vq[slot].rgba, f->data[0], f->linesize[0], f->data[1], f->linesize[1], 0 );
+            v->vq[slot].pts = pts;
+            SDL_LockMutex( v->mx );
+            vclock_align( v, pts );
+            if ( !v->seek_req ) v->vq_n++;
+            SDL_UnlockMutex( v->mx );
+            return 1;
+        }
         /* planes copied as they are; the GPU does the colour conversion */
         uint8_t * d = v->vq[slot].rgba;
         size_t ys = ( size_t ) v->ypw * 4, cs = ( size_t ) v->cpw * 4;
@@ -758,6 +772,10 @@ static void push_audio( VIDEO * v, AVFrame * f ) {
 static void drain_decoder( VIDEO * v, AVCodecContext * c, int is_video ) {
     int r;
     while ( !v->quit && !v->seek_req && ( r = avcodec_receive_frame( c, v->frame ) ) >= 0 ) {
+        if ( is_video && v->hwpc && v->frame->format != AV_PIX_FMT_NV12 ) {
+            /* el fotograma esta en la GPU: se baja a la memoria (el shader hace el cambio de color) */
+            if ( av_hwframe_transfer_data( v->frame, v->frame, 0 ) < 0 ) { av_frame_unref( v->frame ); continue; }
+        }
         if ( is_video ) push_video_frame( v, v->frame ); else push_audio( v, v->frame );
         av_frame_unref( v->frame );
     }
@@ -938,7 +956,7 @@ static void vid_free( VIDEO * v ) {
     vtrace( "vid_free: start thr=%p hw=%p", ( void * ) v->thr, ( void * ) v->hw );
     if ( v->wall0 > 0 )
         fprintf( stderr, "libmod_video: %dx%d %s: process CPU %.2f s in %.2f s wall (%.0f%% of one core)\n", v->w, v->h,
-                 v->hw ? "hardware decoder" : "software decoder",
+                 v->hw ? "hardware decoder" : ( v->hwkind == 1 ? "hardware decoder (NVDEC)" : ( v->hwkind == 2 ? "hardware decoder (FFmpeg)" : "software decoder" ) ),
                  now_s( CLOCK_PROCESS_CPUTIME_ID ) - v->cpu0, now_s( CLOCK_MONOTONIC ) - v->wall0,
                  100.0 * ( now_s( CLOCK_PROCESS_CPUTIME_ID ) - v->cpu0 ) / ( now_s( CLOCK_MONOTONIC ) - v->wall0 ) );
     if ( v->thr ) {
@@ -976,6 +994,68 @@ static void vid_free( VIDEO * v ) {
     if ( v->mx ) SDL_DestroyMutex( v->mx );
     memset( v, 0, sizeof( *v ) );
     vtrace( "vid_free: done" );
+}
+
+/* ---- decodificacion por hardware en PC -------------------------------------------------------
+   En la consola el motor tiene su propio decodificador (libSceVideodec2, ver libmod_video_hwdec.c);
+   en el PC no hay ninguno, asi que se usa el de FFmpeg con la GPU del sistema: VAAPI en Linux,
+   D3D11VA o NVDEC en Windows y VideoToolbox en macOS. Los fotogramas se descargan a la memoria
+   (el shader hace el cambio de color, igual que en la consola) y si no hay ningun dispositivo
+   disponible, o el codec no lo admite, se sigue con el decodificador de software. */
+static const enum AVHWDeviceType pc_hw_kinds[] = {
+    AV_HWDEVICE_TYPE_VAAPI, AV_HWDEVICE_TYPE_D3D11VA, AV_HWDEVICE_TYPE_VDPAU,
+    AV_HWDEVICE_TYPE_CUDA, AV_HWDEVICE_TYPE_VIDEOTOOLBOX
+};
+
+static int pc_hw_open( AVFormatContext * fmt, int idx, AVCodecContext ** out, int * kind ) {
+    AVCodecParameters * par = fmt->streams[idx]->codecpar;
+    const AVCodec * codec = avcodec_find_decoder( par->codec_id );
+    if ( !codec ) return 0;
+    if ( par->codec_id != AV_CODEC_ID_H264 && par->codec_id != AV_CODEC_ID_HEVC ) return 0;
+    /* NVIDIA: los decodificadores cuvid (NVDEC) no usan el marco de hwaccel, son decodificadores
+       aparte que se abren por su identificador y entregan los fotogramas en memoria */
+    {
+        const AVCodec * cc = NULL;
+        if ( par->codec_id == AV_CODEC_ID_H264 ) cc = avcodec_find_decoder_by_name( "h264_cuvid" );
+        else if ( par->codec_id == AV_CODEC_ID_HEVC ) cc = avcodec_find_decoder_by_name( "hevc_cuvid" );
+        if ( cc ) {
+            AVCodecContext * c = avcodec_alloc_context3( cc );
+            if ( c ) {
+                if ( avcodec_parameters_to_context( c, par ) >= 0 ) {
+                    c->thread_count = 0;
+                    if ( avcodec_open2( c, cc, NULL ) >= 0 ) {
+                        vtrace( "video_open: hardware decoder cuvid (NVDEC)" );
+                        *kind = 1;
+                        *out = c;
+                        return 1;
+                    }
+                }
+                avcodec_free_context( &c );
+            }
+        }
+    }
+    for ( size_t i = 0; i < sizeof( pc_hw_kinds ) / sizeof( pc_hw_kinds[0] ); i++ ) {
+        int has = 0;
+        for ( int k = 0; ; k++ ) {                                  /* el codec acepta este dispositivo? */
+            const AVCodecHWConfig * c2 = avcodec_get_hw_config( codec, k );
+            if ( !c2 ) break;
+            if ( c2->device_type == pc_hw_kinds[i] ) { has = 1; break; }
+        }
+        if ( !has ) continue;
+        AVBufferRef * dev = NULL;
+        if ( av_hwdevice_ctx_create( &dev, pc_hw_kinds[i], NULL, NULL, 0 ) < 0 ) { dev = NULL; continue; }
+        AVCodecContext * c = avcodec_alloc_context3( codec );
+        if ( !c ) { av_buffer_unref( &dev ); continue; }
+        if ( avcodec_parameters_to_context( c, par ) < 0 ) { avcodec_free_context( &c ); av_buffer_unref( &dev ); continue; }
+        c->thread_count = 0;
+        c->hw_device_ctx = av_buffer_ref( dev );                      /* el decoder crea su contexto de fotogramas */
+        if ( avcodec_open2( c, codec, NULL ) < 0 ) { avcodec_free_context( &c ); av_buffer_unref( &dev ); continue; }
+        av_buffer_unref( &dev );
+        vtrace( "video_open: hardware decoder %s", av_hwdevice_get_type_name( pc_hw_kinds[i] ) );
+        *out = c;
+        return 1;
+    }
+    return 0;
 }
 
 static AVCodecContext * open_codec( AVFormatContext * fmt, int idx ) {
@@ -1129,6 +1209,21 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
                         if ( fmt10 && v->vctx->color_trc != AVCOL_TRC_SMPTE2084 ) { v->hwmode = 1; v->down10 = 1; }
                         v->hw_skip_rasl = 1;
                     }
+                }
+            }
+            /* PC: el decodificador por hardware de FFmpeg (VAAPI, D3D11VA, NVDEC, VideoToolbox) */
+            if ( !v->hw && !v->fake_hw && g_use_hw && g_pc_hw && fmt8 && ( is_h264 || is_hevc )
+                 && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC ) ) {
+                AVCodecContext * hc = NULL;
+                int kind = 0;
+                if ( pc_hw_open( v->fmt, v->vstream, &hc, &kind ) ) {
+                    avcodec_free_context( &v->vctx );
+                    v->vctx = hc;
+                    v->hwkind = kind;
+                    if ( kind == 1 || kind == 2 ) v->hwmode = 1;       /* NV12 */
+                    if ( kind == 2 ) v->hwpc = 1;                     /* el fotograma viene de la GPU */
+                    v->gpu = 1;
+                    if ( !g_yuv_tried ) yuv_program_build();
                 }
             }
             if ( !v->hw && g_fake_hw && ( fmt8 || fmt10 ) ) { v->fake_hw = 1; v->hwmode = fmt10 ? 2 : 1; }
@@ -1603,6 +1698,7 @@ void __bgdexport( libmod_video, module_initialize )() {
     av_log_set_level( AV_LOG_ERROR );
 #ifndef __PROSPERO__
     { const char * e = getenv( "LIBMOD_VIDEO_FAKE_HW" ); g_fake_hw = e && *e == '1'; }
+    { const char * e = getenv( "LIBMOD_VIDEO_PC_HW" ); g_pc_hw = !e || *e != '0'; }
 #endif
 }
 

@@ -1,0 +1,1282 @@
+{
+"0": [
+"SAY",
+1,
+"S"
+],
+"100": [
+"UNLOAD_MAP",
+2,
+"II"
+],
+"101": [
+"UNLOAD_FPG",
+1,
+"I"
+],
+"102": [
+"GRAPHIC_SET",
+4,
+"IIII"
+],
+"103": [
+"GRAPHIC_INFO",
+3,
+"III"
+],
+"104": [
+"GET_POINT",
+5,
+"IIIPP"
+],
+"105": [
+"GET_REAL_POINT",
+3,
+"IPP"
+],
+"106": [
+"SET_POINT",
+5,
+"IIIII"
+],
+"107": [
+"SET_CENTER",
+4,
+"IIII"
+],
+"109": [
+"DEFINE_REGION",
+5,
+"IIIII"
+],
+"110": [
+"OUT_REGION",
+2,
+"II"
+],
+"112": [
+"PUT",
+4,
+"IIII"
+],
+"113": [
+"XPUT",
+8,
+"IIIIIIII"
+],
+"114": [
+"PUT_PIXEL",
+3,
+"III"
+],
+"115": [
+"PUT_SCREEN",
+2,
+"II"
+],
+"116": [
+"CLEAR_SCREEN",
+0,
+""
+],
+"117": [
+"GET_PIXEL",
+2,
+"II"
+],
+"120": [
+"MAP_BLOCK_COPY",
+10,
+"IIIIIIIIII"
+],
+"121": [
+"MAP_GET_PIXEL",
+4,
+"IIII"
+],
+"122": [
+"MAP_PUT",
+5,
+"IIIII"
+],
+"123": [
+"MAP_XPUT",
+8,
+"IIIIIIII"
+],
+"124": [
+"MAP_PUT_PIXEL",
+5,
+"IIIII"
+],
+"125": [
+"NEW_MAP",
+3,
+"III"
+],
+"126": [
+"MAP_CLEAR",
+3,
+"III"
+],
+"127": [
+"MAP_CLONE",
+2,
+"II"
+],
+"128": [
+"MAP_NAME",
+2,
+"II"
+],
+"129": [
+"MAP_SET_NAME",
+3,
+"IIS"
+],
+"130": [
+"MAP_EXISTS",
+2,
+"II"
+],
+"131": [
+"MAP_XPUTNP",
+10,
+"IIIIIIIIIII"
+],
+"132": [
+"FPG_EXISTS",
+1,
+"I"
+],
+"136": [
+"FPG_ADD",
+4,
+"IIII"
+],
+"139": [
+"FPG_NEW",
+0,
+""
+],
+"144": [
+"LOAD_FNT",
+1,
+"S"
+],
+"145": [
+"UNLOAD_FNT",
+1,
+"I"
+],
+"146": [
+"WRITE",
+5,
+"IIIIS"
+],
+"147": [
+"WRITE_INT",
+5,
+"IIIIP"
+],
+"148": [
+"MOVE_TEXT",
+3,
+"III"
+],
+"149": [
+"DELETE_TEXT",
+1,
+"I"
+],
+"150": [
+"WRITE_IN_MAP",
+3,
+"ISI"
+],
+"151": [
+"TEXT_WIDTH",
+2,
+"IS"
+],
+"152": [
+"TEXT_HEIGHT",
+2,
+"IS"
+],
+"153": [
+"SAVE_FNT",
+2,
+"IS"
+],
+"154": [
+"LOAD_BDF",
+1,
+"S"
+],
+"158": [
+"TIME",
+0,
+""
+],
+"159": [
+"FTIME",
+2,
+"SI"
+],
+"16": [
+"RAND",
+2,
+"II"
+],
+"160": [
+"SAVE",
+4,
+"SV++"
+],
+"161": [
+"LOAD",
+4,
+"SV++"
+],
+"162": [
+"FOPEN",
+2,
+"SI"
+],
+"163": [
+"FCLOSE",
+1,
+"I"
+],
+"164": [
+"FREAD",
+4,
+"IV++"
+],
+"165": [
+"FWRITE",
+4,
+"IV++"
+],
+"166": [
+"FSEEK",
+3,
+"III"
+],
+"167": [
+"FTELL",
+1,
+"I"
+],
+"168": [
+"FLENGTH",
+1,
+"I"
+],
+"169": [
+"FPUTS",
+2,
+"IS"
+],
+"17": [
+"RAND_SEED",
+1,
+"I"
+],
+"170": [
+"FGETS",
+1,
+"I"
+],
+"171": [
+"FEOF",
+1,
+"I"
+],
+"172": [
+"FILE",
+1,
+"S"
+],
+"18": [
+"ABS",
+1,
+"F"
+],
+"19": [
+"POW",
+2,
+"FF"
+],
+"192": [
+"START_MODE7",
+6,
+"IIIIII"
+],
+"193": [
+"STOP_MODE7",
+1,
+"I"
+],
+"194": [
+"START_SCROLL",
+6,
+"IIIIII"
+],
+"195": [
+"STOP_SCROLL",
+1,
+"I"
+],
+"196": [
+"MOVE_SCROLL",
+1,
+"I"
+],
+"197": [
+"START_FLI",
+3,
+"SII"
+],
+"198": [
+"END_FLI",
+0,
+""
+],
+"199": [
+"FRAME_FLI",
+0,
+""
+],
+"20": [
+"FGET_ANGLE",
+4,
+"IIII"
+],
+"200": [
+"RESET_FLI",
+0,
+""
+],
+"208": [
+"LEN",
+1,
+"S"
+],
+"209": [
+"UCASE",
+1,
+"S"
+],
+"21": [
+"FGET_DIST",
+4,
+"IIII"
+],
+"210": [
+"LCASE",
+1,
+"S"
+],
+"211": [
+"SUBSTR",
+3,
+"SII"
+],
+"212": [
+"FIND",
+2,
+"SS"
+],
+"213": [
+"ITOA",
+1,
+"I"
+],
+"214": [
+"FTOA",
+1,
+"F"
+],
+"215": [
+"ATOI",
+1,
+"S"
+],
+"216": [
+"ATOF",
+1,
+"S"
+],
+"217": [
+"ASC",
+1,
+"S"
+],
+"218": [
+"CHR",
+1,
+"I"
+],
+"22": [
+"NEAR_ANGLE",
+3,
+"III"
+],
+"224": [
+"LOAD_PNG",
+1,
+"S"
+],
+"225": [
+"LOAD_PCX",
+1,
+"S"
+],
+"23": [
+"ADVANCE",
+1,
+"I"
+],
+"235": [
+"MAP_BUFFER",
+2,
+"II"
+],
+"236": [
+"SET_COLORS",
+3,
+"IIP"
+],
+"237": [
+"GET_COLORS",
+3,
+"IIP"
+],
+"239": [
+"MEMORY_TOTAL",
+0,
+""
+],
+"24": [
+"XADVANCE",
+2,
+"II"
+],
+"240": [
+"ALLOC",
+1,
+"I"
+],
+"241": [
+"FREE",
+1,
+"P"
+],
+"242": [
+"REALLOC",
+2,
+"PI"
+],
+"243": [
+"EXISTS",
+1,
+"I"
+],
+"244": [
+"MEMSET",
+3,
+"PBI"
+],
+"245": [
+"MEMSETW",
+3,
+"PWI"
+],
+"246": [
+"MEMCOPY",
+3,
+"PPI"
+],
+"247": [
+"MEMORY_FREE",
+0,
+""
+],
+"248": [
+"DRAWING_MAP",
+2,
+"II"
+],
+"249": [
+"DRAWING_COLOR",
+1,
+"I"
+],
+"25": [
+"SQRT",
+1,
+"F"
+],
+"250": [
+"DRAW_LINE",
+4,
+"IIII"
+],
+"251": [
+"DRAW_RECT",
+4,
+"IIII"
+],
+"252": [
+"DRAW_BOX",
+4,
+"IIII"
+],
+"253": [
+"DRAW_CIRCLE",
+3,
+"III"
+],
+"254": [
+"DRAW_FCIRCLE",
+3,
+"III"
+],
+"255": [
+"SET_TEXT_COLOR",
+1,
+"I"
+],
+"256": [
+"PATH_FIND",
+7,
+"IIIIIII"
+],
+"257": [
+"PATH_GETXY",
+2,
+"PP"
+],
+"258": [
+"PATH_WALL",
+1,
+"I"
+],
+"272": [
+"BLENDOP_NEW",
+0,
+""
+],
+"273": [
+"BLENDOP_IDENTITY",
+1,
+"I"
+],
+"274": [
+"BLENDOP_TINT",
+5,
+"IFIII"
+],
+"275": [
+"BLENDOP_TRANSLUCENCY",
+2,
+"IF"
+],
+"276": [
+"BLENDOP_INTENSITY",
+2,
+"IF"
+],
+"277": [
+"BLENDOP_SWAP",
+1,
+"I"
+],
+"278": [
+"BLENDOP_ASSIGN",
+3,
+"III"
+],
+"279": [
+"BLENDOP_APPLY",
+3,
+"III"
+],
+"280": [
+"BLENDOP_FREE",
+1,
+"I"
+],
+"281": [
+"BLENDOP_GRAYSCALE",
+2,
+"II"
+],
+"288": [
+"SET_TITLE",
+1,
+"S"
+],
+"289": [
+"SET_ICON",
+2,
+"II"
+],
+"290": [
+"WRITE_VAR",
+7,
+"IIIIV++"
+],
+"291": [
+"WRITE_FLOAT",
+5,
+"IIIIP"
+],
+"292": [
+"WRITE_STRING",
+5,
+"IIIIP"
+],
+"304": [
+"LOAD_SONG",
+1,
+"S"
+],
+"305": [
+"PLAY_SONG",
+2,
+"II"
+],
+"306": [
+"UNLOAD_SONG",
+1,
+"I"
+],
+"307": [
+"STOP_SONG",
+0,
+""
+],
+"308": [
+"PAUSE_SONG",
+0,
+""
+],
+"309": [
+"RESUME_SONG",
+0,
+""
+],
+"310": [
+"SET_SONG_VOLUME",
+1,
+"I"
+],
+"311": [
+"IS_PLAYING_SONG",
+0,
+""
+],
+"312": [
+"LOAD_WAV",
+1,
+"S"
+],
+"313": [
+"PLAY_WAV",
+2,
+"II"
+],
+"314": [
+"UNLOAD_WAV",
+1,
+"I"
+],
+"315": [
+"STOP_WAV",
+1,
+"I"
+],
+"316": [
+"PAUSE_WAV",
+1,
+"I"
+],
+"317": [
+"RESUME_WAV",
+1,
+"I"
+],
+"318": [
+"IS_PLAYING_WAV",
+1,
+"I"
+],
+"319": [
+"SET_WAV_VOLUME",
+2,
+"II"
+],
+"32": [
+"COS",
+1,
+"F"
+],
+"320": [
+"FADE_MUSIC_IN",
+3,
+"III"
+],
+"321": [
+"FADE_MUSIC_OFF",
+1,
+"I"
+],
+"322": [
+"SET_CHANNEL_VOLUME",
+2,
+"II"
+],
+"328": [
+"SET_PANNING",
+3,
+"III"
+],
+"329": [
+"SET_POSITION",
+3,
+"III"
+],
+"33": [
+"SIN",
+1,
+"F"
+],
+"330": [
+"SET_DISTANCE",
+2,
+"II"
+],
+"331": [
+"REVERSE_STEREO",
+2,
+"II"
+],
+"336": [
+"GRAYSCALE",
+3,
+"IIB"
+],
+"337": [
+"RGBSCALE",
+5,
+"IIFFF"
+],
+"338": [
+"BLUR",
+3,
+"IIB"
+],
+"339": [
+"FILTER",
+3,
+"IIP"
+],
+"34": [
+"TAN",
+1,
+"F"
+],
+"340": [
+"QUICKSORT",
+6,
+"PIIIBB"
+],
+"35": [
+"ACOS",
+1,
+"F"
+],
+"352": [
+"LOAD_PAL",
+1,
+"S"
+],
+"353": [
+"FADE",
+4,
+"IIII"
+],
+"354": [
+"FADE_ON",
+0,
+""
+],
+"355": [
+"FADE_OFF",
+0,
+""
+],
+"356": [
+"ROLL_PALETTE",
+3,
+"III"
+],
+"357": [
+"CONVERT_PALETTE",
+3,
+"IIP"
+],
+"358": [
+"FIND_COLOR",
+3,
+"BBB"
+],
+"359": [
+"RGB",
+3,
+"BBB"
+],
+"36": [
+"ASIN",
+1,
+"F"
+],
+"360": [
+"GET_RGB",
+4,
+"IPPP"
+],
+"362": [
+"GET_SCREEN",
+0,
+""
+],
+"363": [
+"SET_MODE",
+3,
+"III"
+],
+"364": [
+"SUBSTR",
+2,
+"SI"
+],
+"365": [
+"TRIM",
+1,
+"S"
+],
+"366": [
+"FORMAT",
+1,
+"I"
+],
+"367": [
+"FORMAT",
+1,
+"F"
+],
+"368": [
+"FORMAT",
+2,
+"FI"
+],
+"369": [
+"STRREV",
+1,
+"S"
+],
+"37": [
+"ATAN",
+1,
+"F"
+],
+"370": [
+"FIND",
+3,
+"SSI"
+],
+"371": [
+"LPAD",
+2,
+"SI"
+],
+"372": [
+"RPAD",
+2,
+"SI"
+],
+"373": [
+"STRCASECMP",
+2,
+"SS"
+],
+"374": [
+"SAVE_PNG",
+3,
+"IIS"
+],
+"375": [
+"REGEX",
+2,
+"SS"
+],
+"376": [
+"REGEX_REPLACE",
+3,
+"SSS"
+],
+"377": [
+"SPLIT",
+4,
+"SSPI"
+],
+"378": [
+"JOIN",
+3,
+"SPI"
+],
+"379": [
+"DRAW_CURVE",
+9,
+"IIIIIIIII"
+],
+"380": [
+"DRAWING_Z",
+1,
+"I"
+],
+"381": [
+"DELETE_DRAW",
+1,
+"I"
+],
+"382": [
+"MOVE_DRAW",
+3,
+"III"
+],
+"383": [
+"DRAWING_ALPHA",
+1,
+"I"
+],
+"384": [
+"CD",
+0,
+""
+],
+"385": [
+"CHDIR",
+1,
+"S"
+],
+"386": [
+"MKDIR",
+1,
+"S"
+],
+"387": [
+"RMDIR",
+1,
+"S"
+],
+"388": [
+"FILE_EXISTS",
+1,
+"S"
+],
+"389": [
+"GLOB",
+1,
+"S"
+],
+"390": [
+"CD",
+1,
+"S"
+],
+"391": [
+"RM",
+1,
+"S"
+],
+"399": [
+"SET_MODE",
+2,
+"II"
+],
+"400": [
+"GET_TEXT_COLOR",
+0,
+""
+],
+"409": [
+"FNT_NEW",
+1,
+"I"
+],
+"410": [
+"GET_GLYPH",
+2,
+"II"
+],
+"411": [
+"SET_GLYPH",
+4,
+"IIII"
+],
+"412": [
+"SET_MODE",
+4,
+"IIII"
+],
+"413": [
+"DRAWING_STIPPLE",
+1,
+"I"
+],
+"414": [
+"SAVE_PAL",
+1,
+"S"
+],
+"415": [
+"SAVE_FPL",
+1,
+"S"
+],
+"416": [
+"#COPY#",
+4,
+"PV++"
+],
+"417": [
+"LOAD_FBM",
+1,
+"S"
+],
+"418": [
+"SAVE_FBM",
+3,
+"IIS"
+],
+"419": [
+"LOAD_FGC",
+1,
+"S"
+],
+"420": [
+"SAVE_FGC",
+2,
+"IS"
+],
+"421": [
+"CD_DRIVES",
+0,
+""
+],
+"422": [
+"CD_STATUS",
+1,
+"I"
+],
+"423": [
+"CD_NAME",
+1,
+"I"
+],
+"424": [
+"CD_GETINFO",
+1,
+"I"
+],
+"425": [
+"CD_PLAY",
+1,
+"I"
+],
+"426": [
+"CD_PLAY",
+1,
+"II"
+],
+"427": [
+"CD_STOP",
+1,
+"I"
+],
+"428": [
+"CD_PAUSE",
+1,
+"I"
+],
+"429": [
+"CD_RESUME",
+1,
+"I"
+],
+"430": [
+"CD_EJECT",
+1,
+"I"
+],
+"431": [
+"MINIMIZE",
+0,
+""
+],
+"432": [
+"MOVE_WINDOW",
+2,
+"II"
+],
+"433": [
+"KSORT",
+6,
+"V++V++"
+],
+"434": [
+"KSORT",
+7,
+"V++V++I"
+],
+"435": [
+"SORT",
+4,
+"V++I"
+],
+"436": [
+"SORT",
+3,
+"V++"
+],
+"437": [
+"LOAD_FPG",
+2,
+"SP"
+],
+"438": [
+"LOAD_FGC",
+2,
+"SP"
+],
+"48": [
+"GET_ANGLE",
+1,
+"I"
+],
+"49": [
+"GET_DIST",
+1,
+"I"
+],
+"50": [
+"GET_DISTX",
+2,
+"II"
+],
+"51": [
+"GET_DISTY",
+2,
+"II"
+],
+"52": [
+"GET_ID",
+1,
+"I"
+],
+"53": [
+"COLLISION",
+1,
+"I"
+],
+"54": [
+"SIGNAL",
+2,
+"II"
+],
+"55": [
+"LET_ME_ALONE",
+0,
+""
+],
+"56": [
+"EXIT",
+2,
+"SI"
+],
+"57": [
+"EXIT",
+1,
+"S"
+],
+"58": [
+"EXIT",
+0,
+""
+],
+"80": [
+"KEY",
+1,
+"I"
+],
+"81": [
+"GET_JOY_BUTTON",
+1,
+"I"
+],
+"82": [
+"GET_JOY_POSITION",
+1,
+"I"
+],
+"83": [
+"SELECT_JOY",
+1,
+"I"
+],
+"84": [
+"NUMBER_JOY",
+0,
+""
+],
+"85": [
+"JOY_NAME",
+1,
+"I"
+],
+"86": [
+"JOY_BUTTONS",
+0,
+""
+],
+"87": [
+"JOY_AXES",
+0,
+""
+],
+"96": [
+"SET_MODE",
+1,
+"I"
+],
+"97": [
+"SET_FPS",
+2,
+"II"
+],
+"98": [
+"LOAD_MAP",
+1,
+"S"
+],
+"99": [
+"LOAD_FPG",
+1,
+"S"
+]
+}
