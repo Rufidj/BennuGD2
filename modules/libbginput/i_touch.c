@@ -83,6 +83,8 @@ typedef struct {
 /* --------------------------------------------------------------------------- */
 
 static TouchPoint *touches = NULL;
+/* 1 = el dedo se levanto y se libera en el siguiente frame (ver SDL_FINGERUP) */
+static int8_t touch_released[MAX_TOUCHES];
 
 /* --------------------------------------------------------------------------- */
 
@@ -104,6 +106,17 @@ void process_touch_events() {
 #ifdef __ANDROID__
     SDL_Event e;
 
+    /* los dedos levantados en el frame anterior se liberan ahora */
+    for (int i = 0; i < MAX_TOUCHES; i++) {
+        if (touch_released[i] && touches[i].active) {
+            touches[i].active = 0;
+            touches[i].touchId = -1;
+            touches[i].fingerId = -1;
+            touches[i].pressure = 0;
+        }
+        touch_released[i] = 0;
+    }
+
     /* NOTE: TOUCH ONLY IN ANDROID AT THIS MOMENT !!!*/
     /* Touch events */
     while ( SDL_PeepEvents( &e, 1, SDL_GETEVENT, SDL_FINGERDOWN, TOUCH_LAST_EVENT ) > 0 ) {
@@ -121,6 +134,7 @@ void process_touch_events() {
                 }
                 if (free_index != -1) {
                     touches[free_index].active = 1;
+                    touch_released[free_index] = 0;
                     touches[free_index].touchId = e.tfinger.touchId;
                     touches[free_index].fingerId = id;
                     touches[free_index].x = ( e.tfinger.x * renderer_width - renderer_offset_x ) / renderer_scale_factor_width;
@@ -149,10 +163,10 @@ void process_touch_events() {
                 int64_t id = (int64_t) e.tfinger.fingerId;
                 for (int i = 0; i < MAX_TOUCHES; i++) {
                     if (touches[i].active && touches[i].fingerId == id) {
-                        touches[i].active = 0;
-                        touches[i].touchId = -1;
-                        touches[i].fingerId = -1;
-                        touches[i].pressure = 0;
+                        /* el dedo se libera en el siguiente frame: asi un toque
+                           muy corto (mas rapido que un fotograma) tambien lo ve
+                           el juego, que solo lee el estado entre fotogramas */
+                        touch_released[i] = 1;
                         break;
                     }
                 }

@@ -254,6 +254,12 @@ int get_key( int keyconst ) {
         curr = curr->next;
     }
 
+    /* una tecla que se pulsa y se suelta en el mismo fotograma ya no esta
+       "pulsada" en el estado del teclado, pero el juego tiene que verla: se
+       mira el aviso de pulsacion de este fotograma */
+    if ( !found && keyconst >= 0 && keyconst < MAX_KEY_CODES &&
+         key_evt[keyconst] == ( key_serial | IKEY_MASK_KEY_DOWN ) ) found = 1;
+
     return found;
 }
 
@@ -394,6 +400,12 @@ void process_key_events() {
     int ascii, pressed, keypress;
     key_equiv * curr;
 
+    /* SDL puede reasignar el estado del teclado (al cambiar el metodo de entrada
+       o el foco: en Android, al abrir o cerrar el teclado en pantalla), asi que
+       el puntero se pide otra vez en cada fotograma: si se guardase, apuntaria
+       a memoria liberada y el teclado dejaria de funcionar */
+    keystate = SDL_GetKeyboardState(NULL);
+
     /* Update events */
 
     // Avoid false events state results
@@ -446,11 +458,19 @@ void process_key_events() {
                 if ( e.key.keysym.sym < ' ' || e.key.keysym.sym > '~' ) ascii = e.key.keysym.sym;
                 break;
 
-            case SDL_KEYUP:
-                // keyup
-                set_evt( e.key.keysym.scancode, key_serial | IKEY_MASK_KEY_UP );
-//                key_evt[ sdl_equiv[ e.key.keysym.scancode ] ] = key_serial | IKEY_MASK_KEY_UP;
+            case SDL_KEYUP: {
+                /* si la pulsacion y la soltura llegan en el mismo fotograma, se
+                   guarda la pulsacion: si no, el juego (que solo mira el estado
+                   entre fotogramas) no veria la tecla (un toque rapido se
+                   perderia) */
+                key_equiv * up = &sdlkey_table[e.key.keysym.scancode];
+                while ( up ) {
+                    if ( key_evt[up->keycode] != ( key_serial | IKEY_MASK_KEY_DOWN ) )
+                        key_evt[up->keycode] = key_serial | IKEY_MASK_KEY_UP;
+                    up = up->next;
+                }
                 break;
+            }
 
             case SDL_TEXTINPUT: // this handles text input events
                 for ( int i = 0; i < SDL_TEXTINPUTEVENT_TEXT_SIZE; i++ ) {
