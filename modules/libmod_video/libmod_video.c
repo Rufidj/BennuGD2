@@ -41,6 +41,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavcodec/bsf.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/display.h>
 #include <libavutil/dict.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
@@ -108,6 +109,9 @@ typedef struct {
     uint8_t         * fk_y, * fk_uv;
     int             fk_ypitch, fk_uvpitch;
     int             ypw, cpw, cw, ch;          /* packed Y / chroma widths (texels), chroma w,h */
+    int             vw, vh;                      /* tamano del fotograma tal cual viene del decodificador */
+    int             vrot;                      /* rotacion: 0 ninguna, 1 90 a la derecha, 2 180, 3 90 a la izquierda */
+    uint8_t         * rotbuf;                  /* fotograma girado (solo si vrot) */
     size_t          slot_bytes;
     GPU_Image       * img_y, * img_u, * img_v;
     GPU_Target      * tgt;
@@ -677,6 +681,27 @@ static void hw_feed( VIDEO * v, AVPacket * pkt ) {
     }
 }
 
+/* Gira el fotograma RGBA (w x h). Para 90 grados el resultado es h x w (h filas
+   de w pixeles).
+   rot: 1 = 90 a la derecha, 2 = 180, 3 = 90 a la izquierda */
+static void rotate_rgba( uint8_t * dst, const uint8_t * src, int w, int h, int rot )
+{
+    int x, y;
+    if ( rot == 1 ) {
+        for ( y = 0; y < w; y++ )
+            for ( x = 0; x < h; x++ )
+                memcpy( dst + ( size_t ) y * h * 4 + ( size_t ) x * 4, src + ( size_t ) y * w * 4 + ( size_t ) ( h - 1 - x ) * 4, 4 );
+    } else if ( rot == 3 ) {
+        for ( y = 0; y < w; y++ )
+            for ( x = 0; x < h; x++ )
+                memcpy( dst + ( size_t ) y * h * 4 + ( size_t ) x * 4, src + ( size_t ) ( w - 1 - y ) * w * 4 + ( size_t ) x * 4, 4 );
+    } else {
+        for ( y = 0; y < h; y++ )
+            for ( x = 0; x < w; x++ )
+                memcpy( dst + ( size_t ) y * w * 4 + ( size_t ) x * 4, src + ( size_t ) ( h - 1 - y ) * w * 4 + ( size_t ) ( w - 1 - x ) * 4, 4 );
+    }
+}
+
 static int push_video_frame( VIDEO * v, AVFrame * f ) {
     double pts = ( f->best_effort_timestamp == AV_NOPTS_VALUE ) ? 0.0 : f->best_effort_timestamp * v->vtb;
 
@@ -719,7 +744,15 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
     } else {
         uint8_t * dst[4] = { v->vq[slot].rgba, NULL, NULL, NULL };
         int dst_ls[4] = { v->w * 4, 0, 0, 0 };
-        sws_scale( v->sws, ( const uint8_t * const * ) f->data, f->linesize, 0, f->height, dst, dst_ls );
+        if ( v->vrot ) {
+            /* el video va girado (los del movil grabados en vertical): se escala al
+               tamano del fotograma y luego se gira, que es lo que espera el juego */
+            uint8_t * tmp[4] = { v->rotbuf, NULL, NULL, NULL };
+            int tmp_ls[4] = { v->vw * 4, 0, 0, 0 };
+            sws_scale( v->sws, ( const uint8_t * const * ) f->data, f->linesize, 0, f->height, tmp, tmp_ls );
+            rotate_rgba( v->vq[slot].rgba, v->rotbuf, v->vw, v->vh, v->vrot );
+        } else
+            sws_scale( v->sws, ( const uint8_t * const * ) f->data, f->linesize, 0, f->height, dst, dst_ls );
     }
     v->vq[slot].pts = pts;
 
@@ -969,6 +1002,7 @@ static void vid_free( VIDEO * v ) {
     vtrace( "vid_free: audio released" );
     for ( int i = 0; i < VQ_MAX; i++ ) free( v->vq[i].rgba );
     free( v->abuf );
+    free( v->rotbuf ); v->rotbuf = NULL;
     if ( v->sws ) sws_freeContext( v->sws );
     if ( v->sws_fake ) sws_freeContext( v->sws_fake );
     free( v->fk_y ); free( v->fk_uv );
@@ -1173,7 +1207,35 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
     vtrace( "video_open: video codec opened (%p)", ( void * ) v->vctx );
     if ( !v->vctx ) { fprintf( stderr, "VIDEO_OPEN: no decoder for the video in %s\n", path ); goto fail; }
     if ( v->vctx->pix_fmt == AV_PIX_FMT_NONE || v->vctx->width <= 0 ) { fprintf( stderr, "VIDEO_OPEN: no picture format in %s (no video data found while probing)\n", path ); goto fail; }
-    v->w = v->vctx->width; v->h = v->vctx->height;
+    v->vw = v->vctx->width; v->vh = v->vctx->height;
+    v->w = v->vw; v->h = v->vh;
+    /* Los videos grabados en vertical (en el movil) traen una matriz de rotacion en
+       el contenedor: el decodificador por software ya gira los fotogramas, asi que
+       el ancho y el alto que se usan son los del fotograma girado (y no los del
+       stream). Con el decodificador por hardware de la GPU los fotogramas no
+       vienen girados, asi que ahi se dejan como estan. */
+    int vrot = 0;
+    {
+        AVStream * st = v->fmt->streams[v->vstream];
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT( 60, 1, 0 )
+        const AVPacketSideData * sd = st ? av_packet_side_data_get( st->codecpar->coded_side_data, st->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX ) : NULL;
+#elif LIBAVCODEC_VERSION_INT >= AV_VERSION_INT( 60, 0, 0 )
+        const AVPacketSideData * sd = st ? av_packet_side_data_get( st->side_data, AV_PKT_DATA_DISPLAYMATRIX, NULL ) : NULL;
+#else
+        const AVPacketSideData * sd = st ? av_packet_side_data_get( st->coded_side, AV_PKT_DATA_DISPLAYMATRIX, NULL ) : NULL;
+#endif
+        uint8_t * mat = sd ? ( uint8_t * ) sd->data : NULL;
+        double rot = mat ? av_display_rotation_get( ( int32_t * ) mat ) : 0.0;
+        double a = fabs( rot );
+        /* la rotacion es en sentido antihorario: los videos del movil grabados en
+           vertical traen -90 (o 270). Se compara con margen porque el valor
+           exacto depende de la matriz y no es siempre redondo */
+        if ( a > 45.0 && a < 135.0 ) vrot = ( rot > 0 ) ? 3 : 1;
+        else if ( a > 135.0 && a < 225.0 ) vrot = 2;
+    }
+    v->vrot = vrot;
+    if ( vrot == 1 || vrot == 3 ) { v->w = v->vh; v->h = v->vw; }   /* el video se ve girado */
+    if ( vrot ) vtrace( "video_open: el video va girado (%d)", vrot );
     v->vtb = av_q2d( v->fmt->streams[v->vstream]->time_base );
     { int64_t st = v->fmt->streams[v->vstream]->start_time; v->vstart = st != AV_NOPTS_VALUE ? st * v->vtb : 0; if ( v->vstart < 0 ) v->vstart = 0; v->clk_base = v->vstart; v->clk_a = v->vstart; v->clk_a_t0 = SDL_GetTicks(); }
     v->duration = v->fmt->duration > 0 ? v->fmt->duration / ( double ) AV_TIME_BASE : 0;
@@ -1185,7 +1247,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
         int fmt10 = pf == AV_PIX_FMT_YUV420P10LE;
         int is_h264 = v->vctx->codec_id == AV_CODEC_ID_H264, is_hevc = v->vctx->codec_id == AV_CODEC_ID_HEVC;
         int is_vp9 = v->vctx->codec_id == AV_CODEC_ID_VP9, is_av1 = v->vctx->codec_id == AV_CODEC_ID_AV1;
-        int want_hw = g_use_hw && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC ) && ( ( is_h264 && fmt8 ) || ( is_hevc && ( fmt8 || fmt10 ) ) );
+        int want_hw = g_use_hw && !vrot && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC ) && ( ( is_h264 && fmt8 ) || ( is_hevc && ( fmt8 || fmt10 ) ) );
         if ( ( g_use_gpu && fmt8 ) || want_hw || ( g_fake_hw && ( fmt8 || fmt10 ) ) ) {
             if ( !g_yuv_tried ) yuv_program_build();
         }
@@ -1217,7 +1279,8 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
             }
             /* PC: el decodificador por hardware de FFmpeg (VAAPI, D3D11VA, NVDEC, VideoToolbox) */
             if ( !v->hw && !v->fake_hw && g_pc_hw && fmt8 && ( is_h264 || is_hevc || is_vp9 || is_av1 )
-                 && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC ) ) {
+                 && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC )
+                 && !vrot ) {      /* con el video girado los fotogramas de la GPU no vienen girados */
                 AVCodecContext * hc = NULL;
                 int kind = 0;
                 if ( pc_hw_open( v->fmt, v->vstream, &hc, &kind ) ) {
@@ -1232,7 +1295,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
             }
             if ( !v->hw && g_fake_hw && ( fmt8 || fmt10 ) ) { v->fake_hw = 1; v->hwmode = fmt10 ? 2 : 1; }
             if ( v->hw || v->fake_hw ) v->gpu = 1;
-            else if ( !v->hwkind && g_use_gpu && fmt8 ) { v->gpu = 1; v->hwmode = 0; }
+            else if ( !v->hwkind && g_use_gpu && fmt8 && !vrot ) { v->gpu = 1; v->hwmode = 0; }
         }
     }
     if ( v->gpu ) {
@@ -1249,7 +1312,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
         v->transfer = v->vctx->color_trc == AVCOL_TRC_SMPTE2084 ? 1.0f : 0.0f;
         if ( v->fake_hw ) {
             enum AVPixelFormat dst = v->hwmode == 2 ? AV_PIX_FMT_P010LE : AV_PIX_FMT_NV12;
-            v->sws_fake = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, dst, SWS_BILINEAR, NULL, NULL, NULL );
+            v->sws_fake = sws_getContext( v->vw, v->vh, v->vctx->pix_fmt, v->vw, v->vh, dst, SWS_BILINEAR, NULL, NULL, NULL );
             v->fk_ypitch = ( v->hwmode == 2 ? v->w * 2 : v->w ) + 64;
             v->fk_uvpitch = v->cw * ( v->hwmode == 2 ? 4 : 2 ) + 64;
             v->fk_y = ( uint8_t * ) calloc( 1, ( size_t ) v->fk_ypitch * v->h );
@@ -1257,7 +1320,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
             if ( !v->sws_fake || !v->fk_y || !v->fk_uv ) goto fail;
         }
     } else {
-        v->sws = sws_getContext( v->w, v->h, v->vctx->pix_fmt, v->w, v->h, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
+        v->sws = sws_getContext( v->vw, v->vh, v->vctx->pix_fmt, v->vw, v->vh, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL );
         if ( !v->sws ) goto fail;
         v->slot_bytes = ( size_t ) v->w * v->h * 4;
     }
@@ -1265,6 +1328,10 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
     if ( v->vq_size > VQ_MAX ) v->vq_size = VQ_MAX;
     if ( v->vq_size < 3 ) v->vq_size = 3;
     for ( int i = 0; i < v->vq_size; i++ ) { v->vq[i].rgba = ( uint8_t * ) calloc( 1, v->slot_bytes ); if ( !v->vq[i].rgba ) goto fail; }
+    if ( v->vrot && !v->rotbuf ) {
+        v->rotbuf = ( uint8_t * ) calloc( 1, ( size_t ) v->w * v->h * 4 );
+        if ( !v->rotbuf ) goto fail;
+    }
 after_video:
     vtrace( "video_open: after_video (hw=%p)", ( void * ) v->hw );
     v->frame = av_frame_alloc();
