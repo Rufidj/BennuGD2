@@ -1011,13 +1011,16 @@ static int pc_hw_open( AVFormatContext * fmt, int idx, AVCodecContext ** out, in
     AVCodecParameters * par = fmt->streams[idx]->codecpar;
     const AVCodec * codec = avcodec_find_decoder( par->codec_id );
     if ( !codec ) return 0;
-    if ( par->codec_id != AV_CODEC_ID_H264 && par->codec_id != AV_CODEC_ID_HEVC ) return 0;
+    if ( par->codec_id != AV_CODEC_ID_H264 && par->codec_id != AV_CODEC_ID_HEVC
+     && par->codec_id != AV_CODEC_ID_VP9 && par->codec_id != AV_CODEC_ID_AV1 ) return 0;
     /* NVIDIA: los decodificadores cuvid (NVDEC) no usan el marco de hwaccel, son decodificadores
        aparte que se abren por su identificador y entregan los fotogramas en memoria */
     {
         const AVCodec * cc = NULL;
         if ( par->codec_id == AV_CODEC_ID_H264 ) cc = avcodec_find_decoder_by_name( "h264_cuvid" );
         else if ( par->codec_id == AV_CODEC_ID_HEVC ) cc = avcodec_find_decoder_by_name( "hevc_cuvid" );
+        else if ( par->codec_id == AV_CODEC_ID_VP9 ) cc = avcodec_find_decoder_by_name( "vp9_cuvid" );
+        else if ( par->codec_id == AV_CODEC_ID_AV1 ) cc = avcodec_find_decoder_by_name( "av1_cuvid" );
         if ( cc ) {
             AVCodecContext * c = avcodec_alloc_context3( cc );
             if ( c ) {
@@ -1181,6 +1184,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
         int fmt8 = pf == AV_PIX_FMT_YUV420P || pf == AV_PIX_FMT_YUVJ420P;
         int fmt10 = pf == AV_PIX_FMT_YUV420P10LE;
         int is_h264 = v->vctx->codec_id == AV_CODEC_ID_H264, is_hevc = v->vctx->codec_id == AV_CODEC_ID_HEVC;
+        int is_vp9 = v->vctx->codec_id == AV_CODEC_ID_VP9, is_av1 = v->vctx->codec_id == AV_CODEC_ID_AV1;
         int want_hw = g_use_hw && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC ) && ( ( is_h264 && fmt8 ) || ( is_hevc && ( fmt8 || fmt10 ) ) );
         if ( ( g_use_gpu && fmt8 ) || want_hw || ( g_fake_hw && ( fmt8 || fmt10 ) ) ) {
             if ( !g_yuv_tried ) yuv_program_build();
@@ -1212,7 +1216,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
                 }
             }
             /* PC: el decodificador por hardware de FFmpeg (VAAPI, D3D11VA, NVDEC, VideoToolbox) */
-            if ( !v->hw && !v->fake_hw && g_use_hw && g_pc_hw && fmt8 && ( is_h264 || is_hevc )
+            if ( !v->hw && !v->fake_hw && g_pc_hw && fmt8 && ( is_h264 || is_hevc || is_vp9 || is_av1 )
                  && !( v->fmt->streams[v->vstream]->disposition & AV_DISPOSITION_ATTACHED_PIC ) ) {
                 AVCodecContext * hc = NULL;
                 int kind = 0;
