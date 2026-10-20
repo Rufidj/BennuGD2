@@ -27,6 +27,7 @@ CC="$TOOLCHAIN/bin/${HOST}${API}-clang"
 CXX="$TOOLCHAIN/bin/${HOST}${API}-clang++"
 AR="$TOOLCHAIN/bin/llvm-ar"
 RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
+STRIP="$TOOLCHAIN/bin/llvm-strip"   # el strip del host no sabe quitar simbolos de arm64
 
 mkdir -p "$WORK"
 cd "$WORK"
@@ -71,6 +72,6 @@ make distclean > /dev/null 2>&1 || true
   --enable-mbedtls --enable-version3 \
   --extra-cflags="-I$PREFIX/include" --extra-ldflags="-L$PREFIX/lib" > /dev/null
 make -j$BUILD_JOBS > /dev/null
-make install > /dev/null
+make install STRIP="$STRIP" > /dev/null
 echo "FFmpeg (con HTTPS) instalado en $PREFIX"
 grep -E "^CONFIG_(MBEDTLS|HTTPS_PROTOCOL)" ffbuild/config.mak
