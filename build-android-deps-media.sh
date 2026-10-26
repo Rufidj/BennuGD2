@@ -58,7 +58,10 @@ if [ ! -d ffmpeg-6.1.1 ]; then
 fi
 cd ffmpeg-6.1.1
 make distclean > /dev/null 2>&1 || true
-./configure \
+# en 32 bits los manejadores de Vulkan (64 bits) no compilan en el FFmpeg; en Android no se usan
+EXTRA_FF=""
+case "$ARCH" in arm|i686) EXTRA_FF="--disable-vulkan" ;; esac
+./configure $EXTRA_FF \
   --target-os=android --arch=$ARCH \
   --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" \
   --enable-cross-compile --enable-shared --disable-static \
