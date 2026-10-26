@@ -360,6 +360,16 @@ DLSYSFUNCS  __bgdexport( libmod_misc, functions_exports)[] =
 
     FUNC( "GETENV"                  , "S"           , TYPE_STRING       , libmod_misc_sys_getenv                    ),
     FUNC( "EXEC"                    , "ISIP"        , TYPE_INT          , libmod_misc_sys_exec                      ),
+    FUNC( "SYSTEM_KEYBOARD_OPEN"    , "SSII"        , TYPE_INT          , libmod_misc_syskb_open                    ),
+    FUNC( "SYSTEM_KEYBOARD_STATUS"  , ""            , TYPE_INT          , libmod_misc_syskb_status                  ),
+    FUNC( "SYSTEM_KEYBOARD_OK"      , ""            , TYPE_INT          , libmod_misc_syskb_ok                      ),
+    FUNC( "SYSTEM_KEYBOARD_TEXT"    , ""            , TYPE_STRING       , libmod_misc_syskb_text                    ),
+    FUNC( "SYSTEM_KEYBOARD_CLOSE"   , ""            , TYPE_INT          , libmod_misc_syskb_close                   ),
+    FUNC( "SYSTEM_PROGRESS_OPEN"    , "SI"          , TYPE_INT          , libmod_misc_progress_open                 ),
+    FUNC( "SYSTEM_PROGRESS_SET"     , "I"           , TYPE_INT          , libmod_misc_progress_set                  ),
+    FUNC( "SYSTEM_PROGRESS_MESSAGE" , "S"           , TYPE_INT          , libmod_misc_progress_message              ),
+    FUNC( "SYSTEM_PROGRESS_UPDATE"  , ""            , TYPE_INT          , libmod_misc_progress_update               ),
+    FUNC( "SYSTEM_PROGRESS_CLOSE"   , ""            , TYPE_INT          , libmod_misc_progress_close                ),
 	FUNC( "GET_PREF_LANGUAGE"       , ""            , TYPE_STRING       , libmod_misc_sys_get_pref_language         ),
 
     /* Date/Time & Timers */

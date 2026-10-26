@@ -38,6 +38,8 @@
 #include "m_file.h"
 #include "m_math.h"
 #include "m_mem.h"
+#include "m_ime.h"
+#include "m_progress.h"
 #include "m_proc.h"
 #include "m_rand.h"
 #include "m_regex.h"
