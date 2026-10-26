@@ -31,3 +31,9 @@ android_projects/*/app/.cxx/
 
 # dependencias de Android: se descargan y compilan con build-android-deps.sh
 vendor/android/
+
+# pruebas y restos generados que no son del motor
+/tmp/
+__pycache__/
+/CMakeFiles/
+*.log
