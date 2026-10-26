@@ -141,6 +141,7 @@ int64_t libmod_misc_syskb_open( INSTANCE * my, int64_t * params ) {
     p.userId = user;
     p.type = ( flags & 2 ) ? 2 : 0;
     p.option = ( flags & 1 ) ? 4u : 0u;
+    if ( flags & 1 ) p.type = 1;                       /* password: the console refused it with the default type (0x80bc0030), it wants basic latin */
     p.maxTextLength = ( uint32_t ) maxlen;
     p.inputTextBuffer = g_buf;
     p.title = g_title;
@@ -186,6 +187,101 @@ int64_t libmod_misc_syskb_close( INSTANCE * my, int64_t * params ) {
     sceImeDialogTerm();
     g_open = 0;
     ps5_dialog_log( "closed" );
+    return 0;
+}
+
+#elif defined( __ANDROID__ )
+
+/* Android: a native text dialog (with the phone's own keyboard) opened through JNI, see SDLActivity.showTextInput.
+   SDL's JNI helpers are looked up at run time so libmod_misc needs no new link dependency. */
+#include <jni.h>
+#include <dlfcn.h>
+
+int ps5_dialogs_init( int sysmodule ) { ( void ) sysmodule; return -100; }
+void ps5_dialog_log( const char * fmt, ... ) { ( void ) fmt; }
+
+typedef void * ( * sdl_ptr_fn )( void );
+static JNIEnv * g_env = NULL;
+static jclass g_cls = NULL;
+static jmethodID g_m_show, g_m_state, g_m_ok, g_m_text, g_m_close;
+static int g_open = 0, g_read = 0, g_ok = 0;
+static char g_text[ 4096 ];
+
+static int jni_ready( void ) {
+    sdl_ptr_fn get_env, get_act;
+    jobject act;
+    jclass local;
+    if ( g_cls ) return 1;
+    get_env = ( sdl_ptr_fn ) dlsym( RTLD_DEFAULT, "SDL_AndroidGetJNIEnv" );
+    get_act = ( sdl_ptr_fn ) dlsym( RTLD_DEFAULT, "SDL_AndroidGetActivity" );
+    if ( !get_env || !get_act ) return 0;
+    g_env = ( JNIEnv * ) get_env();
+    act = ( jobject ) get_act();
+    if ( !g_env || !act ) return 0;
+    local = ( *g_env )->GetObjectClass( g_env, act );                    /* the class of the activity (found with the app's own class loader) */
+    if ( !local ) return 0;
+    g_cls = ( jclass ) ( *g_env )->NewGlobalRef( g_env, local );
+    ( *g_env )->DeleteLocalRef( g_env, local );
+    ( *g_env )->DeleteLocalRef( g_env, act );
+    g_m_show  = ( *g_env )->GetStaticMethodID( g_env, g_cls, "showTextInput", "(Ljava/lang/String;Ljava/lang/String;I)V" );
+    g_m_state = ( *g_env )->GetStaticMethodID( g_env, g_cls, "textInputState", "()I" );
+    g_m_ok    = ( *g_env )->GetStaticMethodID( g_env, g_cls, "textInputOk", "()Z" );
+    g_m_text  = ( *g_env )->GetStaticMethodID( g_env, g_cls, "textInputText", "()Ljava/lang/String;" );
+    g_m_close = ( *g_env )->GetStaticMethodID( g_env, g_cls, "textInputClose", "()V" );
+    if ( !g_m_show || !g_m_state || !g_m_ok || !g_m_text || !g_m_close ) {
+        ( *g_env )->ExceptionClear( g_env );
+        ( *g_env )->DeleteGlobalRef( g_env, g_cls ); g_cls = NULL;
+        return 0;
+    }
+    return 1;
+}
+
+int64_t libmod_misc_syskb_open( INSTANCE * my, int64_t * params ) {
+    const char * title = ( const char * ) string_get( params[0] );
+    const char * initial = ( const char * ) string_get( params[1] );
+    int64_t flags = params[3], ret = 0;
+    jstring jt, ji;
+    if ( g_open ) { ret = -2; goto done; }
+    if ( !jni_ready() ) { ret = -100; goto done; }
+    jt = ( *g_env )->NewStringUTF( g_env, title ? title : "" );
+    ji = ( *g_env )->NewStringUTF( g_env, initial ? initial : "" );
+    ( *g_env )->CallStaticVoidMethod( g_env, g_cls, g_m_show, jt, ji, ( jint ) flags );
+    ( *g_env )->DeleteLocalRef( g_env, jt ); ( *g_env )->DeleteLocalRef( g_env, ji );
+    if ( ( *g_env )->ExceptionCheck( g_env ) ) { ( *g_env )->ExceptionClear( g_env ); ret = -5; goto done; }
+    g_open = 1; g_read = 0; g_ok = 0; g_text[0] = 0;
+done:
+    string_discard( params[0] ); string_discard( params[1] );
+    return ret;
+}
+
+int64_t libmod_misc_syskb_status( INSTANCE * my, int64_t * params ) {
+    int st;
+    if ( !g_open ) return 0;
+    st = ( int ) ( *g_env )->CallStaticIntMethod( g_env, g_cls, g_m_state );
+    if ( st == 2 && !g_read ) {
+        jstring js;
+        g_ok = ( *g_env )->CallStaticBooleanMethod( g_env, g_cls, g_m_ok ) ? 1 : 0;
+        js = ( jstring ) ( *g_env )->CallStaticObjectMethod( g_env, g_cls, g_m_text );
+        g_text[0] = 0;
+        if ( g_ok && js ) {
+            const char * u = ( *g_env )->GetStringUTFChars( g_env, js, NULL );
+            if ( u ) { snprintf( g_text, sizeof g_text, "%s", u ); ( *g_env )->ReleaseStringUTFChars( g_env, js, u ); }
+        }
+        if ( js ) ( *g_env )->DeleteLocalRef( g_env, js );
+        g_read = 1;
+    }
+    return st;
+}
+
+int64_t libmod_misc_syskb_ok( INSTANCE * my, int64_t * params ) { return g_read ? g_ok : 0; }
+int64_t libmod_misc_syskb_text( INSTANCE * my, int64_t * params ) {
+    int64_t str = string_new( g_read ? g_text : "" );
+    string_use( str );
+    return str;
+}
+int64_t libmod_misc_syskb_close( INSTANCE * my, int64_t * params ) {
+    if ( g_open && g_cls ) ( *g_env )->CallStaticVoidMethod( g_env, g_cls, g_m_close );
+    g_open = 0; g_read = 0;
     return 0;
 }
 
