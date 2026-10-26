@@ -47,6 +47,8 @@
 #include <libavutil/channel_layout.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/samplefmt.h>
+#include <libavutil/audio_fifo.h>
+#include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
 
@@ -1160,13 +1162,14 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
         }
         else {                                                              /* a local .m3u8 whose segments are on the network (saved by a script that needed headers) */
             size_t pl = strlen( path );
-            if ( pl > 5 && !strcasecmp( path + pl - 5, ".m3u8" ) )
+            if ( pl > 5 && !strcasecmp( path + pl - 5, ".m3u8" ) ) {
                 av_dict_set( &nopts, "protocol_whitelist", "file,crypto,data,http,https,tls,tcp,udp", 0 );
                 /* an edit list in the audio init segment makes the demuxer drop the first seconds of samples *it reads*; with a
                    playlist that starts mid-stream (after a seek) that would eat real sound */
                 av_dict_set( &nopts, "seg_format_options", "ignore_editlist=1", 0 );
                 /* the audio list may start a few seconds before the video one: probe long enough to see both */
                 av_dict_set( &nopts, "analyzeduration", "15000000", 0 );
+            }
         }
         v->fmt = avformat_alloc_context();
         if ( v->fmt ) { v->fmt->interrupt_callback.callback = vid_interrupt; v->fmt->interrupt_callback.opaque = v; }
@@ -1805,13 +1808,12 @@ static int http_interrupt( void * p ) {
     return ( t.tv_sec + t.tv_nsec / 1e9 ) > ( ( HttpInt * ) p )->deadline;
 }
 
-int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
-    char * url = strdup( ( const char * ) string_get( params[0] ) );
-    char * hdr = strdup( ( const char * ) string_get( params[1] ) );
-    char * method = strdup( ( const char * ) string_get( params[2] ) );
-    const char * bodyp = ( const char * ) string_get( params[3] );
-    size_t blen = strlen( bodyp );
-    char * body = strdup( bodyp );
+/* progress of the request in course (read by HTTP_PROGRESS / HTTP_TOTAL while HTTP_FETCH_BEGIN's request runs) */
+static volatile int64_t g_http_prog = 0, g_http_tot = 0;
+
+/* the request itself: returns the status (200 ok, 400/401/403/404/500 http errors, 0 = no connection) */
+static int http_do( const char * url, const char * hdr, const char * method, const char * body ) {
+    size_t blen = strlen( body );
     int status = 0;
     AVDictionary * o = NULL;
     AVIOContext * io = NULL;
@@ -1820,11 +1822,9 @@ int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
     AVIOInterruptCB cb;
     int r;
     static int net_ready = 0;
-    string_discard( params[0] ); string_discard( params[1] ); string_discard( params[2] ); string_discard( params[3] );
 
-    free( g_http_body ); g_http_body = NULL; g_http_len = 0; g_http_err[0] = 0;
-    if ( !url || !hdr || !method || !body ) { snprintf( g_http_err, sizeof g_http_err, "out of memory" ); goto done; }
-    if ( strncmp( url, "http://", 7 ) && strncmp( url, "https://", 8 ) ) { snprintf( g_http_err, sizeof g_http_err, "only http:// and https:// addresses" ); goto done; }
+    free( g_http_body ); g_http_body = NULL; g_http_len = 0; g_http_err[0] = 0; g_http_prog = 0; g_http_tot = 0;
+    if ( strncmp( url, "http://", 7 ) && strncmp( url, "https://", 8 ) ) { snprintf( g_http_err, sizeof g_http_err, "only http:// and https:// addresses" ); return 0; }
     if ( !net_ready ) { avformat_network_init(); net_ready = 1; }
 
     av_dict_set( &o, "rw_timeout", "15000000", 0 );
@@ -1834,7 +1834,7 @@ int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
     if ( method[0] && strcmp( method, "GET" ) ) av_dict_set( &o, "method", method, 0 );
     if ( blen ) {
         char * hx = ( char * ) malloc( blen * 2 + 1 );
-        if ( !hx ) { snprintf( g_http_err, sizeof g_http_err, "out of memory" ); goto done; }
+        if ( !hx ) { av_dict_free( &o ); snprintf( g_http_err, sizeof g_http_err, "out of memory" ); return 0; }
         http_hex( body, blen, hx );
         av_dict_set( &o, "post_data", hx, 0 );                  /* binary options are given as hex text */
         free( hx );
@@ -1854,11 +1854,13 @@ int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
         else if ( r == AVERROR_HTTP_OTHER_4XX ) status = 400;
         else if ( r == AVERROR_HTTP_SERVER_ERROR ) status = 500;
         else { char e[128]; av_strerror( r, e, sizeof e ); snprintf( g_http_err, sizeof g_http_err, "%s", e ); }
-        goto done;
+        return status;
     }
     {
         size_t cap = 64 << 10, n = 0, max = 8u << 20;
         char * buf = ( char * ) malloc( cap + 1 );
+        int64_t total = avio_size( io );
+        g_http_tot = total > 0 ? total : 0;                     /* 0 = the server did not say how big it is */
         while ( buf ) {
             int k;
             if ( n + 16384 > cap ) {
@@ -1871,15 +1873,82 @@ int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
             k = avio_read( io, ( unsigned char * ) buf + n, 16384 );
             if ( k <= 0 ) break;
             n += ( size_t ) k;
+            g_http_prog = ( int64_t ) n;
         }
         avio_closep( &io );
-        if ( !buf ) { snprintf( g_http_err, sizeof g_http_err, "out of memory" ); goto done; }
+        if ( !buf ) { snprintf( g_http_err, sizeof g_http_err, "out of memory" ); return 0; }
         buf[n] = 0; g_http_body = buf; g_http_len = n; status = 200;
     }
-done:
+    return status;
+}
+
+/* HTTP_FETCH(url, headers, method, body): the request, waiting for it */
+int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
+    char * url = strdup( ( const char * ) string_get( params[0] ) );
+    char * hdr = strdup( ( const char * ) string_get( params[1] ) );
+    char * method = strdup( ( const char * ) string_get( params[2] ) );
+    char * body = strdup( ( const char * ) string_get( params[3] ) );
+    int status = 0;
+    string_discard( params[0] ); string_discard( params[1] ); string_discard( params[2] ); string_discard( params[3] );
+    if ( url && hdr && method && body ) status = http_do( url, hdr, method, body );
+    else snprintf( g_http_err, sizeof g_http_err, "out of memory" );
     free( url ); free( hdr ); free( method ); free( body );
     return status;
 }
+
+/* HTTP_FETCH_BEGIN(url, headers, method, body): the same request in the background (0 = started); then HTTP_FETCH_POLL() every frame
+   (-1 while it runs, the status once it is done), with HTTP_PROGRESS() / HTTP_TOTAL() to draw a progress bar. The answer is read with
+   HTTP_LENGTH / HTTP_READ / HTTP_SAVE as usual. One request at a time. */
+typedef struct { char * url, * hdr, * method, * body; } HttpJob;
+static SDL_atomic_t g_hasync_state;           /* 0 idle, 1 running, 2 done */
+static volatile int g_hasync_status = 0;
+
+static int http_thread( void * arg ) {
+    HttpJob * j = ( HttpJob * ) arg;
+    int st = http_do( j->url, j->hdr, j->method, j->body );
+    free( j->url ); free( j->hdr ); free( j->method ); free( j->body ); free( j );
+    g_hasync_status = st;
+    SDL_AtomicSet( &g_hasync_state, 2 );
+    return 0;
+}
+
+int64_t libmod_video_http_fetch_begin( INSTANCE * my, int64_t * params ) {
+    HttpJob * j;
+    SDL_Thread * th;
+    int64_t ret = 0;
+    char * url = strdup( ( const char * ) string_get( params[0] ) );
+    char * hdr = strdup( ( const char * ) string_get( params[1] ) );
+    char * method = strdup( ( const char * ) string_get( params[2] ) );
+    char * body = strdup( ( const char * ) string_get( params[3] ) );
+    string_discard( params[0] ); string_discard( params[1] ); string_discard( params[2] ); string_discard( params[3] );
+    if ( SDL_AtomicGet( &g_hasync_state ) == 1 ) ret = -1;                      /* one at a time */
+    else if ( !url || !hdr || !method || !body || !( j = ( HttpJob * ) malloc( sizeof( *j ) ) ) ) ret = -2;
+    else {
+        j->url = url; j->hdr = hdr; j->method = method; j->body = body;
+        g_http_prog = 0; g_http_tot = 0;
+        SDL_AtomicSet( &g_hasync_state, 1 );
+        th = SDL_CreateThread( http_thread, "http", j );
+        if ( !th ) {
+            SDL_AtomicSet( &g_hasync_state, 0 );
+            free( url ); free( hdr ); free( method ); free( body ); free( j );
+            return -3;
+        }
+        SDL_DetachThread( th );
+        return 0;
+    }
+    free( url ); free( hdr ); free( method ); free( body );
+    return ret;
+}
+
+int64_t libmod_video_http_fetch_poll( INSTANCE * my, int64_t * params ) {
+    int st = SDL_AtomicGet( &g_hasync_state );
+    if ( st == 1 ) return -1;
+    if ( st == 2 ) { SDL_AtomicSet( &g_hasync_state, 0 ); return g_hasync_status; }
+    return -3;                                                                  /* nothing was started */
+}
+
+int64_t libmod_video_http_progress( INSTANCE * my, int64_t * params ) { return g_http_prog; }
+int64_t libmod_video_http_total( INSTANCE * my, int64_t * params ) { return g_http_tot; }
 
 int64_t libmod_video_http_length( INSTANCE * my, int64_t * params ) { return ( int64_t ) g_http_len; }
 
@@ -1902,6 +1971,484 @@ int64_t libmod_video_http_save( INSTANCE * my, int64_t * params ) {
     }
     string_discard( params[0] );
     return ok;
+}
+
+/* ---- DOWNLOAD: copies a video (HLS list, data: list or file) into one .mp4, in the background --------------------------- */
+/* VIDEO_DOWNLOAD_BEGIN(source, headers, out_path) -> 0 started; VIDEO_DOWNLOAD_POLL() -> -1 running, 0 done, -2 cancelled, -10 failed (VIDEO_DOWNLOAD_ERROR()
+   says why); VIDEO_DOWNLOAD_PERCENT() -> 0..100; VIDEO_DOWNLOAD_CANCEL(). The best video and the best audio are copied as they
+   are (no re-encoding), like `ffmpeg -c copy` does. One download at a time. */
+
+typedef struct { char * src, * hdr, * out; int audio; char conv[16]; } DlJob;   /* conv: "" = copy; "mp3" "opus" "flac" "wav" "aac" = convert the audio */
+static SDL_atomic_t g_dl_state;               /* 0 idle, 1 running, 2 done */
+static volatile int g_dl_result = 0, g_dl_percent = 0, g_dl_cancel = 0;
+static char g_dl_err[256] = "";
+static char g_dl_out[1024] = "";                /* the file really written (in audio mode the extension follows the codec) */
+
+static int dl_interrupt( void * p ) { ( void ) p; return g_dl_cancel; }
+
+/* opens the source (network options, local .m3u8 whitelist, headers) and reads its stream info; 0 = ok, else g_dl_err says why */
+static int dl_open( DlJob * j, AVFormatContext ** icp ) {
+    AVFormatContext * ic = avformat_alloc_context();
+    AVDictionary * o = NULL;
+    if ( !ic ) { snprintf( g_dl_err, sizeof g_dl_err, "out of memory" ); return -1; }
+    ic->interrupt_callback.callback = dl_interrupt;
+    if ( strstr( j->src, "://" ) && strncmp( j->src, "file:", 5 ) ) {
+        av_dict_set( &o, "rw_timeout", "15000000", 0 );
+        av_dict_set( &o, "reconnect", "1", 0 );
+        av_dict_set( &o, "reconnect_streamed", "1", 0 );
+        av_dict_set( &o, "reconnect_delay_max", "5", 0 );
+    } else {
+        size_t pl = strlen( j->src );
+        if ( pl > 5 && !strcasecmp( j->src + pl - 5, ".m3u8" ) ) {
+            av_dict_set( &o, "protocol_whitelist", "file,crypto,data,http,https,tls,tcp,udp", 0 );
+            av_dict_set( &o, "seg_format_options", "ignore_editlist=1", 0 );
+        }
+    }
+    if ( j->hdr[0] ) av_dict_set( &o, "headers", j->hdr, 0 );
+    { int orc = avformat_open_input( &ic, j->src, NULL, &o );
+      av_dict_free( &o );
+      if ( orc < 0 ) { char e[96]; av_strerror( orc, e, sizeof e ); snprintf( g_dl_err, sizeof g_dl_err, "could not open the source (%s)", e ); return -1; } }
+    if ( avformat_find_stream_info( ic, NULL ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "no stream info" ); avformat_close_input( &ic ); return -1; }
+    *icp = ic;
+    return 0;
+}
+
+#if defined( __PROSPERO__ ) || defined( DL_LAME_DIRECT )
+#include <lame/lame.h>
+/* MP3 with LAME called directly: the console's FFmpeg is built without libmp3lame, but the library is there.
+   Decode and resample with FFmpeg to 16-bit interleaved, feed LAME, write the stream raw (with an ID3v2 tag). */
+static int dl_convert_lame( DlJob * j ) {
+    AVFormatContext * ic = NULL;
+    AVCodecContext * dec = NULL;
+    SwrContext * swr = NULL;
+    AVFrame * fr = NULL;
+    AVPacket * pkt = NULL;
+    AVIOContext * pb = NULL;
+    lame_t g = NULL;
+    unsigned char * mp3 = NULL;
+    short * pcm = NULL;
+    int pcm_cap = 0, mp3_cap = 0;
+    const AVCodec * dc;
+    AVChannelLayout lay = { 0 };
+    AVDictionaryEntry * t;
+    int as, ret = -10, rate, ch, flushing = 0, written = 0;
+    double dur;
+    static const int ok_rates[] = { 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 0 };
+
+    g_dl_err[0] = 0;
+    if ( dl_open( j, &ic ) != 0 ) goto end;
+    as = av_find_best_stream( ic, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0 );
+    if ( as < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "no audio to save" ); goto end; }
+    for ( int i = 0; i < ( int ) ic->nb_streams; i++ ) if ( i != as ) ic->streams[i]->discard = AVDISCARD_ALL;
+    dc = avcodec_find_decoder( ic->streams[as]->codecpar->codec_id );
+    if ( !dc ) { snprintf( g_dl_err, sizeof g_dl_err, "no decoder for the audio" ); goto end; }
+    dec = avcodec_alloc_context3( dc );
+    if ( !dec || avcodec_parameters_to_context( dec, ic->streams[as]->codecpar ) < 0 || avcodec_open2( dec, dc, NULL ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not open the audio decoder" ); goto end; }
+
+    ch = dec->ch_layout.nb_channels == 1 ? 1 : 2;
+    rate = 44100;
+    for ( const int * p = ok_rates; *p; p++ ) if ( *p == dec->sample_rate ) rate = *p;
+    av_channel_layout_default( &lay, ch );
+    if ( swr_alloc_set_opts2( &swr, &lay, AV_SAMPLE_FMT_S16, rate, &dec->ch_layout, dec->sample_fmt, dec->sample_rate, 0, NULL ) < 0 || swr_init( swr ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not set up the resampler" ); goto end; }
+
+    g = lame_init();
+    if ( !g ) { snprintf( g_dl_err, sizeof g_dl_err, "could not start LAME" ); goto end; }
+    lame_set_in_samplerate( g, rate );
+    lame_set_num_channels( g, ch );
+    lame_set_mode( g, ch == 1 ? MONO : JOINT_STEREO );
+    lame_set_brate( g, 192 );
+    lame_set_quality( g, 5 );
+    id3tag_init( g ); id3tag_add_v2( g );
+    if ( ( t = av_dict_get( ic->metadata, "title", NULL, 0 ) ) ) id3tag_set_title( g, t->value );
+    if ( ( t = av_dict_get( ic->metadata, "artist", NULL, 0 ) ) ) id3tag_set_artist( g, t->value );
+    if ( ( t = av_dict_get( ic->metadata, "album", NULL, 0 ) ) ) id3tag_set_album( g, t->value );
+    if ( lame_init_params( g ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "LAME refused the settings" ); goto end; }
+
+    snprintf( g_dl_out, sizeof g_dl_out, "%s", j->out );
+    { char * dot = strrchr( g_dl_out, '.' ), * sl = strrchr( g_dl_out, '/' );
+      if ( dot && ( !sl || dot > sl ) ) *dot = 0;
+      if ( strlen( g_dl_out ) + 4 < sizeof g_dl_out ) strcat( g_dl_out, ".mp3" ); }
+    if ( avio_open( &pb, g_dl_out, AVIO_FLAG_WRITE ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not write %s", g_dl_out ); goto end; }
+
+    pkt = av_packet_alloc(); fr = av_frame_alloc();
+    if ( !pkt || !fr ) { snprintf( g_dl_err, sizeof g_dl_err, "out of memory" ); goto end; }
+    dur = ic->duration > 0 ? ic->duration / ( double ) AV_TIME_BASE : 0.0;
+
+    for ( ;; ) {
+        int got = 0;
+        if ( g_dl_cancel ) { ret = -2; snprintf( g_dl_err, sizeof g_dl_err, "cancelled" ); goto end; }
+        if ( !flushing ) {
+            int r = av_read_frame( ic, pkt );
+            if ( r < 0 ) { avcodec_send_packet( dec, NULL ); flushing = 1; }
+            else {
+                if ( pkt->stream_index == as ) {
+                    if ( dur > 0 && pkt->pts != AV_NOPTS_VALUE ) {
+                        AVStream * ist = ic->streams[as];
+                        int pc = ( int ) ( 100.0 * ( ( pkt->pts - ( ist->start_time != AV_NOPTS_VALUE ? ist->start_time : 0 ) ) * av_q2d( ist->time_base ) ) / dur );
+                        g_dl_percent = pc < 0 ? 0 : ( pc > 99 ? 99 : pc );
+                    }
+                    avcodec_send_packet( dec, pkt );
+                }
+                av_packet_unref( pkt );
+            }
+        }
+        while ( avcodec_receive_frame( dec, fr ) >= 0 ) {
+            int cap = swr_get_out_samples( swr, fr->nb_samples ) + 64, n, bytes;
+            if ( cap > pcm_cap ) { free( pcm ); pcm = ( short * ) malloc( sizeof( short ) * ch * cap ); pcm_cap = pcm ? cap : 0; }
+            if ( 5 * cap / 4 + 7200 > mp3_cap ) { free( mp3 ); mp3_cap = 5 * cap / 4 + 7200; mp3 = ( unsigned char * ) malloc( mp3_cap ); if ( !mp3 ) mp3_cap = 0; }
+            if ( !pcm || !mp3 ) { snprintf( g_dl_err, sizeof g_dl_err, "out of memory" ); goto end; }
+            n = swr_convert( swr, ( uint8_t ** ) &pcm, cap, ( const uint8_t ** ) fr->extended_data, fr->nb_samples );
+            if ( n > 0 ) {
+                bytes = ch == 1 ? lame_encode_buffer( g, pcm, pcm, n, mp3, mp3_cap ) : lame_encode_buffer_interleaved( g, pcm, n, mp3, mp3_cap );
+                if ( bytes < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "LAME error %d", bytes ); goto end; }
+                if ( bytes > 0 ) { avio_write( pb, mp3, bytes ); written = 1; }
+            }
+            av_frame_unref( fr );
+            got = 1;
+        }
+        if ( flushing && !got ) break;
+    }
+    if ( !mp3 ) { mp3_cap = 7200; mp3 = ( unsigned char * ) malloc( mp3_cap ); }
+    if ( mp3 ) { int bytes = lame_encode_flush( g, mp3, mp3_cap ); if ( bytes > 0 ) { avio_write( pb, mp3, bytes ); written = 1; } }
+    if ( !written ) { snprintf( g_dl_err, sizeof g_dl_err, "no audio could be decoded" ); goto end; }
+    avio_flush( pb );
+    g_dl_percent = 100;
+    ret = 0;
+end:
+    if ( g_dl_cancel && ret != 0 ) { ret = -2; snprintf( g_dl_err, sizeof g_dl_err, "cancelled" ); }
+    free( pcm ); free( mp3 );
+    if ( g ) lame_close( g );
+    if ( pb ) avio_closep( &pb );
+    av_packet_free( &pkt ); av_frame_free( &fr );
+    if ( swr ) swr_free( &swr );
+    if ( dec ) avcodec_free_context( &dec );
+    av_channel_layout_uninit( &lay );
+    if ( ic ) avformat_close_input( &ic );
+    return ret;
+}
+#endif
+
+/* audio converted to another codec: decode, resample, encode and write (mp3, opus, flac, wav, aac) */
+static int dl_convert( DlJob * j ) {
+    AVFormatContext * ic = NULL, * oc = NULL;
+    AVCodecContext * dec = NULL, * enc = NULL;
+    SwrContext * swr = NULL;
+    AVAudioFifo * fifo = NULL;
+    AVFrame * fr = NULL, * cv = NULL, * ef = NULL;
+    AVPacket * pkt = NULL, * op = NULL;
+    const AVCodec * dc, * ec;
+    const char * ename = "aac", * fmt = "mp4", * ext = ".m4a";
+    int as, ret = -10, header = 0, rate, nb, r, flushing = 0;
+    int64_t next_pts = 0;
+    double dur;
+    AVChannelLayout lay = { 0 };
+
+    g_dl_err[0] = 0;
+#if defined( __PROSPERO__ ) || defined( DL_LAME_DIRECT )
+    if ( !strcmp( j->conv, "mp3" ) ) return dl_convert_lame( j );
+#endif
+    if ( dl_open( j, &ic ) != 0 ) goto end;
+    as = av_find_best_stream( ic, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0 );
+    if ( as < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "no audio to save" ); goto end; }
+    for ( int i = 0; i < ( int ) ic->nb_streams; i++ ) if ( i != as ) ic->streams[i]->discard = AVDISCARD_ALL;
+
+    if      ( !strcmp( j->conv, "mp3" ) )  { ename = "libmp3lame"; fmt = "mp3";  ext = ".mp3"; }
+    else if ( !strcmp( j->conv, "opus" ) ) { ename = "libopus";    fmt = "ogg";  ext = ".opus"; }
+    else if ( !strcmp( j->conv, "flac" ) ) { ename = "flac";       fmt = "flac"; ext = ".flac"; }
+    else if ( !strcmp( j->conv, "wav" ) )  { ename = "pcm_s16le";  fmt = "wav";  ext = ".wav"; }
+    ec = avcodec_find_encoder_by_name( ename );
+    if ( !ec && !strcmp( ename, "libopus" ) ) { ename = "opus"; ec = avcodec_find_encoder_by_name( ename ); }      /* builds without libopus: FFmpeg's own (experimental) encoder */
+    if ( !ec ) { snprintf( g_dl_err, sizeof g_dl_err, "this build cannot encode %s", j->conv ); goto end; }
+    dc = avcodec_find_decoder( ic->streams[as]->codecpar->codec_id );
+    if ( !dc ) { snprintf( g_dl_err, sizeof g_dl_err, "no decoder for the audio" ); goto end; }
+    dec = avcodec_alloc_context3( dc );
+    if ( !dec || avcodec_parameters_to_context( dec, ic->streams[as]->codecpar ) < 0 || avcodec_open2( dec, dc, NULL ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not open the audio decoder" ); goto end; }
+
+    /* output format: mono stays mono, anything else is stereo; the rate is the source's unless the encoder wants another */
+    av_channel_layout_default( &lay, dec->ch_layout.nb_channels == 1 ? 1 : 2 );
+    rate = dec->sample_rate > 0 ? dec->sample_rate : 44100;
+    if ( !strcmp( ename, "libopus" ) || !strcmp( ename, "opus" ) ) rate = 48000;
+    else if ( ec->supported_samplerates ) {
+        int best = ec->supported_samplerates[0];
+        for ( const int * p = ec->supported_samplerates; *p; p++ ) if ( abs( *p - rate ) < abs( best - rate ) ) best = *p;
+        rate = best;
+    }
+    enc = avcodec_alloc_context3( ec );
+    if ( !enc ) goto end;
+    enc->sample_fmt = ec->sample_fmts ? ec->sample_fmts[0] : AV_SAMPLE_FMT_S16;
+    enc->sample_rate = rate;
+    av_channel_layout_copy( &enc->ch_layout, &lay );
+    enc->time_base = ( AVRational ){ 1, rate };
+    if ( !strcmp( ename, "libmp3lame" ) ) enc->bit_rate = 192000;
+    else if ( !strcmp( ename, "libopus" ) || !strcmp( ename, "opus" ) ) enc->bit_rate = 128000;
+    else if ( !strcmp( ename, "aac" ) ) enc->bit_rate = 192000;
+    if ( avformat_alloc_output_context2( &oc, NULL, fmt, j->out ) < 0 || !oc ) { snprintf( g_dl_err, sizeof g_dl_err, "no %s muxer in this build", fmt ); goto end; }
+    if ( oc->oformat->flags & AVFMT_GLOBALHEADER ) enc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    enc->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;           /* the native opus / vorbis encoders are marked experimental */
+    if ( avcodec_open2( enc, ec, NULL ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not open the %s encoder", j->conv ); goto end; }
+    { AVStream * ost = avformat_new_stream( oc, NULL );
+      if ( !ost || avcodec_parameters_from_context( ost->codecpar, enc ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "stream setup failed" ); goto end; }
+      ost->time_base = enc->time_base; }
+    av_dict_copy( &oc->metadata, ic->metadata, 0 );                      /* title, artist... */
+
+    snprintf( g_dl_out, sizeof g_dl_out, "%s", j->out );                 /* the extension follows the format asked for */
+    { char * dot = strrchr( g_dl_out, '.' ), * sl = strrchr( g_dl_out, '/' );
+      if ( dot && ( !sl || dot > sl ) ) *dot = 0;
+      if ( strlen( g_dl_out ) + strlen( ext ) < sizeof g_dl_out ) strcat( g_dl_out, ext ); }
+    if ( avio_open( &oc->pb, g_dl_out, AVIO_FLAG_WRITE ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not write %s", g_dl_out ); goto end; }
+    if ( avformat_write_header( oc, NULL ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not start the file" ); goto end; }
+    header = 1;
+
+    if ( swr_alloc_set_opts2( &swr, &enc->ch_layout, enc->sample_fmt, enc->sample_rate, &dec->ch_layout, dec->sample_fmt, dec->sample_rate, 0, NULL ) < 0 || swr_init( swr ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not set up the resampler" ); goto end; }
+    fifo = av_audio_fifo_alloc( enc->sample_fmt, enc->ch_layout.nb_channels, 1 );
+    nb = enc->frame_size > 0 ? enc->frame_size : 1024;                   /* fixed-size encoders (mp3, aac, opus, flac) need exactly this many samples */
+    pkt = av_packet_alloc(); op = av_packet_alloc(); fr = av_frame_alloc();
+    if ( !fifo || !pkt || !op || !fr ) { snprintf( g_dl_err, sizeof g_dl_err, "out of memory" ); goto end; }
+    dur = ic->duration > 0 ? ic->duration / ( double ) AV_TIME_BASE : 0.0;
+
+    for ( ;; ) {
+        int got_in = 0;
+        if ( g_dl_cancel ) { ret = -2; snprintf( g_dl_err, sizeof g_dl_err, "cancelled" ); goto end; }
+        if ( !flushing ) {                                         /* feed the decoder */
+            r = av_read_frame( ic, pkt );
+            if ( r < 0 ) { avcodec_send_packet( dec, NULL ); flushing = 1; }
+            else {
+                if ( pkt->stream_index == as ) {
+                    if ( dur > 0 && pkt->pts != AV_NOPTS_VALUE ) {
+                        AVStream * ist = ic->streams[as];
+                        int pc = ( int ) ( 100.0 * ( ( pkt->pts - ( ist->start_time != AV_NOPTS_VALUE ? ist->start_time : 0 ) ) * av_q2d( ist->time_base ) ) / dur );
+                        g_dl_percent = pc < 0 ? 0 : ( pc > 99 ? 99 : pc );
+                    }
+                    avcodec_send_packet( dec, pkt );
+                }
+                av_packet_unref( pkt );
+            }
+        }
+        while ( avcodec_receive_frame( dec, fr ) >= 0 ) {          /* decoded -> resampled -> fifo */
+            int64_t maxout = swr_get_out_samples( swr, fr->nb_samples );
+            uint8_t ** buf = NULL; int lsz = 0, n;
+            if ( maxout < 1 ) maxout = fr->nb_samples + 256;
+            if ( av_samples_alloc_array_and_samples( &buf, &lsz, enc->ch_layout.nb_channels, ( int ) maxout, enc->sample_fmt, 0 ) < 0 ) { av_frame_unref( fr ); continue; }
+            n = swr_convert( swr, buf, ( int ) maxout, ( const uint8_t ** ) fr->extended_data, fr->nb_samples );
+            if ( n > 0 ) av_audio_fifo_write( fifo, ( void ** ) buf, n );
+            av_freep( &buf[0] ); av_freep( &buf );
+            av_frame_unref( fr );
+            got_in = 1;
+        }
+        if ( flushing && !got_in ) {                               /* decoder drained: what is left in the resampler */
+            uint8_t ** buf = NULL; int lsz = 0, n;
+            if ( av_samples_alloc_array_and_samples( &buf, &lsz, enc->ch_layout.nb_channels, 4096, enc->sample_fmt, 0 ) >= 0 ) {
+                n = swr_convert( swr, buf, 4096, NULL, 0 );
+                if ( n > 0 ) av_audio_fifo_write( fifo, ( void ** ) buf, n );
+                av_freep( &buf[0] ); av_freep( &buf );
+            }
+        }
+        /* encode every full frame in the fifo (and, once the input is over, the last partial one) */
+        while ( av_audio_fifo_size( fifo ) >= nb || ( flushing && av_audio_fifo_size( fifo ) > 0 ) ) {
+            int take = av_audio_fifo_size( fifo ) < nb ? av_audio_fifo_size( fifo ) : nb;
+            ef = av_frame_alloc();
+            if ( !ef ) goto end;
+            ef->nb_samples = take; ef->format = enc->sample_fmt; ef->sample_rate = enc->sample_rate;
+            av_channel_layout_copy( &ef->ch_layout, &enc->ch_layout );
+            if ( av_frame_get_buffer( ef, 0 ) < 0 ) { av_frame_free( &ef ); goto end; }
+            av_audio_fifo_read( fifo, ( void ** ) ef->data, take );
+            ef->pts = next_pts; next_pts += take;
+            if ( avcodec_send_frame( enc, ef ) < 0 ) { av_frame_free( &ef ); snprintf( g_dl_err, sizeof g_dl_err, "encoder error" ); goto end; }
+            av_frame_free( &ef );
+            while ( avcodec_receive_packet( enc, op ) >= 0 ) {
+                av_packet_rescale_ts( op, enc->time_base, oc->streams[0]->time_base );
+                op->stream_index = 0;
+                if ( av_interleaved_write_frame( oc, op ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "write failed (disk full?)" ); goto end; }
+            }
+        }
+        if ( flushing && !got_in && av_audio_fifo_size( fifo ) == 0 ) break;
+    }
+    avcodec_send_frame( enc, NULL );                               /* flush the encoder */
+    while ( avcodec_receive_packet( enc, op ) >= 0 ) {
+        av_packet_rescale_ts( op, enc->time_base, oc->streams[0]->time_base );
+        op->stream_index = 0;
+        if ( av_interleaved_write_frame( oc, op ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "write failed (disk full?)" ); goto end; }
+    }
+    if ( av_write_trailer( oc ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not finish the file" ); header = 0; goto end; }
+    header = 0;
+    g_dl_percent = 100;
+    ret = 0;
+end:
+    if ( g_dl_cancel && ret != 0 ) { ret = -2; snprintf( g_dl_err, sizeof g_dl_err, "cancelled" ); }
+    if ( header && oc ) av_write_trailer( oc );
+    av_packet_free( &pkt ); av_packet_free( &op ); av_frame_free( &fr ); av_frame_free( &cv );
+    if ( fifo ) av_audio_fifo_free( fifo );
+    if ( swr ) swr_free( &swr );
+    if ( dec ) avcodec_free_context( &dec );
+    if ( enc ) avcodec_free_context( &enc );
+    av_channel_layout_uninit( &lay );
+    if ( oc ) { if ( oc->pb ) avio_closep( &oc->pb ); avformat_free_context( oc ); }
+    if ( ic ) avformat_close_input( &ic );
+    return ret;
+}
+
+static int dl_run( DlJob * j ) {
+    AVFormatContext * ic = NULL, * oc = NULL;
+    AVBSFContext * bsf = NULL;
+    AVPacket * pkt = NULL;
+    int * map = NULL;
+    int vs, as, ret = -10, header = 0, i;
+    double dur;
+
+    g_dl_err[0] = 0;
+    if ( j->conv[0] ) return dl_convert( j );
+    if ( dl_open( j, &ic ) != 0 ) goto end;
+
+    vs = j->audio ? -1 : av_find_best_stream( ic, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0 );
+    as = av_find_best_stream( ic, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0 );
+    if ( vs < 0 && as < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, j->audio ? "no audio to save" : "no video or audio to save" ); goto end; }
+
+    snprintf( g_dl_out, sizeof g_dl_out, "%s", j->out );
+    { const char * fmt = "mp4", * ext = NULL;
+      if ( j->audio && as >= 0 ) {                        /* audio only: the container follows the codec, so the file is a plain .m4a / .mp3 / .opus ... */
+          switch ( ic->streams[as]->codecpar->codec_id ) {
+              case AV_CODEC_ID_MP3:    fmt = "mp3";  ext = ".mp3";  break;
+              case AV_CODEC_ID_OPUS:   fmt = "ogg";  ext = ".opus"; break;
+              case AV_CODEC_ID_VORBIS: fmt = "ogg";  ext = ".oga";  break;
+              case AV_CODEC_ID_FLAC:   fmt = "flac"; ext = ".flac"; break;
+              default: break;
+          }
+      }
+      if ( ext ) {                                       /* replace the extension the caller gave */
+          char * dot = strrchr( g_dl_out, '.' ), * sl = strrchr( g_dl_out, '/' );
+          if ( dot && ( !sl || dot > sl ) ) *dot = 0;
+          if ( strlen( g_dl_out ) + strlen( ext ) < sizeof g_dl_out ) strcat( g_dl_out, ext );
+      }
+      if ( avformat_alloc_output_context2( &oc, NULL, fmt, g_dl_out ) < 0 || !oc ) {
+          if ( ext ) { snprintf( g_dl_out, sizeof g_dl_out, "%s", j->out ); }          /* that muxer is not in this build: .m4a instead */
+          if ( avformat_alloc_output_context2( &oc, NULL, "mp4", j->out ) < 0 || !oc ) { snprintf( g_dl_err, sizeof g_dl_err, "no mp4 muxer" ); goto end; }
+      }
+    }
+    map = ( int * ) malloc( sizeof( int ) * ic->nb_streams );
+    if ( !map ) { snprintf( g_dl_err, sizeof g_dl_err, "out of memory" ); goto end; }
+    for ( i = 0; i < ( int ) ic->nb_streams; i++ ) {
+        map[i] = -1;
+        if ( i == vs || i == as ) {
+            AVStream * ist = ic->streams[i], * ost = avformat_new_stream( oc, NULL );
+            if ( !ost || avcodec_parameters_copy( ost->codecpar, ist->codecpar ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "stream copy failed" ); goto end; }
+            ost->codecpar->codec_tag = 0;
+            ost->time_base = ist->time_base;
+            map[i] = ost->index;
+            if ( i == as && ist->codecpar->codec_id == AV_CODEC_ID_AAC && ist->codecpar->extradata_size == 0 ) {   /* ADTS AAC (from a TS list) */
+                const AVBitStreamFilter * f = av_bsf_get_by_name( "aac_adtstoasc" );
+                if ( f && av_bsf_alloc( f, &bsf ) >= 0 ) {
+                    avcodec_parameters_copy( bsf->par_in, ist->codecpar );
+                    bsf->time_base_in = ist->time_base;
+                    if ( av_bsf_init( bsf ) < 0 ) av_bsf_free( &bsf );
+                    else avcodec_parameters_copy( ost->codecpar, bsf->par_out );
+                }
+            }
+        } else ic->streams[i]->discard = AVDISCARD_ALL;                 /* other qualities: never downloaded */
+    }
+    if ( avio_open( &oc->pb, g_dl_out, AVIO_FLAG_WRITE ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not write %s", g_dl_out ); goto end; }
+    if ( avformat_write_header( oc, NULL ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not start the file" ); goto end; }
+    header = 1;
+
+    dur = ic->duration > 0 ? ic->duration / ( double ) AV_TIME_BASE : 0.0;
+    pkt = av_packet_alloc();
+    for ( ;; ) {
+        int r = av_read_frame( ic, pkt );
+        AVStream * ist; AVStream * ost;
+        if ( g_dl_cancel ) { ret = -2; snprintf( g_dl_err, sizeof g_dl_err, "cancelled" ); goto end; }
+        if ( r < 0 ) break;                                           /* end of the video (or an error after the data: the file keeps what arrived) */
+        if ( pkt->stream_index >= ( int ) ic->nb_streams || map[pkt->stream_index] < 0 ) { av_packet_unref( pkt ); continue; }
+        ist = ic->streams[pkt->stream_index];
+        ost = oc->streams[map[pkt->stream_index]];
+        if ( pkt->stream_index == ( vs >= 0 ? vs : as ) && dur > 0 && pkt->pts != AV_NOPTS_VALUE ) {       /* progress: by the video, or by the audio when there is none */
+            int ps = vs >= 0 ? vs : as;
+            int pc = ( int ) ( 100.0 * ( ( pkt->pts - ( ic->streams[ps]->start_time != AV_NOPTS_VALUE ? ic->streams[ps]->start_time : 0 ) ) * av_q2d( ist->time_base ) ) / dur );
+            g_dl_percent = pc < 0 ? 0 : ( pc > 99 ? 99 : pc );
+        }
+        if ( pkt->stream_index == as && bsf ) {
+            if ( av_bsf_send_packet( bsf, pkt ) < 0 ) { av_packet_unref( pkt ); continue; }
+            while ( av_bsf_receive_packet( bsf, pkt ) >= 0 ) {
+                av_packet_rescale_ts( pkt, ist->time_base, ost->time_base );
+                pkt->stream_index = ost->index; pkt->pos = -1;
+                if ( av_interleaved_write_frame( oc, pkt ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "write failed (disk full?)" ); goto end; }
+            }
+            continue;
+        }
+        av_packet_rescale_ts( pkt, ist->time_base, ost->time_base );
+        pkt->stream_index = ost->index; pkt->pos = -1;
+        if ( av_interleaved_write_frame( oc, pkt ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "write failed (disk full?)" ); goto end; }
+    }
+    if ( av_write_trailer( oc ) < 0 ) { snprintf( g_dl_err, sizeof g_dl_err, "could not finish the file" ); header = 0; goto end; }
+    header = 0;
+    g_dl_percent = 100;
+    ret = 0;
+end:
+    if ( g_dl_cancel && ret != 0 ) { ret = -2; snprintf( g_dl_err, sizeof g_dl_err, "cancelled" ); }      /* a cancel during the opening is a cancel too */
+    if ( header && oc ) av_write_trailer( oc );                          /* a partial file: still closed properly */
+    av_packet_free( &pkt );
+    if ( bsf ) av_bsf_free( &bsf );
+    free( map );
+    if ( oc ) { if ( oc->pb ) avio_closep( &oc->pb ); avformat_free_context( oc ); }
+    if ( ic ) avformat_close_input( &ic );
+    return ret;
+}
+
+static int dl_thread( void * arg ) {
+    DlJob * j = ( DlJob * ) arg;
+    int r = dl_run( j );
+    free( j->src ); free( j->hdr ); free( j->out ); free( j );
+    g_dl_result = r;
+    SDL_AtomicSet( &g_dl_state, 2 );
+    return 0;
+}
+
+static int64_t dl_begin( int64_t * params, int audio, const char * conv ) {
+    DlJob * j;
+    SDL_Thread * th;
+    char * src = strdup( ( const char * ) string_get( params[0] ) );
+    char * hdr = strdup( ( const char * ) string_get( params[1] ) );
+    char * out = strdup( ( const char * ) string_get( params[2] ) );
+    static int net_ready = 0;
+    string_discard( params[0] ); string_discard( params[1] ); string_discard( params[2] );
+    if ( SDL_AtomicGet( &g_dl_state ) == 1 ) { free( src ); free( hdr ); free( out ); return -1; }
+    if ( !src || !hdr || !out || !( j = ( DlJob * ) malloc( sizeof( *j ) ) ) ) { free( src ); free( hdr ); free( out ); return -2; }
+    if ( !net_ready ) { avformat_network_init(); net_ready = 1; }
+    j->src = src; j->hdr = hdr; j->out = out; j->audio = audio; snprintf( j->conv, sizeof j->conv, "%s", conv ? conv : "" );
+    g_dl_percent = 0; g_dl_cancel = 0; g_dl_result = 0; g_dl_err[0] = 0; snprintf( g_dl_out, sizeof g_dl_out, "%s", out );
+    SDL_AtomicSet( &g_dl_state, 1 );
+    th = SDL_CreateThread( dl_thread, "download", j );
+    if ( !th ) { SDL_AtomicSet( &g_dl_state, 0 ); free( src ); free( hdr ); free( out ); free( j ); return -3; }
+    SDL_DetachThread( th );
+    return 0;
+}
+
+int64_t libmod_video_download_begin( INSTANCE * my, int64_t * params ) { return dl_begin( params, 0, NULL ); }
+/* VIDEO_DOWNLOAD_AUDIO_BEGIN(source, headers, path): only the audio, saved as .m4a/.mp3/.opus/... (VIDEO_DOWNLOAD_PATH tells which) */
+int64_t libmod_video_download_audio_begin( INSTANCE * my, int64_t * params ) { return dl_begin( params, 1, NULL ); }
+/* VIDEO_DOWNLOAD_CONVERT_BEGIN(source, headers, path, format): the audio re-encoded as "mp3", "opus", "flac", "wav" or "aac" */
+int64_t libmod_video_download_convert_begin( INSTANCE * my, int64_t * params ) {
+    char fmt[16];
+    snprintf( fmt, sizeof fmt, "%s", ( const char * ) string_get( params[3] ) );
+    string_discard( params[3] );
+    return dl_begin( params, 1, fmt );
+}
+
+int64_t libmod_video_download_poll( INSTANCE * my, int64_t * params ) {
+    int st = SDL_AtomicGet( &g_dl_state );
+    if ( st == 1 ) return -1;
+    if ( st == 2 ) { SDL_AtomicSet( &g_dl_state, 0 ); return g_dl_result; }
+    return -3;
+}
+int64_t libmod_video_download_percent( INSTANCE * my, int64_t * params ) { return g_dl_percent; }
+int64_t libmod_video_download_cancel( INSTANCE * my, int64_t * params ) { g_dl_cancel = 1; return 0; }
+int64_t libmod_video_download_path( INSTANCE * my, int64_t * params ) {
+    int64_t str = string_new( g_dl_out );
+    string_use( str );
+    return str;
+}
+int64_t libmod_video_download_error( INSTANCE * my, int64_t * params ) {
+    int64_t str = string_new( g_dl_err );
+    string_use( str );
+    return str;
 }
 
 /* HTTP_WRITE(path, text): writes a text to a real file (same view of the disk as FFmpeg); 1 = ok */

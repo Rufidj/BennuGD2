@@ -35,6 +35,10 @@
  *  decoder/resampler and may be heard as a brief gap; the video keeps playing.
  *    VIDEO_AUDIO_TRACKS(handle)              -> number of audio tracks
  *    HTTP_FETCH(url, headers, method, body) -> status (200 ok, 400/401/403/404/500 http errors, 0 = no connection; see HTTP_ERROR())
+ *    HTTP_FETCH_BEGIN(url, headers, method, body) -> 0 started (in the background); HTTP_FETCH_POLL() -> -1 running, else the status;
+ *    HTTP_PROGRESS() -> bytes received so far; HTTP_TOTAL() -> bytes expected (0 = unknown)
+ *    VIDEO_DOWNLOAD_BEGIN(source, headers, out_path) -> 0 started (copies the best video + audio into one .mp4 in the background);
+ *    VIDEO_DOWNLOAD_POLL() -> -1 running, 0 done, -2 cancelled, -10 failed; VIDEO_DOWNLOAD_PERCENT(); VIDEO_DOWNLOAD_CANCEL(); VIDEO_DOWNLOAD_ERROR()
  *    HTTP_LENGTH() -> bytes of the answer; HTTP_READ(pointer, max) -> copies them; HTTP_ERROR() -> text of the last failure
  *    HTTP_WRITE(path, text) -> 1 if the text was written to that file
  *    HTTP_SAVE(path) -> 1 if the last answer was written to that file
@@ -85,6 +89,18 @@ extern int64_t libmod_video_subtitle_text( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_audio_tracks( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_audio_lang( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_fetch_begin( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_fetch_poll( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_progress( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_begin( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_convert_begin( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_audio_begin( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_path( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_poll( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_percent( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_cancel( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_download_error( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_http_total( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_http_length( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_http_read( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_http_error( INSTANCE * my, int64_t * params );
