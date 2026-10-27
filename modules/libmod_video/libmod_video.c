@@ -157,6 +157,9 @@ typedef struct {
     Uint32          clk_t0;
     double          clk_a;             /* last audio playout time (clock)       */
     Uint32          clk_a_t0;          /* SDL ticks when clk_a was taken        */
+    double          mh_t, mh_wall;     /* audio clock at the last mixer callback and the wall time of that callback: the callbacks come every
+                                          ~90 ms, so between them the clock is interpolated (else pictures are shown in bursts, ~11 per second) */
+    double          clk_mono;          /* last value returned, so the interpolated clock never goes back */
     double          last_time;         /* last media time reported              */
 
     /* subtitles (text only: SRT / ASS / SSA / WebVTT / mov_text), guarded by mx */
@@ -234,6 +237,15 @@ static double vid_clock( VIDEO * v ) {
             if ( queued <= 0.0 )
                 return v->clk_a + ( SDL_GetTicks() - v->clk_a_t0 ) / 1000.0;
             v->clk_a = t; v->clk_a_t0 = SDL_GetTicks();
+            if ( v->mh_wall > 0 ) {                            /* interpolate between mixer callbacks */
+                double e = now_s( CLOCK_MONOTONIC ) - v->mh_wall;
+                if ( e < 0 ) e = 0; if ( e > 0.25 ) e = 0.25;
+                double ti = v->mh_t + e;
+                if ( ti > v->a_pts_end ) ti = v->a_pts_end;
+                if ( ti > t ) t = ti;
+            }
+            if ( t < v->clk_mono && v->clk_mono - t < 0.3 ) t = v->clk_mono; else v->clk_mono = t;
+            if ( t > v->clk_mono ) v->clk_mono = t;
         }
         return t;
     }
@@ -241,7 +253,7 @@ static double vid_clock( VIDEO * v ) {
     return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0;
 }
 
-static void vid_clock_freeze( VIDEO * v ) { v->clk_base = vid_clock( v ); v->clk_t0 = SDL_GetTicks(); v->clk_a = v->clk_base; v->clk_a_t0 = v->clk_t0; }
+static void vid_clock_freeze( VIDEO * v ) { v->clk_base = vid_clock( v ); v->mh_wall = 0; v->clk_t0 = SDL_GetTicks(); v->clk_a = v->clk_base; v->clk_a_t0 = v->clk_t0; }
 
 /* ---- audio output (SDL_mixer music hook) ------------------------------- */
 
@@ -259,6 +271,7 @@ static void mix_hook( void * udata, Uint8 * stream, int len ) {
         if ( n > first ) memcpy( stream + first, v->abuf, n - first );
         v->ar = ( v->ar + n ) % v->acap;
         v->an -= n;
+        v->mh_t = v->a_pts_end - ( double ) v->an / ( double ) ( v->a_rate * v->a_ch * v->a_bps ); v->mh_wall = now_s( CLOCK_MONOTONIC );
 
         if ( v->a_bps == 2 && v->a_ch > 0 ) {            /* keep the chunk (mono) so VIDEO_SPECTRUM / VIDEO_WAVE can look at what is playing */
             const int16_t * sm = ( const int16_t * ) stream;
@@ -859,7 +872,7 @@ static int decode_thread( void * arg ) {
             if ( v->actx ) avcodec_flush_buffers( v->actx );
             SDL_LockMutex( v->mx );
             vq_clear( v );
-            v->eof = 0; v->finished = 0; v->a_pts_end = to; v->a_got = 0; v->vpts_init = 0;
+            v->eof = 0; v->finished = 0; v->a_pts_end = to; v->a_got = 0; v->mh_wall = 0; v->vpts_init = 0;
             v->clk_base = to; v->clk_t0 = SDL_GetTicks(); v->clk_a = to; v->clk_a_t0 = v->clk_t0;
             v->shown_first = 0;
             SDL_UnlockMutex( v->mx );
@@ -1131,7 +1144,7 @@ static void audio_switch_track( VIDEO * v, int newstream ) {
     if ( !ok && v->actx ) avcodec_free_context( &v->actx );
 
     SDL_LockMutex( v->mx );
-    vid_clock_freeze( v ); v->a_got = 0;                /* keep time on the wall clock until the new track's sound arrives */
+    vid_clock_freeze( v ); v->a_got = 0; v->mh_wall = 0;                /* keep time on the wall clock until the new track's sound arrives */
     v->an = 0; v->ar = 0;                              /* drop whatever was queued from the old track */
     v->has_audio = ok && v->abuf != NULL;
     SDL_UnlockMutex( v->mx );
