@@ -200,6 +200,12 @@ static int accept_thread( void * arg ) {
         if ( poll( &pf, 1, 300 ) > 0 && ( pf.revents & POLLIN ) ) {
             sock_t c = accept( aa.s, NULL, NULL ); int busy;
             if ( c == BAD_SOCK ) continue;
+            /* on BSD systems (the PS5) an accepted socket inherits the non-blocking mode of the listening one: make it blocking */
+#ifdef _WIN32
+            { u_long nb = 0; ioctlsocket( c, FIONBIO, &nb ); }
+#else
+            fcntl( c, F_SETFL, fcntl( c, F_GETFL, 0 ) & ~O_NONBLOCK );
+#endif
             SDL_LockMutex( g_mu ); busy = g_conns >= MAX_CONN; if ( !busy ) g_conns++; SDL_UnlockMutex( g_mu );
             if ( busy ) { reply( c, 503, "Busy", "text/plain", "busy", 4 ); CLOSESOCK( c ); continue; }
             { ConnArg * ca = ( ConnArg * ) malloc( sizeof *ca ); SDL_Thread * th = NULL;
