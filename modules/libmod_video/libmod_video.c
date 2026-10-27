@@ -54,6 +54,7 @@
 
 #include "libmod_video.h"
 #include "torrent.h"
+#include "upload.h"
 #include "libmod_video_hwdec.h"
 #include <time.h>
 #include <pthread.h>
@@ -1779,6 +1780,7 @@ void __bgdexport( libmod_video, module_initialize )() {
 
 void __bgdexport( libmod_video, module_finalize )() {
     torrent_shutdown();
+    upload_stop();
     for ( int i = 1; i <= MAX_VIDEOS; i++ ) if ( g_vid[i].used ) vid_free( &g_vid[i] );
     zombie_tick( 1 );
     zimg_tick( 1 );
@@ -2507,5 +2509,18 @@ int64_t libmod_video_torrent_buffered( INSTANCE * my, int64_t * params ) { retur
 int64_t libmod_video_torrent_ready( INSTANCE * my, int64_t * params ) { return torrent_start_percent( ( int ) params[0] ); }
 int64_t libmod_video_torrent_downloaded( INSTANCE * my, int64_t * params ) { return torrent_downloaded( ( int ) params[0] ); }
 int64_t libmod_video_torrent_upload_limit( INSTANCE * my, int64_t * params ) { torrent_set_upload_limit( ( int ) params[0] ); return 0; }
+
+/* ---- receive files from another computer through a web page (see upload.h) ---- */
+int64_t libmod_video_upload_start( INSTANCE * my, int64_t * params ) {
+    int r = upload_start( string_get( params[0] ), ( int ) params[1], string_get( params[2] ) );
+    string_discard( params[0] ); string_discard( params[2] ); return r;
+}
+int64_t libmod_video_upload_stop( INSTANCE * my, int64_t * params ) { upload_stop(); return 0; }
+int64_t libmod_video_upload_files( INSTANCE * my, int64_t * params ) { return upload_file_count(); }
+int64_t libmod_video_upload_bytes( INSTANCE * my, int64_t * params ) { return upload_total_bytes(); }
+int64_t libmod_video_upload_percent( INSTANCE * my, int64_t * params ) { return upload_percent(); }
+int64_t libmod_video_upload_current( INSTANCE * my, int64_t * params ) { return tor_str( upload_current() ); }
+int64_t libmod_video_upload_ip( INSTANCE * my, int64_t * params ) { return tor_str( upload_local_ip() ); }
+int64_t libmod_video_upload_error( INSTANCE * my, int64_t * params ) { return tor_str( upload_last_error() ); }
 
 #include "libmod_video_exports.h"

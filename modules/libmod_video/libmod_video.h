@@ -129,4 +129,13 @@ extern int64_t libmod_video_torrent_ready( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_torrent_downloaded( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_torrent_upload_limit( INSTANCE * my, int64_t * params );
 
+extern int64_t libmod_video_upload_start( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_stop( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_files( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_bytes( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_percent( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_current( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_ip( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_upload_error( INSTANCE * my, int64_t * params );
+
 #endif
