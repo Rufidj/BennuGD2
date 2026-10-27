@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <time.h>
+#include <stdarg.h>
 #include <strings.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -249,10 +250,23 @@ static uint8_t g_pid[20];
 static unsigned g_gen_counter;
 
 #define DBG( ... ) do { if ( getenv( "TORRENT_DEBUG" ) ) { fprintf( stderr, "[torrent] " __VA_ARGS__ ); fputc( 10, stderr ); } } while ( 0 )
+static char g_logpath[1100];
+/* a small log next to the cache (torrent.log): what the trackers and the peers answered. Kept under 256 KB. */
+static void tlog( const char * fmt, ... ) {
+    FILE * f; va_list ap; time_t t = time( NULL ); struct tm * tm = localtime( &t ); char ts[16];
+    if ( !g_logpath[0] ) return;
+    f = fopen( g_logpath, "ab" );
+    if ( !f ) return;
+    if ( ftell( f ) > ( 256 << 10 ) ) { fclose( f ); f = fopen( g_logpath, "wb" ); if ( !f ) return; }
+    strftime( ts, sizeof ts, "%H:%M:%S", tm ); fprintf( f, "%s ", ts );
+    va_start( ap, fmt ); vfprintf( f, fmt, ap ); va_end( ap ); fputc( 10, f ); fclose( f );
+}
+
 #define LOCK() SDL_LockMutex( g_mu )
 #define UNLOCK() SDL_UnlockMutex( g_mu )
 
-static void set_err( Torrent * t, const char * m ) { snprintf( t->err, sizeof t->err, "%s", m ); t->state = 2; SDL_CondBroadcast( g_cv ); }
+static void tlog( const char * fmt, ... );
+static void set_err( Torrent * t, const char * m ) { snprintf( t->err, sizeof t->err, "%s", m ); t->state = 2; tlog( "error: %s", m ); SDL_CondBroadcast( g_cv ); }
 
 static int piece_len( const Torrent * t, int p ) {
     int64_t start = ( int64_t ) p * t->plen, rest = t->total - start;
@@ -387,6 +401,7 @@ static int set_info( Torrent * t, const uint8_t * info, size_t n ) {
       if ( !t->existing ) { if ( ftruncate( t->fd, ( off_t ) t->total ) != 0 ) { set_err( t, "not enough room for the cache" ); return 0; } }
       t->recheck = t->existing ? t->fp0 : t->fp1 + 1; }
     t->state = 1;
+    tlog( "ready: '%s' %d files, %d pieces of %d KB, %lld MB, %d trackers", t->name, t->nfiles, t->npieces, ( int ) ( t->plen / 1024 ), ( long long ) ( t->total >> 20 ), t->ntrk );
     SDL_CondBroadcast( g_cv );
     return 1;
 }
@@ -653,7 +668,7 @@ static void peer_connect( Torrent * t, int ci ) {
     memset( &sa, 0, sizeof sa ); sa.sin_family = AF_INET; sa.sin_port = htons( t->cand[ci].port ); sa.sin_addr.s_addr = t->cand[ci].ip;
     if ( connect( s, ( struct sockaddr * ) &sa, sizeof sa ) != 0 && SOCKERR != E_INPROGRESS ) { CLOSESOCK( s ); t->cand[ci].next_ms = now_ms() + 120000; return; }
     p = ( Peer * ) calloc( 1, sizeof *p );
-    p->sock = s; p->st = 0; p->choked = 1; p->am_choking = 1; p->cand = ci; p->t_conn = p->t_rx = p->t_tx = now_ms();
+    p->ip = t->cand[ci].ip; p->port = t->cand[ci].port; p->sock = s; p->st = 0; p->choked = 1; p->am_choking = 1; p->cand = ci; p->t_conn = p->t_rx = p->t_tx = now_ms();
     t->peers[i] = p; t->cand[ci].connected = 1; t->cand[ci].next_ms = now_ms() + 300000;
 }
 
@@ -696,11 +711,11 @@ static void announce_http( Torrent * t, const char * url, uint8_t ih[20], int64_
     char ihe[70], pie[70], full[2400]; uint8_t * body = NULL; size_t n = 0; BNode b; const char * sep = strchr( url, '?' ) ? "&" : "?";
     url_escape_bytes( ih, 20, ihe ); url_escape_bytes( g_pid, 20, pie );
     snprintf( full, sizeof full, "%s%sinfo_hash=%s&peer_id=%s&port=%d&uploaded=0&downloaded=0&left=%lld&compact=1&numwant=60", url, sep, ihe, pie, g_port, ( long long ) left );
-    if ( http_get( full, &body, &n, 1 << 20, 15 ) != 0 ) return;
+    if ( http_get( full, &body, &n, 1 << 20, 15 ) != 0 ) { tlog( "tracker %s: no answer (failed to connect or error status)", url ); return; }
     if ( bparse( body, body + n, &b, 0 ) && b.t == 'd' ) {
-        BNode * peers = bget( &b, "peers" );
-        LOCK(); parse_peers( t, peers ); UNLOCK();
-    }
+        BNode * peers = bget( &b, "peers" ), * fail = bget( &b, "failure reason" ); int before;
+        LOCK(); before = t->ncand; parse_peers( t, peers ); tlog( "tracker %s: %d new peers%s%.*s", url, t->ncand - before, fail && fail->t == 's' ? ", refused: " : "", fail && fail->t == 's' ? ( int ) fail->n : 0, fail && fail->t == 's' ? ( const char * ) fail->s : "" ); UNLOCK();
+    } else tlog( "tracker %s: answer is not a valid reply (%zu bytes)", url, n );
     bfree( &b ); free( body );
 }
 
@@ -711,17 +726,17 @@ static void announce_udp( Torrent * t, const char * url, uint8_t ih[20], int64_t
     if ( *p == ':' ) port = atoi( p + 1 );
     snprintf( portstr, sizeof portstr, "%d", port );
     memset( &hints, 0, sizeof hints ); hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM;
-    if ( getaddrinfo( host, portstr, &hints, &res ) != 0 || !res ) return;
+    { int gr = getaddrinfo( host, portstr, &hints, &res ); if ( gr != 0 || !res ) { tlog( "tracker %s: cannot resolve %s (code %d)", url, host, gr ); return; } }
     s = socket( AF_INET, SOCK_DGRAM, 0 );
-    if ( s == BAD_SOCK ) { freeaddrinfo( res ); return; }
+    if ( s == BAD_SOCK ) { tlog( "tracker %s: cannot create a UDP socket (errno %d)", url, errno ); freeaddrinfo( res ); return; }
     { struct timeval tv; tv.tv_sec = 5; tv.tv_usec = 0; setsockopt( s, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof tv ); }
     tid = ( uint32_t ) rand() ^ now_ms();
     for ( attempt = 0; attempt < 2; attempt++ ) {
         int r; uint64_t cid; uint32_t act;
         be64w( req, 0x41727101980ULL ); be32w( req + 8, 0 ); be32w( req + 12, tid );
-        sendto( s, ( const char * ) req, 16, 0, res->ai_addr, ( int ) res->ai_addrlen );
+        { int sr = ( int ) sendto( s, ( const char * ) req, 16, 0, res->ai_addr, ( int ) res->ai_addrlen ); if ( sr < 0 ) tlog( "tracker %s: sendto failed (errno %d)", url, errno ); }
         r = ( int ) recv( s, ( char * ) resp, sizeof resp, 0 );
-        if ( r < 16 || be32r( resp ) != 0 || be32r( resp + 4 ) != tid ) continue;
+        if ( r < 16 || be32r( resp ) != 0 || be32r( resp + 4 ) != tid ) { tlog( "tracker %s: no connect answer (try %d, recv %d, errno %d)", url, attempt + 1, r, r < 0 ? errno : 0 ); continue; }
         cid = ( ( uint64_t ) be32r( resp + 8 ) << 32 ) | be32r( resp + 12 );
         be64w( req, cid ); be32w( req + 8, 1 ); be32w( req + 12, tid + 1 ); memcpy( req + 16, ih, 20 ); memcpy( req + 36, g_pid, 20 );
         be64w( req + 56, 0 ); be64w( req + 64, ( uint64_t ) left ); be64w( req + 72, 0 ); be32w( req + 80, 2 ); be32w( req + 84, 0 );
@@ -730,12 +745,14 @@ static void announce_udp( Torrent * t, const char * url, uint8_t ih[20], int64_t
         r = ( int ) recv( s, ( char * ) resp, sizeof resp, 0 );
         act = r >= 8 ? be32r( resp ) : 99;
         if ( r >= 20 && act == 1 && be32r( resp + 4 ) == tid + 1 ) {
-            int i;
-            LOCK();
+            int i, before;
+            LOCK(); before = t->ncand;
             for ( i = 20; i + 6 <= r; i += 6 ) { uint32_t ip; memcpy( &ip, resp + i, 4 ); add_candidate( t, ip, ( uint16_t ) ( ( resp[i + 4] << 8 ) | resp[i + 5] ) ); }
+            tlog( "tracker %s: %d new peers (seeders %u, leechers %u)", url, t->ncand - before, be32r( resp + 16 ), be32r( resp + 12 ) );
             UNLOCK();
             break;
         }
+        tlog( "tracker %s: no announce answer (try %d, recv %d, action %u)", url, attempt + 1, r, ( unsigned ) act );
     }
     CLOSESOCK( s ); freeaddrinfo( res );
 }
@@ -748,6 +765,7 @@ static int trk_thread( void * arg ) {
     snprintf( url, sizeof url, "%s", t->trk[a.idx] ); memcpy( ih, t->ih, 20 );
     left = t->state == 1 ? t->total - ( int64_t ) t->nhave * t->plen : 1; if ( left < 1 ) left = 1;
     UNLOCK();
+    tlog( "asking %s", url );
     if ( !strncmp( url, "udp://", 6 ) ) announce_udp( t, url, ih, left );
     else if ( !strncmp( url, "http://", 7 ) || !strncmp( url, "https://", 8 ) ) announce_http( t, url, ih, left );
     LOCK();
@@ -798,6 +816,8 @@ static void tor_tick( Torrent * t ) {
         t->last_dl = t->downloaded; t->last_ul = t->uploaded; t->last_stat = now;
     }
     t->up_tokens += g_up_limit / 4; if ( t->up_tokens > g_up_limit ) t->up_tokens = g_up_limit;
+    { static uint32_t last_sum; if ( now - last_sum >= 10000 ) { int act = 0, con = 0, k; last_sum = now; for ( k = 0; k < MAX_PEERS; k++ ) if ( t->peers[k] && t->peers[k]->st >= 0 ) { if ( t->peers[k]->st == 2 ) act++; else con++; }
+      tlog( "status: state %d, %d peers connected, %d connecting, %d known, %lld KB received", t->state, act, con, t->ncand, ( long long ) ( t->downloaded >> 10 ) ); } }
     /* trackers, when we need more peers */
     for ( i = 0; i < MAX_PEERS; i++ ) if ( t->peers[i] && t->peers[i]->st >= 0 ) { if ( t->peers[i]->st == 2 ) active++; else connecting++; }
     if ( active + connecting < 10 || now - t->last_announce > 120000 ) { start_announces( t ); if ( now - t->last_announce > 120000 ) t->last_announce = now; }
@@ -894,7 +914,7 @@ static int engine_thread( void * arg ) {
                 if ( p->st == 0 && ( fds[i].revents & POLLOUT ) ) {
                     int err = 0; socklen_t el = sizeof err;
                     getsockopt( p->sock, SOL_SOCKET, SO_ERROR, ( char * ) &err, &el );
-                    if ( err ) { peer_close( t, p ); continue; }
+                    if ( err ) { static int nlog; if ( nlog++ < 20 ) tlog( "peer %u.%u.%u.%u:%d: connect failed (errno %d)", p->ip & 255, ( p->ip >> 8 ) & 255, ( p->ip >> 16 ) & 255, p->ip >> 24, p->port, err ); peer_close( t, p ); continue; }
                     { uint8_t h[68]; h[0] = 19; memcpy( h + 1, "BitTorrent protocol", 19 ); memset( h + 20, 0, 8 ); h[25] = 0x10; memcpy( h + 28, t->ih, 20 ); memcpy( h + 48, g_pid, 20 );
                       p->st = 1; p->t_conn = now_ms(); send_raw( p, h, 68 ); }
                 }
@@ -992,6 +1012,7 @@ int torrent_add( const char * src ) {
     t = &g_t[h - 1]; { unsigned g = t->gen; memset( t, 0, sizeof *t ); t->gen = g; }
     t->used = 1; t->h = h; t->gen = ++g_gen_counter; t->state = 0; t->fd = 0; t->t_start = now_ms();
     snprintf( t->src, sizeof t->src, "%s", src );
+    tlog( "add: %s", !strncmp( src, "magnet:?", 8 ) ? "magnet" : ( !strncmp( src, "http", 4 ) ? "torrent address" : "torrent file" ) );
     if ( !strncmp( src, "magnet:?", 8 ) ) {
         parse_magnet( t, src );
         { int z = 1; for ( i = 0; i < 20; i++ ) if ( t->ih[i] ) z = 0; if ( z ) { t->used = 0; UNLOCK(); return -2; } }
@@ -1181,6 +1202,8 @@ int torrent_init( const char * cache_dir ) {
 #else
     mkdir( g_cache, 0777 );
 #endif
+    snprintf( g_logpath, sizeof g_logpath, "%s/torrent.log", g_cache );
+    tlog( "---- torrent engine started" );
     srand( ( unsigned ) time( NULL ) ^ now_ms() );
     memcpy( g_pid, "-BM0100-", 8 ); for ( i = 8; i < 20; i++ ) g_pid[i] = ( uint8_t ) ( 'a' + rand() % 26 );
     g_mu = SDL_CreateMutex(); g_cv = SDL_CreateCond();
@@ -1189,7 +1212,7 @@ int torrent_init( const char * cache_dir ) {
     setsockopt( g_lsock, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &one, sizeof one );
     memset( &sa, 0, sizeof sa ); sa.sin_family = AF_INET; sa.sin_addr.s_addr = htonl( INADDR_LOOPBACK ); sa.sin_port = 0;
     if ( bind( g_lsock, ( struct sockaddr * ) &sa, sizeof sa ) != 0 || listen( g_lsock, 8 ) != 0 ) { CLOSESOCK( g_lsock ); g_lsock = BAD_SOCK; return -1; }
-    getsockname( g_lsock, ( struct sockaddr * ) &sa, &sl ); g_port = ntohs( sa.sin_port );
+    getsockname( g_lsock, ( struct sockaddr * ) &sa, &sl ); g_port = ntohs( sa.sin_port ); tlog( "local server on 127.0.0.1:%d", g_port );
     g_run = 1;
     g_eng_th = SDL_CreateThread( engine_thread, "torengine", NULL );
     g_srv_th = SDL_CreateThread( server_thread, "torserver", NULL );
