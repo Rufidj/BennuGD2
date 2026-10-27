@@ -64,6 +64,26 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "HTTP_TRACE"           , "S"  , TYPE_INT   , libmod_video_http_trace     ),
     FUNC( "HTTP_ERROR"           , ""   , TYPE_STRING, libmod_video_http_error     ),
 
+    FUNC( "TORRENT_CACHE"        , "S"  , TYPE_INT   , libmod_video_torrent_cache  ),
+    FUNC( "TORRENT_ADD"          , "S"  , TYPE_INT   , libmod_video_torrent_add    ),
+    FUNC( "TORRENT_REMOVE"       , "II" , TYPE_INT   , libmod_video_torrent_remove ),
+    FUNC( "TORRENT_STATE"        , "I"  , TYPE_INT   , libmod_video_torrent_state  ),
+    FUNC( "TORRENT_ERROR"        , "I"  , TYPE_STRING, libmod_video_torrent_error  ),
+    FUNC( "TORRENT_NAME"         , "I"  , TYPE_STRING, libmod_video_torrent_name   ),
+    FUNC( "TORRENT_FILES"        , "I"  , TYPE_INT   , libmod_video_torrent_files  ),
+    FUNC( "TORRENT_FILE_NAME"    , "II" , TYPE_STRING, libmod_video_torrent_file_name ),
+    FUNC( "TORRENT_FILE_SIZE"    , "II" , TYPE_INT   , libmod_video_torrent_file_size ),
+    FUNC( "TORRENT_MAIN"         , "I"  , TYPE_INT   , libmod_video_torrent_main   ),
+    FUNC( "TORRENT_SELECT"       , "II" , TYPE_INT   , libmod_video_torrent_select ),
+    FUNC( "TORRENT_URL"          , "II" , TYPE_STRING, libmod_video_torrent_url    ),
+    FUNC( "TORRENT_PEERS"        , "I"  , TYPE_INT   , libmod_video_torrent_peers  ),
+    FUNC( "TORRENT_RATE"         , "I"  , TYPE_INT   , libmod_video_torrent_rate   ),
+    FUNC( "TORRENT_PERCENT"      , "I"  , TYPE_INT   , libmod_video_torrent_percent ),
+    FUNC( "TORRENT_BUFFERED"     , "I"  , TYPE_INT   , libmod_video_torrent_buffered ),
+    FUNC( "TORRENT_READY"        , "I"  , TYPE_INT   , libmod_video_torrent_ready  ),
+    FUNC( "TORRENT_DOWNLOADED"   , "I"  , TYPE_INT   , libmod_video_torrent_downloaded ),
+    FUNC( "TORRENT_UPLOAD_LIMIT" , "I"  , TYPE_INT   , libmod_video_torrent_upload_limit ),
+
     FUNC( 0                   , 0     , 0       , 0                        )
 };
 

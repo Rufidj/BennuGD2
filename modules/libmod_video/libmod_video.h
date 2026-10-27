@@ -109,4 +109,24 @@ extern int64_t libmod_video_http_write( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_http_trace( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_audio_select( INSTANCE * my, int64_t * params );
 
+extern int64_t libmod_video_torrent_cache( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_add( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_remove( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_state( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_error( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_name( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_files( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_file_name( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_file_size( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_main( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_select( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_url( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_peers( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_rate( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_percent( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_buffered( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_ready( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_downloaded( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_upload_limit( INSTANCE * my, int64_t * params );
+
 #endif

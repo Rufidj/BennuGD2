@@ -53,6 +53,7 @@
 #include <libswresample/swresample.h>
 
 #include "libmod_video.h"
+#include "torrent.h"
 #include "libmod_video_hwdec.h"
 #include <time.h>
 #include <pthread.h>
@@ -1777,6 +1778,7 @@ void __bgdexport( libmod_video, module_initialize )() {
 }
 
 void __bgdexport( libmod_video, module_finalize )() {
+    torrent_shutdown();
     for ( int i = 1; i <= MAX_VIDEOS; i++ ) if ( g_vid[i].used ) vid_free( &g_vid[i] );
     zombie_tick( 1 );
     zimg_tick( 1 );
@@ -2469,5 +2471,41 @@ int64_t libmod_video_http_error( INSTANCE * my, int64_t * params ) {
     string_use( str );
     return str;
 }
+
+/* ---- BitTorrent (see torrent.h): the files of a torrent are served on a local address that VIDEO_OPEN can play ---- */
+static char g_tor_cache[900] = "";
+static int tor_ready( void ) {
+    if ( torrent_init( g_tor_cache[0] ? g_tor_cache : "torrent_cache" ) != 0 ) return 0;
+    return 1;
+}
+static int64_t tor_str( const char * t ) { int64_t str = string_new( t ? t : "" ); string_use( str ); return str; }
+
+/* TORRENT_CACHE(folder): where the downloaded data is kept (call before the first TORRENT_ADD) */
+int64_t libmod_video_torrent_cache( INSTANCE * my, int64_t * params ) {
+    snprintf( g_tor_cache, sizeof g_tor_cache, "%s", string_get( params[0] ) ); string_discard( params[0] ); return 0;
+}
+int64_t libmod_video_torrent_add( INSTANCE * my, int64_t * params ) {
+    int h; if ( !tor_ready() ) { string_discard( params[0] ); return -3; }
+    h = torrent_add( string_get( params[0] ) ); string_discard( params[0] ); return h;
+}
+int64_t libmod_video_torrent_remove( INSTANCE * my, int64_t * params ) { torrent_remove( ( int ) params[0], ( int ) params[1] ); return 0; }
+int64_t libmod_video_torrent_state( INSTANCE * my, int64_t * params ) { return torrent_state( ( int ) params[0] ); }
+int64_t libmod_video_torrent_error( INSTANCE * my, int64_t * params ) { return tor_str( torrent_error( ( int ) params[0] ) ); }
+int64_t libmod_video_torrent_name( INSTANCE * my, int64_t * params ) { return tor_str( torrent_name( ( int ) params[0] ) ); }
+int64_t libmod_video_torrent_files( INSTANCE * my, int64_t * params ) { return torrent_file_count( ( int ) params[0] ); }
+int64_t libmod_video_torrent_file_name( INSTANCE * my, int64_t * params ) { return tor_str( torrent_file_name( ( int ) params[0], ( int ) params[1] ) ); }
+int64_t libmod_video_torrent_file_size( INSTANCE * my, int64_t * params ) { return torrent_file_size( ( int ) params[0], ( int ) params[1] ); }
+int64_t libmod_video_torrent_main( INSTANCE * my, int64_t * params ) { return torrent_main_file( ( int ) params[0] ); }
+int64_t libmod_video_torrent_select( INSTANCE * my, int64_t * params ) { return torrent_select( ( int ) params[0], ( int ) params[1] ); }
+int64_t libmod_video_torrent_url( INSTANCE * my, int64_t * params ) {
+    char u[1200]; if ( torrent_url( ( int ) params[0], ( int ) params[1], u, sizeof u ) != 0 ) u[0] = 0; return tor_str( u );
+}
+int64_t libmod_video_torrent_peers( INSTANCE * my, int64_t * params ) { return torrent_peers( ( int ) params[0] ); }
+int64_t libmod_video_torrent_rate( INSTANCE * my, int64_t * params ) { return torrent_down_rate( ( int ) params[0] ); }
+int64_t libmod_video_torrent_percent( INSTANCE * my, int64_t * params ) { return torrent_file_percent( ( int ) params[0] ); }
+int64_t libmod_video_torrent_buffered( INSTANCE * my, int64_t * params ) { return torrent_buffered( ( int ) params[0] ); }
+int64_t libmod_video_torrent_ready( INSTANCE * my, int64_t * params ) { return torrent_start_percent( ( int ) params[0] ); }
+int64_t libmod_video_torrent_downloaded( INSTANCE * my, int64_t * params ) { return torrent_downloaded( ( int ) params[0] ); }
+int64_t libmod_video_torrent_upload_limit( INSTANCE * my, int64_t * params ) { torrent_set_upload_limit( ( int ) params[0] ); return 0; }
 
 #include "libmod_video_exports.h"
