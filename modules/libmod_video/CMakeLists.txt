@@ -48,3 +48,6 @@ target_compile_definitions(mod_video PRIVATE USE_SDL2_GPU=1)
 
 target_link_libraries(mod_video ${SDL2_LIBRARY} ${SDL2_LIBRARIES} ${SDL_GPU_LIBRARY} ${SDLMIXER_LIBRARY}
     -L${CMAKE_SOURCE_DIR}/bin bgdrtm bggfx ${FFMPEG_LIBRARIES})
+if(WIN32)
+    target_link_libraries(mod_video ws2_32 iphlpapi)
+endif()
