@@ -24,6 +24,8 @@
 #include <ws2tcpip.h>
 #include <io.h>
 #include <direct.h>
+#include <windows.h>
+#include <winioctl.h>
 #include <fcntl.h>
 #define ftruncate( fd, n ) _chsize_s( ( fd ), ( n ) )
 #define strtok_r strtok_s
@@ -49,6 +51,23 @@ typedef int sock_t;
 #endif
 
 #include "torrent.h"
+
+/* Size of the cache file in advance. On Linux ftruncate leaves a sparse file. On Windows _chsize writes zeros for the whole length
+ * (slow, and it fails when the disk has less free space than the torrent), so the file is marked sparse and its end set instead.
+ * If it cannot be done the file simply grows as pieces are written. */
+static int cache_presize( int fd, int64_t total ) {
+#ifdef _WIN32
+    HANDLE h = ( HANDLE ) _get_osfhandle( fd ); DWORD br = 0; LARGE_INTEGER li;
+    if ( h == INVALID_HANDLE_VALUE ) return -1;
+    DeviceIoControl( h, FSCTL_SET_SPARSE, NULL, 0, NULL, 0, &br, NULL );
+    li.QuadPart = total;
+    if ( !SetFilePointerEx( h, li, NULL, FILE_BEGIN ) || !SetEndOfFile( h ) ) return -1;
+    _lseeki64( fd, 0, SEEK_SET );
+    return 0;
+#else
+    return ftruncate( fd, ( off_t ) total );
+#endif
+}
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -433,7 +452,7 @@ static int set_info( Torrent * t, const uint8_t * info, size_t n ) {
       t->fd = open( t->path, O_RDWR | O_CREAT, 0666 );
 #endif
       if ( t->fd < 0 ) { set_err( t, "cannot write the cache" ); return 0; }
-      if ( !t->existing ) { if ( ftruncate( t->fd, ( off_t ) t->total ) != 0 ) { set_err( t, "not enough room for the cache" ); return 0; } }
+      if ( !t->existing && cache_presize( t->fd, t->total ) != 0 ) tlog( "cache: could not set the size (%lld MB) in advance; it will grow as pieces arrive", ( long long ) ( t->total >> 20 ) );
       t->recheck = t->existing ? t->fp0 : t->fp1 + 1; }
     t->state = 1;
     tlog( "ready: '%s' %d files, %d pieces of %d KB, %lld MB, %d trackers", t->name, t->nfiles, t->npieces, ( int ) ( t->plen / 1024 ), ( long long ) ( t->total >> 20 ), t->ntrk );
