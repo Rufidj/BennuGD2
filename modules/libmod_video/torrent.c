@@ -277,6 +277,12 @@ static void tlog( const char * fmt, ... ) {
 #define LOCK() SDL_LockMutex( g_mu )
 #define UNLOCK() SDL_UnlockMutex( g_mu )
 
+/* bigger socket buffers: on wifi (high and variable latency) a connection needs more data in flight to keep its speed */
+static void big_buffers( int s, int rcv, int snd ) {
+    int v = rcv; setsockopt( s, SOL_SOCKET, SO_RCVBUF, ( const char * ) &v, sizeof v );
+    v = snd;     setsockopt( s, SOL_SOCKET, SO_SNDBUF, ( const char * ) &v, sizeof v );
+}
+
 static void tlog( const char * fmt, ... );
 static void set_err( Torrent * t, const char * m ) { snprintf( t->err, sizeof t->err, "%s", m ); t->state = 2; tlog( "error: %s", m ); SDL_CondBroadcast( g_cv ); }
 
@@ -678,6 +684,7 @@ static void peer_connect( Torrent * t, int ci ) {
     fcntl( s, F_SETFL, fcntl( s, F_GETFL, 0 ) | O_NONBLOCK );
 #endif
     setsockopt( s, IPPROTO_TCP, TCP_NODELAY, ( const char * ) &one, sizeof one );
+    big_buffers( ( int ) s, 1 << 20, 256 << 10 );
     memset( &sa, 0, sizeof sa ); sa.sin_family = AF_INET; sa.sin_port = htons( t->cand[ci].port ); sa.sin_addr.s_addr = t->cand[ci].ip;
     if ( connect( s, ( struct sockaddr * ) &sa, sizeof sa ) != 0 && SOCKERR != E_INPROGRESS ) { CLOSESOCK( s ); t->cand[ci].next_ms = now_ms() + 120000; return; }
     p = ( Peer * ) calloc( 1, sizeof *p );
@@ -1023,7 +1030,7 @@ static void accept_peers( void ) {
         if ( c == BAD_SOCK ) return;
         for ( j = 0; j < 16 && g_pend[j].used; j++ ) ;
         if ( j == 16 ) { CLOSESOCK( c ); continue; }
-        set_nonblock( c );
+        set_nonblock( c ); big_buffers( ( int ) c, 1 << 20, 256 << 10 );
         g_pend[j].used = 1; g_pend[j].s = c; g_pend[j].n = 0; g_pend[j].t0 = now_ms(); g_pend[j].ip = from.sin_addr.s_addr; g_pend[j].port = ntohs( from.sin_port );
     }
 }
@@ -1502,7 +1509,7 @@ static int send_all( sock_t s, const char * b, size_t n ) {
 static int conn_thread( void * arg ) {
     sock_t c = ( sock_t ) ( intptr_t ) arg; char req[4096]; int n = 0, h, fi; long long a = 0, b = -1; char * p;
     struct timeval tv; Torrent * t; TFile * f; int64_t size, pos, end, sent = 0, foff; uint8_t * buf; int partial, head; unsigned gen; char mime[64];
-    tv.tv_sec = 60; tv.tv_usec = 0; setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv );
+    tv.tv_sec = 60; tv.tv_usec = 0; setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv ); big_buffers( ( int ) c, 64 << 10, 1 << 20 );
     while ( n < ( int ) sizeof req - 1 ) {
         int k = ( int ) recv( c, req + n, sizeof req - 1 - n, 0 );
         if ( k <= 0 ) { CLOSESOCK( c ); return 0; }
@@ -1599,6 +1606,7 @@ int torrent_init( const char * cache_dir ) {
 #else
           fcntl( ds, F_SETFL, fcntl( ds, F_GETFL, 0 ) | O_NONBLOCK );
 #endif
+          big_buffers( ( int ) ds, 512 << 10, 64 << 10 );
           memset( &da, 0, sizeof da ); da.sin_family = AF_INET; da.sin_addr.s_addr = htonl( INADDR_ANY ); da.sin_port = 0;
           if ( bind( ds, ( struct sockaddr * ) &da, sizeof da ) == 0 ) { g_dsock = ds; tlog( "dht: UDP socket ready" ); SDL_Thread * bt = SDL_CreateThread( dht_boot_thread, "dhtboot", NULL ); if ( bt ) SDL_DetachThread( bt ); }
           else { tlog( "dht: cannot bind a UDP socket (errno %d)", errno ); CLOSESOCK( ds ); }
