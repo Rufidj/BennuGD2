@@ -23,6 +23,10 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
+#include <direct.h>
+#include <fcntl.h>
+#define ftruncate( fd, n ) _chsize_s( ( fd ), ( n ) )
+#define strtok_r strtok_s
 #define poll WSAPoll
 #define CLOSESOCK closesocket
 #define SOCKERR WSAGetLastError()
@@ -281,6 +285,19 @@ static void tlog( const char * fmt, ... ) {
 static void big_buffers( int s, int rcv, int snd ) {
     int v = rcv; setsockopt( s, SOL_SOCKET, SO_RCVBUF, ( const char * ) &v, sizeof v );
     v = snd;     setsockopt( s, SOL_SOCKET, SO_SNDBUF, ( const char * ) &v, sizeof v );
+}
+
+/* a time-out on a socket: seconds on POSIX, milliseconds in a DWORD on Windows */
+static void sock_timeout( int s, int ms, int send_too ) {
+#ifdef _WIN32
+    DWORD v = ( DWORD ) ms;
+    setsockopt( ( SOCKET ) s, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &v, sizeof v );
+    if ( send_too ) setsockopt( ( SOCKET ) s, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &v, sizeof v );
+#else
+    struct timeval tv; tv.tv_sec = ms / 1000; tv.tv_usec = ( ms % 1000 ) * 1000;
+    setsockopt( s, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof tv );
+    if ( send_too ) setsockopt( s, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv );
+#endif
 }
 
 static void tlog( const char * fmt, ... );
@@ -750,7 +767,7 @@ static void announce_udp( Torrent * t, const char * url, uint8_t ih[20], int64_t
     { int gr = getaddrinfo( host, portstr, &hints, &res ); if ( gr != 0 || !res ) { tlog( "tracker %s: cannot resolve %s (code %d)", url, host, gr ); return; } }
     s = socket( AF_INET, SOCK_DGRAM, 0 );
     if ( s == BAD_SOCK ) { tlog( "tracker %s: cannot create a UDP socket (errno %d)", url, errno ); freeaddrinfo( res ); return; }
-    { struct timeval tv; tv.tv_sec = 5; tv.tv_usec = 0; setsockopt( s, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof tv ); }
+    sock_timeout( ( int ) s, 5000, 0 );
     tid = ( uint32_t ) rand() ^ now_ms();
     for ( attempt = 0; attempt < 2; attempt++ ) {
         int r; uint64_t cid; uint32_t act;
@@ -1075,7 +1092,7 @@ static char g_gw_host[64], g_ctl_host[64], g_ctl_path[256], g_ctl_type[100]; sta
 
 /* a small blocking http exchange (the router is on the local network) */
 static int nat_http( const char * host, int port, const char * req, size_t rl, char * resp, size_t cap ) {
-    struct addrinfo hints, * res = NULL; char ps[16]; sock_t c; int n = 0; struct pollfd pf; uint32_t t0 = now_ms(); struct timeval tv;
+    struct addrinfo hints, * res = NULL; char ps[16]; sock_t c; int n = 0; struct pollfd pf; uint32_t t0 = now_ms();
     memset( &hints, 0, sizeof hints ); hints.ai_family = AF_INET; hints.ai_socktype = SOCK_STREAM; snprintf( ps, sizeof ps, "%d", port );
     if ( getaddrinfo( host, ps, &hints, &res ) != 0 || !res ) return -1;
     c = socket( AF_INET, SOCK_STREAM, 0 );
@@ -1090,7 +1107,7 @@ static int nat_http( const char * host, int port, const char * req, size_t rl, c
 #ifndef _WIN32
     fcntl( c, F_SETFL, fcntl( c, F_GETFL, 0 ) & ~O_NONBLOCK );
 #endif
-    tv.tv_sec = 3; tv.tv_usec = 0; setsockopt( c, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof tv ); setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv );
+    sock_timeout( ( int ) c, 3000, 1 );
     if ( send( c, req, ( int ) rl, MSG_NOSIGNAL ) != ( int ) rl ) { CLOSESOCK( c ); return -1; }
     while ( n < ( int ) cap - 1 && now_ms() - t0 < 6000 ) { int k = ( int ) recv( c, resp + n, ( int ) cap - 1 - n, 0 ); if ( k <= 0 ) break; n += k; }
     resp[n] = 0; CLOSESOCK( c );
@@ -1508,8 +1525,14 @@ static int send_all( sock_t s, const char * b, size_t n ) {
 
 static int conn_thread( void * arg ) {
     sock_t c = ( sock_t ) ( intptr_t ) arg; char req[4096]; int n = 0, h, fi; long long a = 0, b = -1; char * p;
-    struct timeval tv; Torrent * t; TFile * f; int64_t size, pos, end, sent = 0, foff; uint8_t * buf; int partial, head; unsigned gen; char mime[64];
-    tv.tv_sec = 60; tv.tv_usec = 0; setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv ); big_buffers( ( int ) c, 64 << 10, 1 << 20 );
+    Torrent * t; TFile * f; int64_t size, pos, end, sent = 0, foff; uint8_t * buf; int partial, head; unsigned gen; char mime[64];
+    { int v60 = 60000;
+#ifdef _WIN32
+      DWORD dv = ( DWORD ) v60; setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &dv, sizeof dv );
+#else
+      struct timeval tv; tv.tv_sec = v60 / 1000; tv.tv_usec = 0; setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv );
+#endif
+    } big_buffers( ( int ) c, 64 << 10, 1 << 20 );
     while ( n < ( int ) sizeof req - 1 ) {
         int k = ( int ) recv( c, req + n, sizeof req - 1 - n, 0 );
         if ( k <= 0 ) { CLOSESOCK( c ); return 0; }

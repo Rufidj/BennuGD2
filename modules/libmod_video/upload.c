@@ -130,10 +130,13 @@ static void unique_path( const char * folder, const char * name, char * out, siz
 typedef struct { sock_t c; int gen; } ConnArg;
 
 static int conn_thread( void * arg ) {
-    ConnArg ca = * ( ConnArg * ) arg; sock_t c = ca.c; char head[16384]; int n = 0; char * body_start, * p, * q; struct timeval tv;
+    ConnArg ca = * ( ConnArg * ) arg; sock_t c = ca.c; char head[16384]; int n = 0; char * body_start, * p, * q;
     free( arg );
-    tv.tv_sec = 30; tv.tv_usec = 0;
-    setsockopt( c, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof tv ); setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv );
+#ifdef _WIN32
+    { DWORD dv = 30000; setsockopt( c, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &dv, sizeof dv ); setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &dv, sizeof dv ); }
+#else
+    { struct timeval tv; tv.tv_sec = 30; tv.tv_usec = 0; setsockopt( c, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof tv ); setsockopt( c, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof tv ); }
+#endif
     while ( n < ( int ) sizeof head - 1 ) {
         int k = ( int ) recv( c, head + n, sizeof head - 1 - n, 0 );
         if ( k <= 0 ) goto done;
