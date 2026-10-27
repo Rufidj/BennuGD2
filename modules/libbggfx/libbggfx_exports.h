@@ -54,6 +54,7 @@ DLCONSTANT  __bgdexport( libbggfx, constants_def )[] = {
     { "MODE_GRAB_INPUT"                 , TYPE_QWORD    , MODE_GRAB_INPUT               },  /* GRAB INPUT */
     { "MODE_MODAL"                      , TYPE_QWORD    , MODE_GRAB_INPUT               },  /* GRAB INPUT */
     { "MODE_FRAMELESS"                  , TYPE_QWORD    , MODE_FRAMELESS                },  /* FRAMELESS window */
+    { "MODE_RESIZABLE"                  , TYPE_QWORD    , MODE_RESIZABLE                },  /* the user can resize the window (the picture is scaled with bars) */
 
     { "SRA_PRESERVE"                    , TYPE_QWORD    , SRA_PRESERVE                  },
     { "SRA_OVERSCAN"                    , TYPE_QWORD    , SRA_OVERSCAN                  },

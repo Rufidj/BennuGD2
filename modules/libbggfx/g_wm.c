@@ -77,6 +77,9 @@ void wm_events() {
                     SDL_RenderPresent( gRenderer );
                     break;
 */
+            case    SDL_WINDOWEVENT_SIZE_CHANGED:
+                    gr_window_resized( e.window.data1, e.window.data2 );
+                    break;
             //Repaint on exposure
             case    SDL_WINDOWEVENT_EXPOSED:
 #ifdef USE_SDL2

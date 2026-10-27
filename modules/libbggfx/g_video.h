@@ -43,6 +43,7 @@
 #define MODE_GRAB_INPUT     0x1000
 #define MODE_FRAMELESS      0x2000
 #define MODE_WAITVSYNC      0x4000
+#define MODE_RESIZABLE      0x8000
 
 /* Scale resolution orientation */
 #define SRO_NORMAL          0
@@ -69,6 +70,8 @@ extern int64_t scr_initialized;
 extern int64_t fullscreen;
 extern int64_t grab_input;
 extern int64_t frameless;
+extern int64_t resizable;
+extern void gr_window_resized( int w, int h );
 
 extern int64_t waitvsync;
 

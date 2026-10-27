@@ -73,6 +73,7 @@ int64_t scr_initialized = 0 ;
 int64_t fullscreen = 0 ;
 int64_t grab_input = 0 ;
 int64_t frameless = 0 ;
+int64_t resizable = 0 ;
 int64_t waitvsync = 0 ;
 
 int64_t scale_resolution = -1 ;
@@ -237,6 +238,7 @@ int gr_set_mode( int width, int height, int flags ) {
     fullscreen = ( flags & MODE_FULLSCREEN ) ? 1 : 0 ;
     grab_input = ( flags & MODE_GRAB_INPUT ) ? 1 : 0 ;
     frameless = ( flags & MODE_FRAMELESS ) ? 1 : 0 ;
+    resizable = ( flags & MODE_RESIZABLE ) ? 1 : 0 ;
     waitvsync = ( flags & MODE_WAITVSYNC ) ? 1 : 0 ;
     GVID_DBG("before GLOQWORD fullscreen");
     fullscreen |= GLOQWORD( libbggfx, fullscreen );
@@ -277,6 +279,7 @@ int gr_set_mode( int width, int height, int flags ) {
         //Create window
         int sdl_flags = SDL_WINDOW_SHOWN;
         if ( frameless ) sdl_flags |= SDL_WINDOW_BORDERLESS;
+        if ( resizable ) sdl_flags |= SDL_WINDOW_RESIZABLE;
         if ( fullscreen ) sdl_flags |= SDL_WINDOW_FULLSCREEN;
         if ( grab_input ) sdl_flags |= SDL_WINDOW_INPUT_GRABBED;
   #ifdef PS3_PPU
@@ -291,6 +294,7 @@ int gr_set_mode( int width, int height, int flags ) {
     } else {
         SDL_SetWindowFullscreen( gWindow, fullscreen  ? SDL_WINDOW_FULLSCREEN : 0 );
         SDL_SetWindowBordered( gWindow, frameless ? SDL_FALSE : SDL_TRUE );
+        SDL_SetWindowResizable( gWindow, resizable ? SDL_TRUE : SDL_FALSE );
         SDL_SetWindowGrab( gWindow, grab_input ? SDL_TRUE : SDL_FALSE );
         SDL_SetWindowSize( gWindow, renderer_width, renderer_height );
         SDL_SetWindowPosition( gWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED );
@@ -338,6 +342,7 @@ int gr_set_mode( int width, int height, int flags ) {
         // Create Renderer
         int sdl_flags = SDL_WINDOW_SHOWN;
         if ( frameless ) sdl_flags |= SDL_WINDOW_BORDERLESS;
+        if ( resizable ) sdl_flags |= SDL_WINDOW_RESIZABLE;
         if ( fullscreen ) sdl_flags |= SDL_WINDOW_FULLSCREEN;
         if ( grab_input ) sdl_flags |= SDL_WINDOW_INPUT_GRABBED;
 /*
@@ -378,6 +383,7 @@ int gr_set_mode( int width, int height, int flags ) {
         gWindow = SDL_GetWindowFromID( gRenderer->context->windowID );
 
         SDL_SetWindowBordered( gWindow, frameless ? SDL_FALSE : SDL_TRUE );
+        SDL_SetWindowResizable( gWindow, resizable ? SDL_TRUE : SDL_FALSE );
         SDL_SetWindowGrab( gWindow, grab_input ? SDL_TRUE : SDL_FALSE );
     }
 
@@ -537,3 +543,25 @@ void gr_video_exit() {
 }
 
 /* --------------------------------------------------------------------------- */
+
+
+/* --------------------------------------------------------------------------- */
+/* The user resized the window: the picture keeps its aspect ratio (bars on the sides), the mouse follows the same mapping */
+void gr_window_resized( int w, int h ) {
+#ifdef USE_SDL2_GPU
+    if ( !resizable || fullscreen || !scr_initialized || !gRenderer || scr_width <= 0 || scr_height <= 0 || w <= 0 || h <= 0 ) return;
+    double sx = ( double ) w / ( double ) scr_width, sy = ( double ) h / ( double ) scr_height;
+    double k = sx < sy ? sx : sy;
+    renderer_width = w; renderer_height = h;
+    renderer_scaled_width  = scr_width  * k;
+    renderer_scaled_height = scr_height * k;
+    renderer_offset_x = ( w - renderer_scaled_width  ) / 2.0;
+    renderer_offset_y = ( h - renderer_scaled_height ) / 2.0;
+    renderer_scale_factor_width = renderer_scale_factor_height = k;
+    GPU_SetWindowResolution( w, h );
+    GPU_SetViewport( gRenderer, GPU_MakeRect( renderer_offset_x, renderer_offset_y, renderer_scaled_width, renderer_scaled_height ) );
+    GPU_SetVirtualResolution( gRenderer, scr_width, scr_height );
+#else
+    ( void ) w; ( void ) h;
+#endif
+}
