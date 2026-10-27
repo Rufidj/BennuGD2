@@ -128,6 +128,7 @@ extern int64_t libmod_video_torrent_buffered( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_torrent_ready( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_torrent_downloaded( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_torrent_options( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_torrent_ahead( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_torrent_upload_limit( INSTANCE * my, int64_t * params );
 
 extern int64_t libmod_video_upload_start( INSTANCE * my, int64_t * params );

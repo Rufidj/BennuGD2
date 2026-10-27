@@ -64,7 +64,7 @@ typedef int sock_t;
 #define MAX_TRK      64
 #define DHT_MAXN     160
 #define MAX_MSG      (1 << 20)
-#define AHEAD_BYTES  ( ( int64_t ) 192 << 20 )     /* how far past the play position we download */
+#define ORDER_MAX    4096
 #define HEAD_BYTES   ( 3 << 20 )                   /* the start and the end of a file are needed by the containers */
 
 /* ------------------------------------------------------------------------------------------------ small helpers */
@@ -252,6 +252,7 @@ static SDL_Thread * g_eng_th, * g_srv_th;
 static sock_t g_lsock = BAD_SOCK; static int g_port;
 static uint8_t g_pid[20];
 static unsigned g_gen_counter;
+static int64_t g_ahead = ( int64_t ) 192 << 20;           /* how far past the play position we download (the player raises it when it needs a bigger buffer) */
 static int g_extra_on = 1, g_dht_on = 1;                    /* options: public trackers added to every torrent, and DHT */
 static sock_t g_dsock = BAD_SOCK; static uint8_t g_nid[20];
 static uint32_t g_boot_ip[16]; static uint16_t g_boot_port[16]; static int g_nboot;
@@ -391,7 +392,7 @@ static int set_info( Torrent * t, const uint8_t * info, size_t n ) {
     t->mark = ( uint8_t * ) calloc( t->npieces, 1 );
     t->bst = ( uint8_t * ) calloc( ( size_t ) t->npieces * t->bpp, 1 );
     t->btime = ( uint32_t * ) calloc( ( size_t ) t->npieces * t->bpp, sizeof( uint32_t ) );
-    t->order = ( int * ) malloc( 1024 * sizeof( int ) );
+    t->order = ( int * ) malloc( ORDER_MAX * sizeof( int ) );
     for ( i = 0; i < t->nfiles; i++ )                                    /* default file: the biggest media file, else the biggest */
         if ( is_media_name( t->files[i].path ) && t->files[i].len > bestlen ) { best = i; bestlen = t->files[i].len; }
     if ( best < 0 ) for ( i = 0; i < t->nfiles; i++ ) if ( t->files[i].len > bestlen ) { best = i; bestlen = t->files[i].len; }
@@ -461,18 +462,18 @@ static void build_order( Torrent * t ) {
     int n = 0, rp, i, lim, hp, tp, e1;
     int64_t reader = t->reader_abs < t->sel_off ? t->sel_off : t->reader_abs;
     memset( t->mark, 0, t->npieces );
-#define ADD( pc ) do { int q = ( pc ); if ( q >= t->fp0 && q <= t->fp1 && !t->have[q] && !t->mark[q] && n < 1024 ) { t->mark[q] = 1; t->order[n++] = q; } } while ( 0 )
+#define ADD( pc ) do { int q = ( pc ); if ( q >= t->fp0 && q <= t->fp1 && !t->have[q] && !t->mark[q] && n < ORDER_MAX ) { t->mark[q] = 1; t->order[n++] = q; } } while ( 0 )
     hp = ( int ) ( ( t->sel_off + HEAD_BYTES - 1 ) / t->plen ); tp = ( int ) ( ( t->sel_off + t->sel_len - HEAD_BYTES ) / t->plen );
     if ( hp > t->fp1 ) hp = t->fp1;
     if ( tp < t->fp0 ) tp = t->fp0;
     if ( t->reader_ms == 0 || reader - t->sel_off < HEAD_BYTES ) { for ( i = t->fp0; i <= hp && n < 120; i++ ) ADD( i ); }
     rp = ( int ) ( reader / t->plen ); if ( rp < t->fp0 ) rp = t->fp0;
-    lim = rp + ( int ) ( AHEAD_BYTES / t->plen ) + 1; if ( lim > t->fp1 ) lim = t->fp1;
+    lim = rp + ( int ) ( g_ahead / t->plen ) + 1; if ( lim > t->fp1 ) lim = t->fp1;
     e1 = rp + ( int ) ( ( 6 << 20 ) / t->plen ) + 1; if ( e1 > lim ) e1 = lim;
     for ( i = rp; i <= e1 && n < 200; i++ ) ADD( i );                  /* what plays first */
     for ( i = tp; i <= t->fp1 && n < 300; i++ ) ADD( i );              /* the end of the file: mp4 keeps its index there */
-    for ( i = rp; i <= lim && n < 1000; i++ ) ADD( i );                /* then everything ahead */
-    for ( i = t->fp0; i <= hp && n < 1010; i++ ) ADD( i );
+    for ( i = rp; i <= lim && n < ORDER_MAX - 20; i++ ) ADD( i );      /* then everything ahead */
+    for ( i = t->fp0; i <= hp && n < ORDER_MAX - 10; i++ ) ADD( i );
 #undef ADD
     t->norder = n;
 }
@@ -1223,6 +1224,7 @@ int torrent_start_percent( int h ) {
     return all ? have * 100 / all : 100;
 }
 void torrent_set_upload_limit( int b ) { g_up_limit = b < 0 ? 0 : b; }
+void torrent_set_ahead( int mb ) { g_ahead = ( int64_t ) ( mb < 64 ? 64 : ( mb > 8192 ? 8192 : mb ) ) << 20; }
 void torrent_set_options( int extra_trackers, int dht ) { g_extra_on = extra_trackers != 0; g_dht_on = dht != 0; }
 
 /* ------------------------------------------------------------------------------------------------ local http server */

@@ -83,6 +83,7 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "TORRENT_READY"        , "I"  , TYPE_INT   , libmod_video_torrent_ready  ),
     FUNC( "TORRENT_DOWNLOADED"   , "I"  , TYPE_INT   , libmod_video_torrent_downloaded ),
     FUNC( "TORRENT_OPTIONS"      , "II" , TYPE_INT   , libmod_video_torrent_options ),
+    FUNC( "TORRENT_AHEAD"        , "I"  , TYPE_INT   , libmod_video_torrent_ahead  ),
     FUNC( "TORRENT_UPLOAD_LIMIT" , "I"  , TYPE_INT   , libmod_video_torrent_upload_limit ),
 
     FUNC( "UPLOAD_START"         , "SIS", TYPE_INT   , libmod_video_upload_start   ),

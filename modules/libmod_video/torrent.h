@@ -53,5 +53,7 @@ void     torrent_set_upload_limit( int bytes_per_sec );
 /* extra_trackers: add a few public trackers to every torrent (on by default). dht: also look for peers in the DHT, without
  * trackers (on by default; read-only: it only asks, it never answers other nodes). Set before torrent_add(). */
 void     torrent_set_options( int extra_trackers, int dht );
+/* how many MB past the play position are downloaded (64..8192, 192 by default): raise it when a big buffer is needed */
+void     torrent_set_ahead( int mb );
 
 #endif

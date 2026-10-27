@@ -2509,6 +2509,7 @@ int64_t libmod_video_torrent_buffered( INSTANCE * my, int64_t * params ) { retur
 int64_t libmod_video_torrent_ready( INSTANCE * my, int64_t * params ) { return torrent_start_percent( ( int ) params[0] ); }
 int64_t libmod_video_torrent_downloaded( INSTANCE * my, int64_t * params ) { return torrent_downloaded( ( int ) params[0] ); }
 int64_t libmod_video_torrent_options( INSTANCE * my, int64_t * params ) { torrent_set_options( ( int ) params[0], ( int ) params[1] ); return 0; }
+int64_t libmod_video_torrent_ahead( INSTANCE * my, int64_t * params ) { torrent_set_ahead( ( int ) params[0] ); return 0; }
 int64_t libmod_video_torrent_upload_limit( INSTANCE * my, int64_t * params ) { torrent_set_upload_limit( ( int ) params[0] ); return 0; }
 
 /* ---- receive files from another computer through a web page (see upload.h) ---- */
