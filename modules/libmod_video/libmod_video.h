@@ -138,6 +138,10 @@ extern int64_t libmod_video_upload_bytes( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_percent( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_current( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_url( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_speed( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_get_speed( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_sub_delay( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_av_offset( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_ip( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_error( INSTANCE * my, int64_t * params );
 

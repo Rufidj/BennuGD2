@@ -151,6 +151,8 @@ typedef struct {
     int             seek_req;          double seek_to;
     int             shown_first;
     double          volume;            /* 0..1                                  */
+    double          speed, swr_speed;  /* playback speed asked / the one the resampler is set for (1.0 = normal) */
+    int             sub_delay_ms, av_off_ms;   /* subtitles later (+) / the picture later (+) than the sound, in ms */
 
     /* wall clock fallback / pause bookkeeping */
     double          clk_base;          /* media time at clk_t0                  */
@@ -225,8 +227,8 @@ static double vid_clock( VIDEO * v ) {
         /* no sound has been decoded yet (some streams are silent or have no audio for their first seconds):
            the audio clock cannot start, so keep time with the wall clock until the first sound arrives */
         if ( v->playing && !v->paused && !v->a_got )
-            return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0;
-        double queued = ( double ) v->an / ( double ) ( v->a_rate * v->a_ch * v->a_bps );
+            return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0 * v->speed;
+        double queued = ( double ) v->an / ( double ) ( v->a_rate * v->a_ch * v->a_bps ) * v->swr_speed;   /* media seconds that are still queued */
         double t = v->a_pts_end - queued;
         if ( t < 0 ) t = 0;
         if ( v->playing && !v->paused ) {
@@ -235,10 +237,10 @@ static double vid_clock( VIDEO * v ) {
                A frozen clock stalls the picture forever, because the decode thread is parked on a
                full video queue and that queue only drains when this clock advances. */
             if ( queued <= 0.0 )
-                return v->clk_a + ( SDL_GetTicks() - v->clk_a_t0 ) / 1000.0;
+                return v->clk_a + ( SDL_GetTicks() - v->clk_a_t0 ) / 1000.0 * v->swr_speed;
             v->clk_a = t; v->clk_a_t0 = SDL_GetTicks();
             if ( v->mh_wall > 0 ) {                            /* interpolate between mixer callbacks */
-                double e = now_s( CLOCK_MONOTONIC ) - v->mh_wall;
+                double e = ( now_s( CLOCK_MONOTONIC ) - v->mh_wall ) * v->swr_speed;
                 if ( e < 0 ) e = 0; if ( e > 0.25 ) e = 0.25;
                 double ti = v->mh_t + e;
                 if ( ti > v->a_pts_end ) ti = v->a_pts_end;
@@ -250,7 +252,7 @@ static double vid_clock( VIDEO * v ) {
         return t;
     }
     if ( !v->playing || v->paused ) return v->clk_base;
-    return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0;
+    return v->clk_base + ( SDL_GetTicks() - v->clk_t0 ) / 1000.0 * v->speed;
 }
 
 static void vid_clock_freeze( VIDEO * v ) { v->clk_base = vid_clock( v ); v->mh_wall = 0; v->clk_t0 = SDL_GetTicks(); v->clk_a = v->clk_base; v->clk_a_t0 = v->clk_t0; }
@@ -271,7 +273,7 @@ static void mix_hook( void * udata, Uint8 * stream, int len ) {
         if ( n > first ) memcpy( stream + first, v->abuf, n - first );
         v->ar = ( v->ar + n ) % v->acap;
         v->an -= n;
-        v->mh_t = v->a_pts_end - ( double ) v->an / ( double ) ( v->a_rate * v->a_ch * v->a_bps ); v->mh_wall = now_s( CLOCK_MONOTONIC );
+        v->mh_t = v->a_pts_end - ( double ) v->an / ( double ) ( v->a_rate * v->a_ch * v->a_bps ) * v->swr_speed; v->mh_wall = now_s( CLOCK_MONOTONIC );
 
         if ( v->a_bps == 2 && v->a_ch > 0 ) {            /* keep the chunk (mono) so VIDEO_SPECTRUM / VIDEO_WAVE can look at what is playing */
             const int16_t * sm = ( const int16_t * ) stream;
@@ -780,8 +782,18 @@ static int push_video_frame( VIDEO * v, AVFrame * f ) {
     return 1;
 }
 
+/* the resampler runs at (mixer rate / speed): the sound is played faster or slower and the pitch goes with it (simple, no extra libraries) */
+static void swr_apply_speed( VIDEO * v ) {
+    if ( !v->swr ) return;
+    swr_close( v->swr );
+    av_opt_set_int( v->swr, "out_sample_rate", ( int64_t ) ( v->a_rate / v->speed + 0.5 ), 0 );
+    swr_init( v->swr );
+    v->swr_speed = v->speed;
+}
+
 static void push_audio( VIDEO * v, AVFrame * f ) {
     if ( !v->has_audio || !v->swr ) return;
+    if ( v->swr_speed != v->speed ) swr_apply_speed( v );
 
     int out_cap = swr_get_out_samples( v->swr, f->nb_samples );
     if ( out_cap < f->nb_samples ) out_cap = f->nb_samples * 2;
@@ -796,7 +808,7 @@ static void push_audio( VIDEO * v, AVFrame * f ) {
     double pts = ( f->best_effort_timestamp == AV_NOPTS_VALUE ) ? v->a_pts_end : f->best_effort_timestamp * v->atb;
     if ( !v->a_got ) {            /* sound that ends before the picture starts (audio list starting a little early): skip it */
         double ref = vid_clock( v ); if ( ref < v->vstart ) ref = v->vstart;
-        if ( pts + ( double ) got / v->a_rate < ref - 0.02 ) { free( tmp ); return; }
+        if ( pts + ( double ) got * v->swr_speed / v->a_rate < ref - 0.02 ) { free( tmp ); return; }
     }
 
     size_t off = 0;
@@ -812,7 +824,7 @@ static void push_audio( VIDEO * v, AVFrame * f ) {
         SDL_UnlockMutex( v->mx );
     }
     SDL_LockMutex( v->mx );
-    v->a_pts_end = pts + ( double ) got / v->a_rate;
+    v->a_pts_end = pts + ( double ) got * v->swr_speed / v->a_rate;
     if ( !v->a_got ) vtrace( "first audio data %u ms after open (pts %.2f)", SDL_GetTicks() - g_open_t0, pts );
     v->a_got = 1;
     SDL_UnlockMutex( v->mx );
@@ -944,6 +956,7 @@ static void vid_tick( VIDEO * v ) {
     SDL_LockMutex( v->mx );
     double now = vid_clock( v );
     v->last_time = now;
+    now -= v->av_off_ms / 1000.0;                       /* picture offset (sound / picture sync): the pictures are chosen with this time */
 
     if ( !v->shown_first && v->vq_n > 0 ) {            /* poster frame before play() */
         pick = v->vq_r; v->shown_first = 1; vtrace( "first picture %u ms after open", SDL_GetTicks() - g_open_t0 );
@@ -1137,7 +1150,7 @@ static void audio_switch_track( VIDEO * v, int newstream ) {
         enum AVSampleFormat sf = av_fmt_for( g_mix_fmt, &v->a_bps );
         AVChannelLayout out_l; av_channel_layout_default( &out_l, v->a_ch );
         if ( swr_alloc_set_opts2( &v->swr, &out_l, sf, v->a_rate, &v->actx->ch_layout, v->actx->sample_fmt, v->actx->sample_rate, 0, NULL ) >= 0
-             && swr_init( v->swr ) >= 0 ) ok = 1;
+             && swr_init( v->swr ) >= 0 ) { ok = 1; v->swr_speed = 1.0; if ( v->speed != 1.0 ) swr_apply_speed( v ); }
         else if ( v->swr ) swr_free( &v->swr );
         av_channel_layout_uninit( &out_l );
     }
@@ -1165,7 +1178,7 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
 
     VIDEO * v = &g_vid[h];
     memset( v, 0, sizeof( *v ) );
-    v->used = 1; v->volume = 1.0; v->vstream = v->astream = -1;
+    v->used = 1; v->volume = 1.0; v->speed = v->swr_speed = 1.0; v->sub_delay_ms = v->av_off_ms = 0; v->vstream = v->astream = -1;
 
     {   /* network URLs: bounded waits (a dead server must not freeze the script) and automatic reconnects */
         AVDictionary * nopts = NULL;
@@ -1758,7 +1771,7 @@ int64_t libmod_video_subtitle_text( INSTANCE * my, int64_t * params ) {
     if ( v ) {
         SDL_LockMutex( v->mx );
         if ( v->sub_sel >= 0 ) {
-            double now = vid_clock( v );
+            double now = vid_clock( v ) - v->sub_delay_ms / 1000.0;
             for ( int i = 0; i < v->ncues; i++ ) {
                 CUE * q = &v->cues[i];
                 if ( q->track != v->sub_sel || now < q->start || now >= q->end ) continue;
@@ -1777,6 +1790,28 @@ int64_t libmod_video_subtitle_text( INSTANCE * my, int64_t * params ) {
     string_use( str );
     return str;
 }
+
+/* VIDEO_SPEED(handle, percent): 25..300 (100 = normal). The position is kept (the sound is restarted from it) */
+int64_t libmod_video_speed( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] ); if ( !v ) return 0;
+    double sp = ( double ) params[1] / 100.0; if ( sp < 0.25 ) sp = 0.25; if ( sp > 3.0 ) sp = 3.0;
+    SDL_LockMutex( v->mx );
+    if ( sp != v->speed ) {
+        double at = vid_clock( v );
+        vid_clock_freeze( v );
+        v->speed = sp;
+        if ( v->has_audio && v->playing ) { v->seek_req = 1; v->seek_to = at; }      /* flushes the sound that was already converted at the old speed */
+        vid_clock_freeze( v );
+        SDL_CondBroadcast( v->cond );
+    }
+    SDL_UnlockMutex( v->mx );
+    return 1;
+}
+int64_t libmod_video_get_speed( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return v ? ( int64_t ) ( v->speed * 100.0 + 0.5 ) : 100; }
+/* VIDEO_SUB_DELAY(handle, ms): subtitles appear that many ms later (negative: earlier) */
+int64_t libmod_video_sub_delay( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); if ( !v ) return 0; v->sub_delay_ms = ( int ) params[1]; return 1; }
+/* VIDEO_AV_OFFSET(handle, ms): the picture is shown that many ms later than normal (negative: earlier), to match a sound that is out of sync */
+int64_t libmod_video_av_offset( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); if ( !v ) return 0; v->av_off_ms = ( int ) params[1]; return 1; }
 
 /* ------------------------------------------------------------------------ */
 
