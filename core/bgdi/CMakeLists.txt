@@ -11,6 +11,9 @@ if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
     # editor, a build scratch dir, a stray log...) and turns each one into a
     # bogus "-lname" on the final link line below.
     file(GLOB MODULE_HEADERS "${CMAKE_SOURCE_DIR}/modules/lib*")
+    foreach(skipped ${SKIP_MODULES})                      # modules left out of the build (-DSKIP_MODULES=...) must not be linked either
+        list(REMOVE_ITEM MODULE_HEADERS "${CMAKE_SOURCE_DIR}/modules/${skipped}")
+    endforeach()
 
     find_package(SDL2 REQUIRED)
     find_package(SDL2_mixer REQUIRED)
@@ -40,7 +43,7 @@ if (LIBRARY_BUILD_TYPE STREQUAL "STATIC")
 
     if(NINTENDO_SWITCH)
         set(OGL_LIB -lglad -lEGL -lGLESv2 -lglapi -ldrm_nouveau -lnx -lm)
-        set(OTHER_LIBS -lpng -ljpeg -lwebp -lmpg123 -lmodplug -lopusfile -lopus -lvorbisfile -lvorbis -logg)
+        set(OTHER_LIBS -lfreetype -lharfbuzz -lpng -lbz2 -lz -ljpeg -lwebp -lmpg123 -lmodplug -lopusfile -lopus -lvorbisfile -lvorbis -logg)
     endif()
 
     if(PS3_PPU)

@@ -206,11 +206,19 @@ build_target() {
                 COMPILER=""
                 SDL2GPUDIR="../../vendor/sdl-gpu/build/$ENV{TARGET}"
                 STATIC_ENABLED=1 # force STATIC
+                EXCLUDE_FAKEDL_MODULES="libmod_3d"   # no 3D on the Switch build (Jolt has no aarch64-none-elf platform)
                 if [ "$MSYSTEM" = "" ]; then
                     # linux
-                    CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake -DBUILD_TARGET=interpreter"
+                    SW_LIBS="$DEVKITPRO/portlibs/switch/lib"
+                    CMAKE_EXTRA="-DCMAKE_TOOLCHAIN_FILE=$DEVKITPRO/cmake/Switch.cmake -DBUILD_TARGET=interpreter -DSKIP_MODULES=libmod_3d \
+                        -DSDL2_INCLUDE_DIR=$DEVKITPRO/portlibs/switch/include/SDL2 -DSDL2_LIBRARY=$SW_LIBS/libSDL2.a \
+                        -DSDL2_IMAGE_INCLUDE_DIR=$DEVKITPRO/portlibs/switch/include/SDL2 -DSDL2_IMAGE_LIBRARY=$SW_LIBS/libSDL2_image.a \
+                        -DSDLMIXER_INCLUDE_DIR=$DEVKITPRO/portlibs/switch/include/SDL2 -DSDLMIXER_LIBRARY=$SW_LIBS/libSDL2_mixer.a \
+                        -DSDL_GPU_INCLUDE_DIR=${PWD}/vendor/sdl-gpu/include -DSDL_GPU_LIBRARY=${PWD}/vendor/sdl-gpu/build/aarch64-none-elf/SDL_gpu/lib/libSDL2_gpu.a \
+                        -DFFMPEG_INCLUDE_DIRS=$DEVKITPRO/portlibs/switch/include \
+                        -DFFMPEG_LIBRARIES=$SW_LIBS/libavformat.a;$SW_LIBS/libavcodec.a;$SW_LIBS/libswscale.a;$SW_LIBS/libswresample.a;$SW_LIBS/libavutil.a;$SW_LIBS/libdav1d.a;$SW_LIBS/libbz2.a;$SW_LIBS/libz.a;$SW_LIBS/libmbedtls.a;$SW_LIBS/libmbedx509.a;$SW_LIBS/libmbedcrypto.a"
                 fi
-                INCLUDE_DIRECTORIES="$DEVKITPRO/portlibs/switch/include;$DEVKITPRO/libnx/include;$DEVKITPRO/devkitA64/include"
+                INCLUDE_DIRECTORIES="$DEVKITPRO/portlibs/switch/include/freetype2;$DEVKITPRO/portlibs/switch/include/SDL2;$DEVKITPRO/portlibs/switch/include;$DEVKITPRO/libnx/include;$DEVKITPRO/devkitA64/include"
                 export INCLUDE_DIRECTORIES
                 ;;
 

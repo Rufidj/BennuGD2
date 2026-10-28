@@ -333,6 +333,9 @@ static int64_t fpread( int fd, void * b, size_t n, int64_t off ) {
 #ifdef _WIN32
     static SDL_mutex * m; int64_t r; if ( !m ) m = SDL_CreateMutex();
     SDL_LockMutex( m ); _lseeki64( fd, off, SEEK_SET ); r = _read( fd, b, ( unsigned ) n ); SDL_UnlockMutex( m ); return r;
+#elif defined( __SWITCH__ )          /* newlib (libnx) has no pread/pwrite: seek + read under a lock */
+    static SDL_mutex * m; int64_t r; if ( !m ) m = SDL_CreateMutex();
+    SDL_LockMutex( m ); lseek( fd, ( off_t ) off, SEEK_SET ); r = read( fd, b, n ); SDL_UnlockMutex( m ); return r;
 #else
     return pread( fd, b, n, ( off_t ) off );
 #endif
@@ -341,6 +344,9 @@ static int64_t fpwrite( int fd, const void * b, size_t n, int64_t off ) {
 #ifdef _WIN32
     static SDL_mutex * m; int64_t r; if ( !m ) m = SDL_CreateMutex();
     SDL_LockMutex( m ); _lseeki64( fd, off, SEEK_SET ); r = _write( fd, b, ( unsigned ) n ); SDL_UnlockMutex( m ); return r;
+#elif defined( __SWITCH__ )
+    static SDL_mutex * m; int64_t r; if ( !m ) m = SDL_CreateMutex();
+    SDL_LockMutex( m ); lseek( fd, ( off_t ) off, SEEK_SET ); r = write( fd, b, n ); SDL_UnlockMutex( m ); return r;
 #else
     return pwrite( fd, b, n, ( off_t ) off );
 #endif

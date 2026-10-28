@@ -211,6 +211,9 @@ static Uint16      g_mix_fmt = AUDIO_S16SYS;
 
 /* ------------------------------------------------------------------------ */
 
+#ifndef CLOCK_PROCESS_CPUTIME_ID
+#define CLOCK_PROCESS_CPUTIME_ID CLOCK_MONOTONIC     /* newlib (Switch) has no per-process CPU clock: only used for a log line */
+#endif
 static double now_s( clockid_t id ) {
     struct timespec t;
     clock_gettime( id, &t );
