@@ -55,6 +55,7 @@
 #include "libmod_video.h"
 #include "torrent.h"
 #include "upload.h"
+#include "dlna.h"
 #include "libmod_video_hwdec.h"
 #include <time.h>
 #include <pthread.h>
@@ -2588,6 +2589,19 @@ int64_t libmod_video_upload_bytes( INSTANCE * my, int64_t * params ) { return up
 int64_t libmod_video_upload_percent( INSTANCE * my, int64_t * params ) { return upload_percent(); }
 int64_t libmod_video_upload_current( INSTANCE * my, int64_t * params ) { return tor_str( upload_current() ); }
 int64_t libmod_video_upload_url( INSTANCE * my, int64_t * params ) { return tor_str( upload_take_url() ); }
+/* servers of the local network (UPnP / DLNA), see dlna.h */
+int64_t libmod_video_dlna_scan( INSTANCE * my, int64_t * params ) { return dlna_scan(); }
+int64_t libmod_video_dlna_scan_state( INSTANCE * my, int64_t * params ) { return dlna_scan_state(); }
+int64_t libmod_video_dlna_count( INSTANCE * my, int64_t * params ) { return dlna_count(); }
+int64_t libmod_video_dlna_name( INSTANCE * my, int64_t * params ) { return tor_str( dlna_name( ( int ) params[0] ) ); }
+int64_t libmod_video_dlna_browse( INSTANCE * my, int64_t * params ) {
+    const char * id = ( const char * ) string_get( params[1] ); int r = dlna_browse( ( int ) params[0], id ? id : "0", ( int ) params[2], ( int ) params[3] );
+    string_discard( params[1] ); return r;
+}
+int64_t libmod_video_dlna_browse_state( INSTANCE * my, int64_t * params ) { return dlna_browse_state(); }
+int64_t libmod_video_dlna_result( INSTANCE * my, int64_t * params ) { return tor_str( dlna_result() ); }
+int64_t libmod_video_dlna_total( INSTANCE * my, int64_t * params ) { return dlna_total(); }
+int64_t libmod_video_dlna_error( INSTANCE * my, int64_t * params ) { return tor_str( dlna_error() ); }
 int64_t libmod_video_upload_ip( INSTANCE * my, int64_t * params ) { return tor_str( upload_local_ip() ); }
 int64_t libmod_video_upload_error( INSTANCE * my, int64_t * params ) { return tor_str( upload_last_error() ); }
 
