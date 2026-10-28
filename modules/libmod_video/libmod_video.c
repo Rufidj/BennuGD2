@@ -1791,6 +1791,23 @@ int64_t libmod_video_subtitle_text( INSTANCE * my, int64_t * params ) {
     return str;
 }
 
+/* chapters of the file (MKV / MP4 ...): VIDEO_CHAPTERS(h) = how many, VIDEO_CHAPTER_START(h, i) = ms, VIDEO_CHAPTER_TITLE(h, i) = text */
+int64_t libmod_video_chapters( INSTANCE * my, int64_t * params ) { VIDEO * v = vid_get( params[0] ); return ( v && v->fmt ) ? ( int64_t ) v->fmt->nb_chapters : 0; }
+int64_t libmod_video_chapter_start( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] ); int64_t i = params[1];
+    if ( !v || !v->fmt || i < 0 || i >= ( int64_t ) v->fmt->nb_chapters ) return 0;
+    AVChapter * c = v->fmt->chapters[i];
+    return ( int64_t ) ( c->start * av_q2d( c->time_base ) * 1000.0 );
+}
+int64_t libmod_video_chapter_title( INSTANCE * my, int64_t * params ) {
+    VIDEO * v = vid_get( params[0] ); int64_t i = params[1]; const char * t = "";
+    if ( v && v->fmt && i >= 0 && i < ( int64_t ) v->fmt->nb_chapters ) {
+        AVDictionaryEntry * e = av_dict_get( v->fmt->chapters[i]->metadata, "title", NULL, 0 );
+        if ( e && e->value ) t = e->value;
+    }
+    int64_t str = string_new( t ); string_use( str ); return str;
+}
+
 /* VIDEO_SPEED(handle, percent): 25..300 (100 = normal). The position is kept (the sound is restarted from it) */
 int64_t libmod_video_speed( INSTANCE * my, int64_t * params ) {
     VIDEO * v = vid_get( params[0] ); if ( !v ) return 0;
