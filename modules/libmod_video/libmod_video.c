@@ -1966,6 +1966,140 @@ int64_t libmod_video_http_fetch( INSTANCE * my, int64_t * params ) {
     return status;
 }
 
+/* ---- WebDAV: the answer of a PROPFIND (kept by the last http request) as lines like the DLNA ones ---- */
+static int dav_tag( const char * s, const char * name, const char ** body, const char ** after ) {
+    /* the next <prefix:name ...> ... </prefix:name> at or after s: *body = text start, *after = after the closing tag; returns the length of the text, -1 if none */
+    size_t nl = strlen( name );
+    const char * p = s;
+    while ( ( p = strchr( p, '<' ) ) != NULL ) {
+        const char * q = p + 1, * colon; size_t k;
+        if ( *q == '/' || *q == '?' || *q == '!' ) { p++; continue; }
+        colon = q; while ( *colon && *colon != ':' && *colon != '>' && *colon != ' ' && *colon != '/' ) colon++;
+        q = ( *colon == ':' ) ? colon + 1 : q;
+        if ( !strncmp( q, name, nl ) && ( q[nl] == '>' || q[nl] == ' ' || q[nl] == '/' ) ) {
+            const char * gt = strchr( q, '>' ), * e;
+            if ( !gt ) return -1;
+            if ( gt[-1] == '/' ) { *body = gt + 1; *after = gt + 1; return 0; }          /* <tag/> */
+            *body = gt + 1; e = *body; k = 0;
+            for ( ;; ) {                                                                 /* the matching </prefix:name> */
+                e = strstr( e, "</" ); if ( !e ) return -1;
+                { const char * c2 = e + 2, * cn = c2; while ( *cn && *cn != ':' && *cn != '>' ) cn++; if ( *cn == ':' ) c2 = cn + 1;
+                  if ( !strncmp( c2, name, nl ) && c2[nl] == '>' ) { k = ( size_t ) ( e - *body ); *after = c2 + nl + 1; return ( int ) k; } }
+                e += 2;
+            }
+        }
+        p++;
+    }
+    return -1;
+}
+
+static void dav_unescape( char * s ) {
+    char * w = s;
+    while ( *s ) {
+        if ( *s == '&' ) {
+            if ( !strncmp( s, "&amp;", 5 ) ) { *w++ = '&'; s += 5; continue; }
+            if ( !strncmp( s, "&lt;", 4 ) ) { *w++ = '<'; s += 4; continue; }
+            if ( !strncmp( s, "&gt;", 4 ) ) { *w++ = '>'; s += 4; continue; }
+            if ( !strncmp( s, "&quot;", 6 ) ) { *w++ = '"'; s += 6; continue; }
+            if ( !strncmp( s, "&apos;", 6 ) ) { *w++ = '\''; s += 6; continue; }
+        }
+        *w++ = *s++;
+    }
+    *w = 0;
+}
+
+static void dav_pct_decode( char * s ) {
+    char * w = s;
+    for ( ; *s; s++ ) {
+        if ( *s == '%' && s[1] && s[2] ) {
+            int a = s[1] >= 'A' ? ( s[1] | 32 ) - 'a' + 10 : s[1] - '0', b = s[2] >= 'A' ? ( s[2] | 32 ) - 'a' + 10 : s[2] - '0';
+            if ( a >= 0 && a < 16 && b >= 0 && b < 16 ) { *w++ = ( char ) ( a * 16 + b ); s += 2; continue; }
+        }
+        *w++ = *s;
+    }
+    *w = 0;
+}
+
+/* WEBDAV_PARSE(this_folder_path): lines "C<TAB>href<TAB>name<TAB>0" and "I<TAB>href<TAB>name<TAB>bytes<TAB>0<TAB>v" (href as the server wrote it, to be added to the server address) */
+int64_t libmod_video_webdav_parse( INSTANCE * my, int64_t * params ) {
+    char self[1024]; const char * s = g_http_body ? g_http_body : "", * body, * after; int n; size_t cap = 4096, len = 0; char * out = ( char * ) malloc( cap ); int64_t str;
+    const char * sp = ( const char * ) string_get( params[0] );
+    snprintf( self, sizeof self, "%s", sp ? sp : "" ); string_discard( params[0] );
+    { size_t l = strlen( self ); while ( l > 1 && self[l - 1] == '/' ) self[--l] = 0; }
+    dav_pct_decode( self );
+    out[0] = 0;
+    while ( ( n = dav_tag( s, "response", &body, &after ) ) >= 0 ) {
+        char * blk = ( char * ) malloc( ( size_t ) n + 1 ), href[1024] = "", name[512] = "", href_raw[1024] = ""; const char * b2, * a2; int hl, sz = 0, is_dir = 0; char line[2200];
+        memcpy( blk, body, ( size_t ) n ); blk[n] = 0; s = after;
+        hl = dav_tag( blk, "href", &b2, &a2 );
+        if ( hl > 0 && hl < ( int ) sizeof href - 1 ) { memcpy( href_raw, b2, ( size_t ) hl ); href_raw[hl] = 0; dav_unescape( href_raw ); }
+        if ( dav_tag( blk, "collection", &b2, &a2 ) >= 0 ) is_dir = 1;
+        hl = dav_tag( blk, "getcontentlength", &b2, &a2 ); if ( hl > 0 && hl < 20 ) { char t[24]; memcpy( t, b2, ( size_t ) hl ); t[hl] = 0; sz = atoi( t ); }
+        hl = dav_tag( blk, "displayname", &b2, &a2 ); if ( hl > 0 && hl < ( int ) sizeof name - 1 ) { memcpy( name, b2, ( size_t ) hl ); name[hl] = 0; dav_unescape( name ); }
+        free( blk );
+        if ( !href_raw[0] ) continue;
+        /* href can be a full address: keep only the path */
+        { const char * pp = href_raw; if ( !strncmp( pp, "http://", 7 ) || !strncmp( pp, "https://", 8 ) ) { pp = strchr( pp + 8, '/' ); if ( !pp ) continue; } snprintf( href, sizeof href, "%s", pp ); }
+        { char cmp[1024]; size_t l; snprintf( cmp, sizeof cmp, "%s", href ); dav_pct_decode( cmp ); l = strlen( cmp ); while ( l > 1 && cmp[l - 1] == '/' ) cmp[--l] = 0; if ( !strcmp( cmp, self ) ) continue; }   /* the folder itself */
+        if ( !name[0] ) {                                                                       /* no display name: the last part of the path */
+            char tmp[1024]; char * e; snprintf( tmp, sizeof tmp, "%s", href ); dav_pct_decode( tmp ); e = tmp + strlen( tmp ); while ( e > tmp + 1 && e[-1] == '/' ) *--e = 0;
+            e = strrchr( tmp, '/' ); snprintf( name, sizeof name, "%s", e ? e + 1 : tmp );
+        }
+        { char * c; for ( c = name; *c; c++ ) if ( *c == '\t' || *c == '\n' || *c == '\r' ) *c = ' '; }
+        if ( is_dir ) snprintf( line, sizeof line, "C\t%s\t%s\t0\n", href, name );
+        else snprintf( line, sizeof line, "I\t%s\t%s\t%d\t0\tv\n", href, name, sz );
+        { size_t ll = strlen( line ); if ( len + ll + 1 > cap ) { cap = ( len + ll + 1 ) * 2; out = ( char * ) realloc( out, cap ); } memcpy( out + len, line, ll + 1 ); len += ll; }
+    }
+    str = string_new( out ); string_use( str ); free( out );
+    return str;
+}
+
+/* ---- FTP: the entries of a folder, in the background ---- */
+static SDL_atomic_t g_ftp_state;              /* 0 idle, 1 running, 2 done ok, 3 failed */
+static char * g_ftp_out; static char g_ftp_err[200];
+
+static int ftp_thread( void * arg ) {
+    char * url = ( char * ) arg; AVIODirContext * dir = NULL; AVIODirEntry * e = NULL; AVDictionary * o = NULL; int r; size_t cap = 4096, len = 0; char * out = ( char * ) malloc( cap ); int n = 0;
+    static int net_ready = 0;
+    if ( !net_ready ) { avformat_network_init(); net_ready = 1; }
+    out[0] = 0; g_ftp_err[0] = 0;
+    av_dict_set( &o, "rw_timeout", "15000000", 0 );
+    r = avio_open_dir( &dir, url, &o );
+    av_dict_free( &o );
+    if ( r < 0 ) { char m[128]; av_strerror( r, m, sizeof m ); snprintf( g_ftp_err, sizeof g_ftp_err, "%s", m ); free( out ); free( url ); SDL_AtomicSet( &g_ftp_state, 3 ); return 0; }
+    while ( n < 2000 && avio_read_dir( dir, &e ) >= 0 && e ) {
+        if ( e->name && e->name[0] && strcmp( e->name, "." ) && strcmp( e->name, ".." ) ) {
+            char line[1400], nm[1100]; char * c;
+            snprintf( nm, sizeof nm, "%s", e->name ); for ( c = nm; *c; c++ ) if ( *c == '\t' || *c == '\n' || *c == '\r' ) *c = ' ';
+            /* servers without MLSD only give names (type unknown): an entry without a dot is taken for a folder */
+            if ( e->type == AVIO_ENTRY_DIRECTORY || ( e->type == AVIO_ENTRY_UNKNOWN && !strchr( nm, '.' ) ) ) snprintf( line, sizeof line, "C\t%s\t%s\t0\n", nm, nm );
+            else snprintf( line, sizeof line, "I\t%s\t%s\t%lld\t0\tv\n", nm, nm, ( long long ) ( e->size > 0 ? e->size : 0 ) );
+            { size_t ll = strlen( line ); if ( len + ll + 1 > cap ) { cap = ( len + ll + 1 ) * 2; out = ( char * ) realloc( out, cap ); } memcpy( out + len, line, ll + 1 ); len += ll; n++; }
+        }
+        avio_free_directory_entry( &e );
+    }
+    avio_close_dir( &dir );
+    free( g_ftp_out ); g_ftp_out = out; free( url );
+    SDL_AtomicSet( &g_ftp_state, 2 );
+    return 0;
+}
+
+/* FTP_LIST_BEGIN(url): ftp://user:password@host/folder/  (0 = started)  ->  FTP_LIST_POLL() (-1 working, 0 ok, 1 failed)  ->  FTP_LIST_RESULT() lines like the DLNA ones, with the entry name in both columns */
+int64_t libmod_video_ftp_list_begin( INSTANCE * my, int64_t * params ) {
+    const char * u = ( const char * ) string_get( params[0] ); char * url = u ? strdup( u ) : NULL; SDL_Thread * th;
+    string_discard( params[0] );
+    if ( !url || strncmp( url, "ftp://", 6 ) ) { free( url ); return -2; }
+    if ( SDL_AtomicGet( &g_ftp_state ) == 1 ) { free( url ); return -1; }
+    SDL_AtomicSet( &g_ftp_state, 1 );
+    th = SDL_CreateThread( ftp_thread, "ftp-list", url );
+    if ( !th ) { free( url ); SDL_AtomicSet( &g_ftp_state, 3 ); return -3; }
+    SDL_DetachThread( th );
+    return 0;
+}
+int64_t libmod_video_ftp_list_poll( INSTANCE * my, int64_t * params ) { int s = SDL_AtomicGet( &g_ftp_state ); return s == 1 ? -1 : ( s == 2 ? 0 : 1 ); }
+int64_t libmod_video_ftp_list_result( INSTANCE * my, int64_t * params ) { int64_t str = string_new( g_ftp_out ? g_ftp_out : "" ); string_use( str ); return str; }
+int64_t libmod_video_ftp_list_error( INSTANCE * my, int64_t * params ) { int64_t str = string_new( g_ftp_err ); string_use( str ); return str; }
+
 /* HTTP_FETCH_BEGIN(url, headers, method, body): the same request in the background (0 = started); then HTTP_FETCH_POLL() every frame
    (-1 while it runs, the status once it is done), with HTTP_PROGRESS() / HTTP_TOTAL() to draw a progress bar. The answer is read with
    HTTP_LENGTH / HTTP_READ / HTTP_SAVE as usual. One request at a time. */
