@@ -18,6 +18,12 @@
 #include <SDL.h>
 #include <libavformat/avio.h>
 #include <libavutil/error.h>
+#ifdef __SWITCH__      /* the Switch has no system certificate store: https is checked against the Mozilla bundle shipped in the romfs */
+#define NET_TLS_OPTS( d ) do { av_dict_set( d, "tls_verify", "1", 0 ); av_dict_set( d, "ca_file", "romfs:/cacert.pem", 0 ); } while ( 0 )
+#else
+#define NET_TLS_OPTS( d ) ( ( void ) 0 )
+#endif
+
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -365,6 +371,7 @@ static int http_get( const char * url, uint8_t ** out, size_t * outn, size_t max
     cb.callback = http_irq; cb.opaque = &hd;
     av_dict_set( &o, "user_agent", "BennuGD2-MediaPlayer/1.0", 0 );
     av_dict_set( &o, "rw_timeout", "12000000", 0 );
+    NET_TLS_OPTS( &o );
     r = avio_open2( &io, url, AVIO_FLAG_READ, &cb, &o );
     av_dict_free( &o );
     if ( r < 0 ) return -1;
