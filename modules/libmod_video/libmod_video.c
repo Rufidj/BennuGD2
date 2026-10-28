@@ -38,11 +38,40 @@
 #include "libbggfx.h"
 
 #include <libavformat/avformat.h>
-#ifdef __SWITCH__      /* the Switch has no system certificate store: https is checked against the Mozilla bundle shipped in the romfs */
-#define NET_TLS_OPTS( d ) do { av_dict_set( d, "tls_verify", "1", 0 ); av_dict_set( d, "ca_file", "romfs:/cacert.pem", 0 ); } while ( 0 )
+#ifdef __SWITCH__      /* the Switch has no system certificate store: https is checked against the Mozilla bundle shipped in the romfs, but only for what
+                        carries code or the catalogue of this project (the store and the update check, on GitHub); streams, IPTV panels and the
+                        like are opened without checking, as on the PC and the PS5 (many have expired or incomplete certificates) */
+static void net_tls_opts( AVDictionary ** d, const char * url ) {
+    if ( strstr( url, "://raw.githubusercontent.com/" ) || strstr( url, "://api.github.com/" ) || strstr( url, "://github.com/" ) ) {
+        av_dict_set( d, "tls_verify", "1", 0 ); av_dict_set( d, "ca_file", "romfs:/cacert.pem", 0 );
+    }
+}
+#define NET_TLS_OPTS( d, url ) net_tls_opts( d, url )
 #else
-#define NET_TLS_OPTS( d ) ( ( void ) 0 )
+#define NET_TLS_OPTS( d, url ) ( ( void ) 0 )
 #endif
+
+/* network trace for the Switch: create an empty ffmpeg.debug in sdmc:/switch/mediaplayer/ and FFmpeg's log goes to ffmpeg.log there */
+#ifdef __SWITCH__
+static FILE * g_switch_log;
+static void switch_log_cb( void * ptr, int level, const char * fmt, va_list vl ) {
+    char line[1024]; ( void ) ptr; if ( level > AV_LOG_DEBUG || !g_switch_log ) return;
+    vsnprintf( line, sizeof line, fmt, vl ); fputs( line, g_switch_log ); fflush( g_switch_log );
+}
+static void switch_log_init( void ) {
+    static int probed; FILE * dbg;
+    if ( probed ) return;
+    probed = 1;
+    dbg = fopen( "sdmc:/switch/mediaplayer/ffmpeg.debug", "r" );
+    if ( !dbg ) return;
+    fclose( dbg );
+    g_switch_log = fopen( "sdmc:/switch/mediaplayer/ffmpeg.log", "w" );
+    if ( g_switch_log ) { av_log_set_level( AV_LOG_DEBUG ); av_log_set_callback( switch_log_cb ); }
+}
+#else
+#define switch_log_init() ( ( void ) 0 )
+#endif
+
 
 #include <libavcodec/avcodec.h>
 #include <libavcodec/bsf.h>
@@ -1174,6 +1203,7 @@ static void audio_switch_track( VIDEO * v, int newstream ) {
 }
 
 static int64_t video_open_internal( const char * path, const char * headers ) {
+    switch_log_init();
     g_open_t0 = SDL_GetTicks();
     {   /* el usuario y la clave no se escriben en la traza */
         char shown[160]; char * at; char * sc;
@@ -1194,7 +1224,6 @@ static int64_t video_open_internal( const char * path, const char * headers ) {
         AVDictionary * nopts = NULL;
         if ( strstr( path, "://" ) && strncmp( path, "file:", 5 ) ) {
             av_dict_set( &nopts, "rw_timeout", "10000000", 0 );          /* 10 s, in microseconds */
-            NET_TLS_OPTS( &nopts );
             av_dict_set( &nopts, "reconnect", "1", 0 );
             av_dict_set( &nopts, "reconnect_streamed", "1", 0 );
             av_dict_set( &nopts, "reconnect_delay_max", "5", 0 );
@@ -1892,13 +1921,6 @@ static int http_interrupt( void * p ) {
 static volatile int64_t g_http_prog = 0, g_http_tot = 0;
 
 /* the request itself: returns the status (200 ok, 400/401/403/404/500 http errors, 0 = no connection) */
-#ifdef __SWITCH__
-static FILE * g_switch_log;
-static void switch_log_cb( void * ptr, int level, const char * fmt, va_list vl ) {
-    char line[1024]; ( void ) ptr; if ( level > AV_LOG_DEBUG || !g_switch_log ) return;
-    vsnprintf( line, sizeof line, fmt, vl ); fputs( line, g_switch_log ); fflush( g_switch_log );
-}
-#endif
 static int http_do( const char * url, const char * hdr, const char * method, const char * body ) {
     size_t blen = strlen( body );
     int status = 0;
@@ -1913,13 +1935,11 @@ static int http_do( const char * url, const char * hdr, const char * method, con
     free( g_http_body ); g_http_body = NULL; g_http_len = 0; g_http_err[0] = 0; g_http_prog = 0; g_http_tot = 0;
     if ( strncmp( url, "http://", 7 ) && strncmp( url, "https://", 8 ) ) { snprintf( g_http_err, sizeof g_http_err, "only http:// and https:// addresses" ); return 0; }
     if ( !net_ready ) { avformat_network_init(); net_ready = 1; }
-#ifdef __SWITCH__
-    { static FILE * lf; static int probed; if ( !probed ) { FILE * dbg = fopen( "sdmc:/switch/mediaplayer/ffmpeg.debug", "r" ); probed = 1; if ( dbg ) { fclose( dbg ); lf = fopen( "sdmc:/switch/mediaplayer/ffmpeg.log", "w" ); } }  /* create an empty ffmpeg.debug on the SD to get a network trace */ if ( lf && !g_switch_log ) { if ( lf ) { g_switch_log = lf; av_log_set_level( AV_LOG_DEBUG ); av_log_set_callback( switch_log_cb ); } } }
-#endif
+    switch_log_init();
 
     av_dict_set( &o, "rw_timeout", "15000000", 0 );
 
-    NET_TLS_OPTS( &o );
+    NET_TLS_OPTS( &o, url );
     av_dict_set( &o, "user_agent", "BennuGD2-MediaPlayer-Addon/1.0", 0 );
     av_dict_set( &o, "seekable", "0", 0 );
     if ( hdr[0] ) av_dict_set( &o, "headers", hdr, 0 );
@@ -2086,7 +2106,6 @@ static int ftp_thread( void * arg ) {
     if ( !net_ready ) { avformat_network_init(); net_ready = 1; }
     out[0] = 0; g_ftp_err[0] = 0;
     av_dict_set( &o, "rw_timeout", "15000000", 0 );
-    NET_TLS_OPTS( &o );
     r = avio_open_dir( &dir, url, &o );
     av_dict_free( &o );
     if ( r < 0 ) { char m[128]; av_strerror( r, m, sizeof m ); snprintf( g_ftp_err, sizeof g_ftp_err, "%s", m ); free( out ); free( url ); SDL_AtomicSet( &g_ftp_state, 3 ); return 0; }
@@ -2221,7 +2240,6 @@ static int dl_open( DlJob * j, AVFormatContext ** icp ) {
     ic->interrupt_callback.callback = dl_interrupt;
     if ( strstr( j->src, "://" ) && strncmp( j->src, "file:", 5 ) ) {
         av_dict_set( &o, "rw_timeout", "15000000", 0 );
-        NET_TLS_OPTS( &o );
         av_dict_set( &o, "reconnect", "1", 0 );
         av_dict_set( &o, "reconnect_streamed", "1", 0 );
         av_dict_set( &o, "reconnect_delay_max", "5", 0 );
