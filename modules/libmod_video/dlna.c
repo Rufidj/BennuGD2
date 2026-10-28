@@ -223,13 +223,33 @@ static int learn_server( const char * host, int port, const char * path ) {
 static int scan_thread( void * arg ) {
     sock_t s = socket( AF_INET, SOCK_DGRAM, 0 ); struct sockaddr_in to; char msg[300], buf[2048], loc[300];
     struct { char host[64]; int port; char path[300]; } L[MAX_SRV * 2]; int nloc = 0, k, round;
+    uint32_t lan = 0;
     ( void ) arg;
+    {   /* our own address: a UDP "connect" sends nothing, it only picks the route */
+        sock_t t = socket( AF_INET, SOCK_DGRAM, 0 );
+        if ( t != BAD_SOCK ) {
+            struct sockaddr_in r, me; socklen_t ml2 = sizeof me; memset( &r, 0, sizeof r ); r.sin_family = AF_INET; r.sin_port = htons( 9 ); inet_pton( AF_INET, "192.0.2.1", &r.sin_addr );
+            if ( connect( t, ( struct sockaddr * ) &r, sizeof r ) == 0 && getsockname( t, ( struct sockaddr * ) &me, &ml2 ) == 0 ) lan = ntohl( me.sin_addr.s_addr );
+            CLOSESOCK( t );
+        }
+        if ( lan == 0x7F000001u || ( lan >> 24 ) == 0 ) lan = 0;
+    }
     if ( s != BAD_SOCK ) {
         set_nonblock( s );
         memset( &to, 0, sizeof to ); to.sin_family = AF_INET; to.sin_port = htons( 1900 ); inet_pton( AF_INET, "239.255.255.250", &to.sin_addr );
         for ( round = 0; round < 2; round++ ) {                         /* two searches: a datagram can get lost */
             uint32_t t0 = now_ms(); int ml = snprintf( msg, sizeof msg, "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 2\r\nST: urn:schemas-upnp-org:device:MediaServer:1\r\n\r\n" );
             sendto( s, msg, ml, 0, ( struct sockaddr * ) &to, sizeof to );
+            if ( lan ) {                                                /* some networks (and the PS5) do not pass multicast: ask every address of the local /24 directly, and the broadcast */
+                struct sockaddr_in d = to; int h;
+                { int yes = 1; setsockopt( s, SOL_SOCKET, SO_BROADCAST, ( const char * ) &yes, sizeof yes ); }
+                d.sin_addr.s_addr = htonl( 0xFFFFFFFFu ); sendto( s, msg, ml, 0, ( struct sockaddr * ) &d, sizeof d );
+                for ( h = 1; h < 255; h++ ) {
+                    uint32_t ip = ( lan & 0xFFFFFF00u ) | ( uint32_t ) h;
+                    if ( ip == lan ) continue;
+                    d.sin_addr.s_addr = htonl( ip ); sendto( s, msg, ml, 0, ( struct sockaddr * ) &d, sizeof d );
+                }
+            }
             while ( now_ms() - t0 < 1500 && nloc < MAX_SRV * 2 ) {
                 struct pollfd pf; int r; char * q; pf.fd = s; pf.events = POLLIN; pf.revents = 0;
                 if ( poll( &pf, 1, 200 ) <= 0 ) continue;
