@@ -139,6 +139,8 @@ extern int64_t libmod_video_upload_percent( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_current( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_upload_url( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_dlna_scan( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_dlna_add( INSTANCE * my, int64_t * params );
+extern int64_t libmod_video_dlna_find( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_webdav_parse( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_ftp_list_begin( INSTANCE * my, int64_t * params );
 extern int64_t libmod_video_ftp_list_poll( INSTANCE * my, int64_t * params );

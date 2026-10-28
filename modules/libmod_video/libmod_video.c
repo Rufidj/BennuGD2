@@ -2726,6 +2726,8 @@ int64_t libmod_video_upload_url( INSTANCE * my, int64_t * params ) { return tor_
 /* servers of the local network (UPnP / DLNA), see dlna.h */
 int64_t libmod_video_dlna_scan( INSTANCE * my, int64_t * params ) { return dlna_scan(); }
 int64_t libmod_video_dlna_scan_state( INSTANCE * my, int64_t * params ) { return dlna_scan_state(); }
+int64_t libmod_video_dlna_add( INSTANCE * my, int64_t * params ) { const char * u = ( const char * ) string_get( params[0] ); int r = dlna_add( u ? u : "" ); string_discard( params[0] ); return r; }
+int64_t libmod_video_dlna_find( INSTANCE * my, int64_t * params ) { const char * u = ( const char * ) string_get( params[0] ); int r = dlna_find( u ? u : "" ); string_discard( params[0] ); return r; }
 int64_t libmod_video_dlna_count( INSTANCE * my, int64_t * params ) { return dlna_count(); }
 int64_t libmod_video_dlna_name( INSTANCE * my, int64_t * params ) { return tor_str( dlna_name( ( int ) params[0] ) ); }
 int64_t libmod_video_dlna_browse( INSTANCE * my, int64_t * params ) {

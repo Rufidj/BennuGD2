@@ -94,6 +94,8 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "UPLOAD_CURRENT"       , ""   , TYPE_STRING, libmod_video_upload_current ),
     FUNC( "UPLOAD_URL"           , ""   , TYPE_STRING, libmod_video_upload_url     ),
     FUNC( "DLNA_SCAN"            , ""   , TYPE_INT   , libmod_video_dlna_scan      ),
+    FUNC( "DLNA_ADD"             , "S"  , TYPE_INT   , libmod_video_dlna_add       ),
+    FUNC( "DLNA_FIND"            , "S"  , TYPE_INT   , libmod_video_dlna_find      ),
     FUNC( "WEBDAV_PARSE"         , "S"  , TYPE_STRING, libmod_video_webdav_parse   ),
     FUNC( "FTP_LIST_BEGIN"       , "S"  , TYPE_INT   , libmod_video_ftp_list_begin ),
     FUNC( "FTP_LIST_POLL"        , ""   , TYPE_INT   , libmod_video_ftp_list_poll  ),

@@ -266,6 +266,41 @@ int dlna_scan( void ) {
     return 0;
 }
 
+typedef struct { char host[64]; int port; char path[300]; } AddArg;
+static int add_thread( void * arg ) {
+    AddArg a = * ( AddArg * ) arg; free( arg );
+    learn_server( a.host, a.port, a.path );
+    SDL_LockMutex( g_mu ); g_scan = 2; SDL_UnlockMutex( g_mu );
+    return 0;
+}
+
+int dlna_add( const char * url ) {
+    AddArg * a; SDL_Thread * th;
+    if ( !g_mu ) g_mu = SDL_CreateMutex();
+#ifdef _WIN32
+    { WSADATA w; WSAStartup( MAKEWORD( 2, 2 ), &w ); }
+#endif
+    a = ( AddArg * ) malloc( sizeof *a );
+    if ( !a || !url || !split_url( url, a->host, sizeof a->host, &a->port, a->path, sizeof a->path ) ) { free( a ); return -1; }
+    SDL_LockMutex( g_mu );
+    if ( g_scan == 1 ) { SDL_UnlockMutex( g_mu ); free( a ); return -1; }
+    g_scan = 1; g_started = 1;
+    SDL_UnlockMutex( g_mu );
+    th = SDL_CreateThread( add_thread, "dlna-add", a );
+    if ( !th ) { free( a ); SDL_LockMutex( g_mu ); g_scan = 2; SDL_UnlockMutex( g_mu ); return -1; }
+    SDL_DetachThread( th );
+    return 0;
+}
+
+int dlna_find( const char * url ) {
+    char host[64], path[300]; int port, i, r = -1;
+    if ( !g_mu || !split_url( url, host, sizeof host, &port, path, sizeof path ) ) return -1;
+    SDL_LockMutex( g_mu );
+    for ( i = 0; i < g_nsrv; i++ ) if ( !strcmp( g_srv[i].host, host ) && g_srv[i].port == port ) { r = i; break; }
+    SDL_UnlockMutex( g_mu );
+    return r;
+}
+
 int dlna_scan_state( void ) { return g_started ? g_scan : 0; }
 int dlna_count( void ) { return g_nsrv; }
 const char * dlna_name( int i ) { return ( i >= 0 && i < g_nsrv ) ? g_srv[i].name : ""; }

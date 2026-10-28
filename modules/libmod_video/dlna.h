@@ -14,6 +14,11 @@ int          dlna_scan_state( void );        /* 0 never started, 1 running, 2 do
 int          dlna_count( void );
 const char * dlna_name( int i );
 
+/* add a server by the address of its description (http://ip:port/desc.xml), for networks where the search does not get through. 0 = started
+ * (dlna_scan_state() is 1 while it runs and 2 when done), -1 = bad address / busy. dlna_find() gives its index afterwards, or -1 */
+int          dlna_add( const char * url );
+int          dlna_find( const char * url );
+
 /* ask server i for the children of object `id` ("0" = the root), `count` of them from `start`. 0 = started, -1 = busy / bad server */
 int          dlna_browse( int i, const char * id, int start, int count );
 int          dlna_browse_state( void );      /* 0 never started, 1 running, 2 done, 3 failed */
