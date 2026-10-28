@@ -72,6 +72,7 @@ int net_init() {
     }
 #elif __SWITCH__
     socketInitializeDefault();
+    sslInitialize(0x300);          /* the console's SSL service: FFmpeg's https/tls protocol (tls_libnx) uses it */
 #endif
     return 0;
 }
@@ -86,6 +87,7 @@ void net_exit() {
 #ifdef _WIN32
     WSACleanup();
 #elif __SWITCH__
+    sslExit();
     socketExit();
 #endif
 }
