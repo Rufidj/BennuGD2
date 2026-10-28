@@ -23,6 +23,8 @@ int64_t      upload_total_bytes( void );         /* bytes received since the sta
 int          upload_percent( void );             /* of the file being received, 0..100 (-1 = none right now) */
 const char * upload_current( void );             /* its name ("" = none) */
 const char * upload_last_error( void );
+/* an address (http, https or magnet) sent from the web page to be played; "" if none. Taking it clears it */
+const char * upload_take_url( void );
 /* address of this computer on the local network ("192.168.1.50"), "" if it cannot be found */
 const char * upload_local_ip( void );
 

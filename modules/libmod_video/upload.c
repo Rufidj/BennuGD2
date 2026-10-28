@@ -42,7 +42,7 @@ typedef int sock_t;
 static SDL_mutex * g_mu;
 static volatile int g_run, g_conns, g_gen;
 static sock_t g_lsock = BAD_SOCK;           /* only to know that something is listening; each session closes its own socket */
-static char g_folder[1024], g_pin[32], g_cur[256], g_err[200], g_ip[64];
+static char g_folder[1024], g_pin[32], g_cur[256], g_err[200], g_ip[64], g_play[2048];
 static int g_files, g_pct = -1;
 static int64_t g_bytes;
 
@@ -61,6 +61,9 @@ static const char PAGE[] =
 "<input id=\"pin\" maxlength=\"8\" placeholder=\"PIN\" autocomplete=\"off\" inputmode=\"numeric\">"
 "<div id=\"drop\"><div>Arrastra los archivos aqu&iacute;<br>o pulsa para elegirlos</div></div>"
 "<input id=\"sel\" type=\"file\" multiple style=\"display:none\"><div id=\"list\"></div>"
+"<h1 style=\"font-size:20px;margin-top:30px\">Reproducir una direcci&oacute;n en la consola</h1><p>Pega un enlace de v&iacute;deo (o un magnet) y se abre en la consola.</p>"
+"<input id=\"url\" placeholder=\"https://... o magnet:?...\" autocomplete=\"off\" style=\"width:min(560px,90vw);padding:10px;border-radius:8px;border:1px solid #3b5ba5;background:#12224a;color:#fff;box-sizing:border-box\">"
+"<button id=\"go\" style=\"margin:10px;padding:10px 22px;border-radius:8px;border:0;background:#3b78ff;color:#fff;font-size:16px\">Reproducir</button><div id=\"res\"></div>"
 "<script>"
 "var d=document.getElementById('drop'),s=document.getElementById('sel'),L=document.getElementById('list'),P=document.getElementById('pin');"
 "P.value=localStorage.getItem('pin')||'';"
@@ -77,6 +80,10 @@ static const char PAGE[] =
 "d.onclick=function(){s.click()};s.onchange=function(){add(s.files);s.value=''};"
 "d.ondragover=function(e){e.preventDefault();d.className='over'};d.ondragleave=function(){d.className=''};"
 "d.ondrop=function(e){e.preventDefault();d.className='';add(e.dataTransfer.files)};"
+"document.getElementById('go').onclick=function(){var u=document.getElementById('url').value.trim(),R=document.getElementById('res');if(!u)return;localStorage.setItem('pin',P.value);"
+"var x=new XMLHttpRequest();x.open('POST','/play');x.setRequestHeader('X-Pin',P.value);"
+"x.onload=function(){R.className=x.status==200?'ok':'er';R.textContent=x.status==200?'Enviado a la consola':(x.status==403?'PIN incorrecto':'error '+x.status)};"
+"x.onerror=function(){R.className='er';R.textContent='sin conexi\\u00f3n'};x.send(u)};"
 "</script></body></html>";
 
 static void set_err( const char * m ) { SDL_LockMutex( g_mu ); snprintf( g_err, sizeof g_err, "%s", m ); SDL_UnlockMutex( g_mu ); }
@@ -186,6 +193,26 @@ static int conn_thread( void * arg ) {
         }
         goto done;
     }
+    if ( !strncmp( head, "POST /play ", 11 ) ) {                      /* play an address on the console: the body is the address */
+        char pin[40] = "", url[2048]; int total, have = ( int ) ( ( head + n ) - body_start ), got = 0;
+        p = strstr( head, "\r\nX-Pin:" ); if ( !p ) p = strstr( head, "\r\nx-pin:" );
+        if ( p ) { p += 8; while ( *p == ' ' ) p++; { size_t l = strcspn( p, "\r\n" ); if ( l >= sizeof pin ) l = sizeof pin - 1; memcpy( pin, p, l ); pin[l] = 0; } }
+        if ( strcmp( pin, g_pin ) ) { reply( c, 403, "Forbidden", "text/plain", "pin", 3 ); goto done; }
+        p = strstr( head, "\r\nContent-Length:" ); if ( !p ) p = strstr( head, "\r\ncontent-length:" );
+        if ( !p ) { reply( c, 411, "Length Required", "text/plain", "length", 6 ); goto done; }
+        total = atoi( p + 17 );
+        if ( total <= 0 || total >= ( int ) sizeof url ) { reply( c, 400, "Bad Request", "text/plain", "length", 6 ); goto done; }
+        if ( have > total ) have = total;
+        if ( have > 0 ) { memcpy( url, body_start, ( size_t ) have ); got = have; }
+        while ( got < total && g_run ) { int k = ( int ) recv( c, url + got, total - got, 0 ); if ( k <= 0 ) break; got += k; }
+        if ( got != total ) { reply( c, 400, "Bad Request", "text/plain", "short", 5 ); goto done; }
+        url[total] = 0;
+        while ( total > 0 && ( url[total - 1] == ' ' || url[total - 1] == '\r' || url[total - 1] == '\n' ) ) url[--total] = 0;
+        if ( strncmp( url, "http://", 7 ) && strncmp( url, "https://", 8 ) && strncmp( url, "magnet:?", 8 ) ) { reply( c, 400, "Bad Request", "text/plain", "address", 7 ); goto done; }
+        SDL_LockMutex( g_mu ); snprintf( g_play, sizeof g_play, "%s", url ); SDL_UnlockMutex( g_mu );
+        reply( c, 200, "OK", "text/plain", "ok", 2 );
+        goto done;
+    }
     reply( c, 404, "Not Found", "text/plain", "not found", 9 );
 done:
     CLOSESOCK( c );
@@ -231,7 +258,7 @@ int upload_start( const char * folder, int port, const char * pin ) {
     snprintf( g_folder, sizeof g_folder, "%s", folder );
     { size_t n = strlen( g_folder ); while ( n > 1 && g_folder[n - 1] == '/' ) g_folder[--n] = 0; }
     snprintf( g_pin, sizeof g_pin, "%s", pin );
-    g_files = 0; g_bytes = 0; g_pct = -1; g_cur[0] = 0; g_err[0] = 0; g_conns = 0;
+    g_files = 0; g_bytes = 0; g_pct = -1; g_cur[0] = 0; g_err[0] = 0; g_conns = 0; g_play[0] = 0;
     ls = socket( AF_INET, SOCK_STREAM, 0 );
     if ( ls == BAD_SOCK ) { set_err( "no socket" ); return -3; }
     setsockopt( ls, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &one, sizeof one );
@@ -280,4 +307,13 @@ const char * upload_local_ip( void ) {
     CLOSESOCK( s );
     if ( !strncmp( g_ip, "0.", 2 ) ) g_ip[0] = 0;
     return g_ip;
+}
+
+/* the address a person sent to be played (empty when none); each call takes it */
+const char * upload_take_url( void ) {
+    static char out[2048];
+    out[0] = 0;
+    if ( !g_mu ) return out;
+    SDL_LockMutex( g_mu ); snprintf( out, sizeof out, "%s", g_play ); g_play[0] = 0; SDL_UnlockMutex( g_mu );
+    return out;
 }

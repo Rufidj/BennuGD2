@@ -2535,6 +2535,7 @@ int64_t libmod_video_upload_files( INSTANCE * my, int64_t * params ) { return up
 int64_t libmod_video_upload_bytes( INSTANCE * my, int64_t * params ) { return upload_total_bytes(); }
 int64_t libmod_video_upload_percent( INSTANCE * my, int64_t * params ) { return upload_percent(); }
 int64_t libmod_video_upload_current( INSTANCE * my, int64_t * params ) { return tor_str( upload_current() ); }
+int64_t libmod_video_upload_url( INSTANCE * my, int64_t * params ) { return tor_str( upload_take_url() ); }
 int64_t libmod_video_upload_ip( INSTANCE * my, int64_t * params ) { return tor_str( upload_local_ip() ); }
 int64_t libmod_video_upload_error( INSTANCE * my, int64_t * params ) { return tor_str( upload_last_error() ); }
 

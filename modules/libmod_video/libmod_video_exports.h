@@ -92,6 +92,7 @@ DLSYSFUNCS __bgdexport( libmod_video, functions_exports )[] = {
     FUNC( "UPLOAD_BYTES"         , ""   , TYPE_INT   , libmod_video_upload_bytes   ),
     FUNC( "UPLOAD_PERCENT"       , ""   , TYPE_INT   , libmod_video_upload_percent ),
     FUNC( "UPLOAD_CURRENT"       , ""   , TYPE_STRING, libmod_video_upload_current ),
+    FUNC( "UPLOAD_URL"           , ""   , TYPE_STRING, libmod_video_upload_url     ),
     FUNC( "UPLOAD_IP"            , ""   , TYPE_STRING, libmod_video_upload_ip      ),
     FUNC( "UPLOAD_ERROR"         , ""   , TYPE_STRING, libmod_video_upload_error   ),
 
