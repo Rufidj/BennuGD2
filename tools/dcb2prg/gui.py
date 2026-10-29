@@ -469,7 +469,8 @@ class PestanaAvanzado(ttk.Frame):
 def main():
     raiz = tk.Tk()
     raiz.title("dcb2prg")
-    raiz.geometry("760x620")
+    raiz.geometry("1060x640")
+    raiz.minsize(1000, 520)
     try:
         ttk.Style(raiz).theme_use("clam")
     except tk.TclError:
@@ -488,10 +489,10 @@ def main():
         ("Descompilar", PestanaDescompilar),
         ("Desensamblar", PestanaDesensamblar),
         ("Resumen .dcb", PestanaResumen),
-        ("Extraer de .exe", PestanaExtraerExe),
-        ("Verificar roundtrip", PestanaRoundtrip),
-        ("Comparar portado", PestanaPortado),
-        ("Vigilar atascos", PestanaAtascos),
+        ("Extraer .exe", PestanaExtraerExe),
+        ("Roundtrip", PestanaRoundtrip),
+        ("Portado", PestanaPortado),
+        ("Atascos", PestanaAtascos),
         ("Avanzado", PestanaAvanzado),
     ):
         pestanas.add(clase(pestanas, consola), text=titulo)
