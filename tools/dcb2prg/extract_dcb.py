@@ -25,7 +25,9 @@ import sys
 FIRMA = b"DCB Stub\x1a\r\n"
 MAGIA = b"dcb\r\n\x1f\x00\x00"
 # Fenix llega a la 0x0500; BennuGD1 usa 0x0710 y BennuGD2 0x0800 y siguientes
-VERSIONES = (0x0100, 0x0200, 0x0300, 0x0400, 0x0500, 0x0710, 0x0800, 0x0810)
+# (0x0801: SplinterGU subio DCB_VERSION el 2026-10-16, sin cambiar el formato -
+# ver reference_dcb_version_bump_splintergu.md)
+VERSIONES = (0x0100, 0x0200, 0x0300, 0x0400, 0x0500, 0x0710, 0x0800, 0x0801, 0x0810)
 
 
 def version_en(datos, off):
